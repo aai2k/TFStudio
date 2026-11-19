@@ -32,7 +32,7 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 | **Type** | The operand code. |
 | **λ / Layer**, **End \*** | The two values that define the operand. Their headers change with the row: **λ** for one wavelength, **λ Start** and **λ End** for a band, **Integral** for a weighted integral, **Color** and **ILL-OBS** for a color row, **Layer 1** and **Layer 2** for a layer range, **Cmp** for a comparison, **Ref Op#**, **Ref Op#1** and **Ref Op#2** for other rows, **Curve** on a `PPEF` row, **Comment** for a comment. A dash means the row does not use the cell. |
 | **AOI (°)** | Angle of incidence in the incident medium. |
-| **Pol** | `s`, `p`, or `avg`, the mean (Cs + Cp)/2. |
+| **Pol** | `s`, `p`, or `avg`, the mean $(C_s + C_p)/2$. |
 | **Flag** | Headed **Step** on the rows that take it. On a row that looks for a peak it sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral, color or `*FLAT` row, the coarsest step of its grid ([Sampling a band](#sampling-a-band)). Other rows show a dash. |
 | **Target** | The value the row is driven toward, or the bound it must stay inside. T, R and A are entered in percent. |
 | **Weight** | How much the row counts. |
@@ -52,7 +52,7 @@ Hover a **% of MF²** cell to see how far the row is from its target in its own 
 | `T` | Transmittance at **λ**. **Target** in percent. |
 | `R` | Reflectance at **λ**. **Target** in percent. |
 | `A` | Absorptance at **λ**. **Target** in percent. |
-| `TDB` | Transmittance at **λ** in dB, 10·log₁₀ T, so a loss reads negative. **Target** in dB; a new row starts at 0 dB. |
+| `TDB` | Transmittance at **λ** in dB, $10 \log_{10} T$, so a loss reads negative. **Target** in dB; a new row starts at 0 dB. |
 
 All four read **AOI (°)** and **Pol**. Older designs can hold `TS`, `TP`, `RS`, `RP`, `AS` and `AP`, with the polarization in the code; they still evaluate, with **Pol** dimmed, but the type picker no longer offers them.
 
@@ -80,7 +80,7 @@ The mean is taken by the trapezoid rule on the [band grid](#sampling-a-band), so
 
 | Name | Description |
 | ---- | ----------- |
-| `TIW` | T averaged with the weight Source(λ)·Detector(λ) over the band, Σ wᵢ·Tᵢ / Σ wᵢ. **Integral** picks a saved preset, such as Tvis (D65 and the photopic eye) or Tsol (AM1.5G), which sets the source, the detector, the band and the channel: Rvis on a `TIW` row makes it an `RIW` row. **Target** in percent. Uses **Step**. |
+| `TIW` | T averaged with the weight $\text{Source}(\lambda) \cdot \text{Detector}(\lambda)$ over the band, $\sum_i w_i T_i / \sum_i w_i$. **Integral** picks a saved preset, such as Tvis (D65 and the photopic eye) or Tsol (AM1.5G), which sets the source, the detector, the band and the channel: Rvis on a `TIW` row makes it an `RIW` row. **Target** in percent. Uses **Step**. |
 | `RIW` | The same for R. |
 | `AIW` | The same for A. |
 
@@ -93,54 +93,54 @@ The band belongs to the preset, so **End** shows a dash. A new row starts at 400
 | `RCOL` | One quantity of the CIE color of R at **AOI (°)** and **Pol**, picked in **Color**, under the illuminant and observer picked in **ILL-OBS**. Uses **Step**. |
 | `TCOL` | The same for T. |
 
-The color is computed as [Color Evaluation](/analysis/color-evaluation/) computes it, and at the same step reads the same: X, Y and Z are integrals of R or T weighted by the illuminant and the observer over 380-780 nm, where the CIE tables are defined, taken on the [band grid](#sampling-a-band); every other quantity follows from them. The band is fixed, so **Color** and **ILL-OBS** take the place of **λ Start** and **λ End**. **ILL-OBS** lists D65, D50, A and E, each with the 2° and the 10° observer. Under a [cone of incidence](/design/design-editor/#settings) the row is averaged over the cone, as the window averages it. A new row starts at Y under D65 · 2° with a target of 0.
+The color is computed as [Color Evaluation](/analysis/color-evaluation/) computes it, and at the same step reads the same: $X$, $Y$ and $Z$ are integrals of R or T weighted by the illuminant and the observer over 380-780 nm, where the CIE tables are defined, taken on the [band grid](#sampling-a-band); every other quantity follows from them. The band is fixed, so **Color** and **ILL-OBS** take the place of **λ Start** and **λ End**. **ILL-OBS** lists D65, D50, A and E, each with the 2° and the 10° observer. Under a [cone of incidence](/design/design-editor/#settings) the row is averaged over the cone, as the window averages it. A new row starts at Y under D65 · 2° with a target of 0.
 
-| **Color** | Quantity | **Target** in | σ | A miss that scores 0.01 |
+| **Color** | Quantity | **Target** in | $\sigma$ | A miss that scores 0.01 |
 | --------- | -------- | ------------- | - | ----------------------- |
 | X, Y, Z | Tristimulus values, the white's Y being 100, so Y is the luminous R or T | % | 100 | 1 % |
 | x, y | CIE 1931 chromaticity | | 0.4 | 0.004 |
 | u′, v′ (1976), u, v (1960) | UCS chromaticity | | 0.4 | 0.004 |
 | L*, a*, b*, C*ab | CIELAB | | 100 | 1 unit |
-| hab | CIELAB hue | ° | 100, on the hue miss in ΔE units | 1 unit |
+| hab | CIELAB hue | ° | 100, on the hue miss in $\Delta E$ units | 1 unit |
 | u*, v*, C*uv | CIELUV | | 100 | 1 unit |
-| huv | CIELUV hue | ° | 100, on the hue miss in ΔE units | 1 unit |
+| huv | CIELUV hue | ° | 100, on the hue miss in $\Delta E$ units | 1 unit |
 | suv | CIELUV saturation | | 5.2 | 0.052 |
 | Hunter L, Hunter a, Hunter b | Hunter Lab | | 100 | 1 unit |
 | λd, λc | Dominant and complementary wavelength | nm | 500 | 5 nm |
 | Purity | Excitation purity, a fraction of 1 | | 1 | 0.01 |
-| CCT | Correlated color temperature, the temperature of the nearest blackbody in CIE 1960 u, v | K | 500, on the miss in mired | 5 mired |
-| Duv | Distance from the Planckian locus in u, v, positive above it | | 0.4 | 0.004 |
+| CCT | Correlated color temperature, the temperature of the nearest blackbody in CIE 1960 $u$, $v$ | K | 500, on the miss in mired | 5 mired |
+| Duv | Distance from the Planckian locus in $u$, $v$, positive above it | | 0.4 | 0.004 |
 
-**Why these scales.** A miss scores 0.01 when it is about the smallest color step an eye sees, as a 1 % miss in R does with σ = 1. On the ΔE spaces that step is the unit the ΔE formulas are built on; in chromaticity it is a common rule of thumb in u′, v′. suv is 13 times the distance from the white in u′, v′ (CIE 15:2004), so its scale is 13 times the chromaticity's.
+**Why these scales.** A miss scores 0.01 when it is about the smallest color step an eye sees, as a 1 % miss in R does with $\sigma = 1$. On the $\Delta E$ spaces that step is the unit the $\Delta E$ formulas are built on; in chromaticity it is a common rule of thumb in $u'$, $v'$. suv is 13 times the distance from the white in $u'$, $v'$ (CIE 15:2004), so its scale is 13 times the chromaticity's.
 
-**Hue.** A degree of hue is a small step on a pale color and a large one on a saturated color, so a hue row scores its miss as the ΔE it makes at the coating's chroma C: ΔH = 2C·sin(Δh/2), the short way round the circle (CIE 15:2004).
+**Hue.** A degree of hue is a small step on a pale color and a large one on a saturated color, so a hue row scores its miss as the $\Delta E$ it makes at the coating's chroma $C$: $\Delta H = 2C \sin(\Delta h / 2)$, the short way round the circle (CIE 15:2004).
 
-**CCT.** The least step seen in color temperature is nearly constant in mired, 10⁶/T, from 1800 K to 11000 K, while in kelvin it grows from under 50 K at 3200 K to over 200 K at 6500 K (Crandell, Freund and Moen, 1950). A CCT row therefore scores 10⁶/target − 10⁶/value, and its target must be above 0 K. CCT and Duv are read from the 2° chromaticity whatever the observer, as CIE 15:2004 defines them.
+**CCT.** The least step seen in color temperature is nearly constant in mired, $10^6/T$, from 1800 K to 11000 K, while in kelvin it grows from under 50 K at 3200 K to over 200 K at 6500 K (Crandell, Freund and Moen, 1950). A CCT row therefore scores $10^6/\text{target} - 10^6/\text{value}$, and its target must be above 0 K. CCT and Duv are read from the 2° chromaticity whatever the observer, as CIE 15:2004 defines them.
 
-**No value.** λd has no value for a purple, λc has one only for a purple, and neither has one at the white itself. CCT and Duv have none where the nearest blackbody is at either end of 1000 K to 10⁶ K, and CCT none further than 0.05 from the Planckian locus. A row with no value shows **Error**, and the merit cannot be computed until it has one, as with any row. A run never steps into such a color: pulled toward one, it stops at the edge, such as the blue end of the locus for λd, and a run that starts on one ends at once, naming the row. Purity always has a value.
+**No value.** λd has no value for a purple, λc has one only for a purple, and neither has one at the white itself. CCT and Duv have none where the nearest blackbody is at either end of 1000 K to $10^6$ K, and CCT none further than 0.05 from the Planckian locus. A row with no value shows **Error**, and the merit cannot be computed until it has one, as with any row. A run never steps into such a color: pulled toward one, it stops at the edge, such as the blue end of the locus for λd, and a run that starts on one ends at once, naming the row. Purity always has a value.
 
-The optimizers take a color row's slopes exactly, from those of X, Y and Z through each quantity's formula, so a color row never makes a run take its slopes by finite differences. The [Merit Function Wizard](/design/merit-function-editor/#the-wizard)'s Color preset writes these rows from a list of color targets, and [Color Evaluation](/analysis/color-evaluation/)'s **Targets** button draws them on its diagram.
+The optimizers take a color row's slopes exactly, from those of $X$, $Y$ and $Z$ through each quantity's formula, so a color row never makes a run take its slopes by finite differences. The [Merit Function Wizard](/design/merit-function-editor/#the-wizard)'s Color preset writes these rows from a list of color targets, and [Color Evaluation](/analysis/color-evaluation/)'s **Targets** button draws them on its diagram.
 
 ## Worst case over a band
 
 | Name | Description |
 | ---- | ----------- |
-| `TMN` | Lowest T from **λ Start** to **λ End**. Holds T ≥ **Target**, in percent. |
-| `TMX` | Highest T over the band. Holds T ≤ **Target**. Takes **Step**. |
-| `RMN` | Lowest R over the band. Holds R ≥ **Target**. Takes **Step**. |
-| `RMX` | Highest R over the band. Holds R ≤ **Target**. |
-| `AMN` | Lowest A over the band. Holds A ≥ **Target**. |
-| `AMX` | Highest A over the band. Holds A ≤ **Target**. Takes **Step**. |
-| `TDBMN` | Lowest T over the band in dB. Holds T ≥ **Target** in dB, an insertion loss; a new row starts at −0.5 dB. |
-| `TDBMX` | Highest T over the band in dB. Holds T ≤ **Target** in dB, an isolation or blocking level; a new row starts at −30 dB. Takes **Step**. |
-| `RDBMX` | Highest R over the band in dB. Holds R ≤ **Target** in dB, the return loss of an AR coating; a new row starts at −30 dB. |
-| `ODMN` | Lowest optical density D = −log₁₀ T over the band, which is where T is highest. Holds D ≥ **Target**; a new row starts at 3. Takes **Step**. |
+| `TMN` | Lowest T from **λ Start** to **λ End**. Holds $T \ge$ **Target**, in percent. |
+| `TMX` | Highest T over the band. Holds $T \le$ **Target**. Takes **Step**. |
+| `RMN` | Lowest R over the band. Holds $R \ge$ **Target**. Takes **Step**. |
+| `RMX` | Highest R over the band. Holds $R \le$ **Target**. |
+| `AMN` | Lowest A over the band. Holds $A \ge$ **Target**. |
+| `AMX` | Highest A over the band. Holds $A \le$ **Target**. Takes **Step**. |
+| `TDBMN` | Lowest T over the band in dB. Holds $T \ge$ **Target** in dB, an insertion loss; a new row starts at −0.5 dB. |
+| `TDBMX` | Highest T over the band in dB. Holds $T \le$ **Target** in dB, an isolation or blocking level; a new row starts at −30 dB. Takes **Step**. |
+| `RDBMX` | Highest R over the band in dB. Holds $R \le$ **Target** in dB, the return loss of an AR coating; a new row starts at −30 dB. |
+| `ODMN` | Lowest optical density $D = -\log_{10} T$ over the band, which is where T is highest. Holds $D \ge$ **Target**; a new row starts at 3. Takes **Step**. |
 
 The value is the band's true highest or lowest point, however narrow, found as described in [Searching for a peak or dip](#searching-for-a-peak-or-dip). A row scores nothing until the worst case breaks the specification. An `AMN` or `AMX` row on a design where nothing absorbs reads 0.
 
-**Why score in dB.** In linear T a stopband held at 0.1 % adds almost nothing to a least-squares merit, so missing −30 dB by a factor of ten is invisible beside the passband ripple. With the [unit scale](#unit-scale) of the dB and density rows, each row scores the natural log of the ratio its miss stands for in T or R. A miss by the same factor then costs the same at any level. Near T = 1 a small miss costs what it would on a `T` row. And 20 dB and 30 dB are as far apart in the merit as in the specification.
+**Why score in dB.** In linear T a stopband held at 0.1 % adds almost nothing to a least-squares merit, so missing −30 dB by a factor of ten is invisible beside the passband ripple. With the [unit scale](#unit-scale) of the dB and density rows, each row scores the natural log of the ratio its miss stands for in T or R. A miss by the same factor then costs the same at any level. Near $T = 1$ a small miss costs what it would on a `T` row. And 20 dB and 30 dB are as far apart in the merit as in the specification.
 
-**Floor.** T or R below 10⁻¹⁵ (−150 dB, OD 15) reads as 10⁻¹⁵, and below it the row stops steering. No specification comes near it.
+**Floor.** T or R below $10^{-15}$ (−150 dB, OD 15) reads as $10^{-15}$, and below it the row stops steering. No specification comes near it.
 
 On [Optical Evaluation](/analysis/optical-evaluation/) the dB and density targets are drawn at the level they stand for, −30 dB at 0.1 %, on any y unit: `TDB` as a point marker, a band row as a level line over its band. They drag like other targets, and a dragged level is written back in dB or OD. An `ODMN` target is a T target, so it shows on the OD axis.
 
@@ -161,25 +161,25 @@ The value is a wavelength, not a T, R or A. Use these rows to pin a peak or a no
 
 | Name | Description |
 | ---- | ----------- |
-| `MCURVE` | A curve block: the RMS deviation of the design from a set of measured or target points, in the block's channel, T, R or A in percent, T in dB, Ψ or Δ. **Fit…** in [Measured Spectra](/data-exchange/measured-spectra/) or [Measured Ellipsometry](/data-exchange/measured-ellipsometry/), and the wizard's curve targets, write it; the type picker does not offer it. Only **Weight** and the enable tick can be changed. |
-| `PPEF` | Peak-to-peak error against the block picked in **Curve**: at each of the block's points EF(λ) = C_target(λ) − C_design(λ), both in dB, with C the block's channel, and the value is max EF − min EF. Holds the spread ≤ **Target**, in dB; a new row starts at 0 dB. |
+| `MCURVE` | A curve block: the RMS deviation of the design from a set of measured or target points, in the block's channel, T, R or A in percent, T in dB, $\Psi$ or $\Delta$. **Fit…** in [Measured Spectra](/data-exchange/measured-spectra/) or [Measured Ellipsometry](/data-exchange/measured-ellipsometry/), and the wizard's curve targets, write it; the type picker does not offer it. Only **Weight** and the enable tick can be changed. |
+| `PPEF` | Peak-to-peak error against the block picked in **Curve**: at each of the block's points $\mathrm{EF}(\lambda) = C_\text{target}(\lambda) - C_\text{design}(\lambda)$, both in dB, with $C$ the block's channel, and the value is $\max \mathrm{EF} - \min \mathrm{EF}$. Holds the spread $\le$ **Target**, in dB; a new row starts at 0 dB. |
 
 A block shows its band, angle and polarization in **λ Start**, **λ End**, **AOI (°)** and **Pol**, and a dash for **Target**. A block with its level free first takes out the constant offset that fits best, and scores only the shape. In a run a block becomes one residual per point, each with an equal share of the block's weight.
 
 A gain-flattening filter is specified by its error against a target loss curve, not by its own transmittance, and that error is what `PPEF` measures. A design that differs from the target by the same number of dB everywhere scores zero: that constant is insertion loss, which a datasheet states on a line of its own. The [Specification](/design/specification/) window has the same number as a check, read through this row.
 
-The row reads the block's wavelengths, angle and polarization, so its **AOI (°)** and **Pol** show a dash. The block can be a T, R or A curve in percent or a T curve in dB, at weight 0 if it is there only to be measured against; a Ψ or Δ block is refused. Deleting the block deletes the row; a row whose block is missing or switched off shows **Error**. The synthesis tools leave the row out, since its slope comes from only the two worst wavelengths and stalls their search, and fit the block instead. If the block weighs less than the rows that read it, they fit it at their combined weight.
+The row reads the block's wavelengths, angle and polarization, so its **AOI (°)** and **Pol** show a dash. The block can be a T, R or A curve in percent or a T curve in dB, at weight 0 if it is there only to be measured against; a $\Psi$ or $\Delta$ block is refused. Deleting the block deletes the row; a row whose block is missing or switched off shows **Error**. The synthesis tools leave the row out, since its slope comes from only the two worst wavelengths and stalls their search, and fit the block instead. If the block weighs less than the rows that read it, they fit it at their combined weight.
 
 ## Ellipsometry
 
 | Name | Description |
 | ---- | ----------- |
-| `PSI` | Ellipsometric Ψ at **λ** and **AOI (°)**, from ρ = r_p / r_s = tan Ψ · e^{iΔ}, 0° to 90°. A new row starts at 45°. |
-| `DEL` | Ellipsometric Δ at **λ** and **AOI (°)**, 0° to 360°. A new row starts at 180°. |
-| `TANPSI` | tan Ψ. A new row starts at 1. |
-| `COSDEL` | cos Δ, −1 to 1. A new row starts at 0. |
+| `PSI` | Ellipsometric $\Psi$ at **λ** and **AOI (°)**, from $\rho = r_p / r_s = \tan\Psi \cdot e^{i\Delta}$, 0° to 90°. A new row starts at 45°. |
+| `DEL` | Ellipsometric $\Delta$ at **λ** and **AOI (°)**, 0° to 360°. A new row starts at 180°. |
+| `TANPSI` | $\tan\Psi$. A new row starts at 1. |
+| `COSDEL` | $\cos\Delta$, −1 to 1. A new row starts at 0. |
 
-Ψ and Δ use both polarizations, so **Pol** has no effect. These rows score the front coating, and the back coating when the design's surface mode is back-only. A new `DEL` row reads Δ in the Azzam–Bashara convention an ellipsometer writes and the [Ellipsometry](/analysis/ellipsometry/) window shows by default. A `DEL` row in a design saved by an earlier release reads 360° − Δ and keeps reading it, so the design scores as it did; set the window's **Δ convention** to 360° − Δ to read the same number as such a row. Each row records its convention, which the API's `setMerit` takes as `deltaConvention`: `'azzam'` or `'reversed'`. `COSDEL` is the same in both. To fit a measured Ψ/Δ pair, generate the targets from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement), which stores each channel as one block with its own convention.
+$\Psi$ and $\Delta$ use both polarizations, so **Pol** has no effect. These rows score the front coating, and the back coating when the design's surface mode is back-only. A new `DEL` row reads $\Delta$ in the Azzam–Bashara convention an ellipsometer writes and the [Ellipsometry](/analysis/ellipsometry/) window shows by default. A `DEL` row in a design saved by an earlier release reads $360^\circ - \Delta$ and keeps reading it, so the design scores as it did; set the window's **Δ convention** to $360^\circ - \Delta$ to read the same number as such a row. Each row records its convention, which the API's `setMerit` takes as `deltaConvention`: `'azzam'` or `'reversed'`. `COSDEL` is the same in both. To fit a measured $\Psi$/$\Delta$ pair, generate the targets from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement), which stores each channel as one block with its own convention.
 
 ## Phase and dispersion
 
@@ -202,7 +202,7 @@ These rows score the front coating, and the back coating when the design's surfa
 
 | Name | Description |
 | ---- | ----------- |
-| `EFMX` | Peak of the normalized \|E\|² anywhere in the front coating, or in the back coating when the design's surface mode is back-only, at **λ** and **AOI (°)**. **Pol** selects s or p; `avg` takes the peak of the mean of the s and p fields, the curve the [Electric Field](/analysis/efield/) window draws for `avg`. A new row starts at a target of 0, so it lowers the peak field, the usual aim for laser damage resistance. |
+| `EFMX` | Peak of the normalized $\lvert E\rvert^2$ anywhere in the front coating, or in the back coating when the design's surface mode is back-only, at **λ** and **AOI (°)**. **Pol** selects s or p; `avg` takes the peak of the mean of the s and p fields, the curve the [Electric Field](/analysis/efield/) window draws for `avg`. A new row starts at a target of 0, so it lowers the peak field, the usual aim for laser damage resistance. |
 
 For a polarized laser, set **Pol** to the beam's polarization: at an angle the two fields differ, and their mean can sit well below the larger. An `EFMX` row makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
 
@@ -210,15 +210,15 @@ For a polarized laser, set **Pol** to the beam's polarization: at an angle the t
 
 | Name | Reads | Value | Holds |
 | ---- | ----- | ----- | ----- |
-| `OPGT` | **Ref Op#** | ref | ref ≥ **Target** |
-| `OPLT` | **Ref Op#** | ref | ref ≤ **Target** |
-| `OPVA` | **Ref Op#** | ref | ref = **Target** |
-| `ABSO` | **Ref Op#** | \|ref\| | \|ref\| = **Target** |
-| `ABGT` | **Ref Op#** | \|ref\| | \|ref\| ≥ **Target** |
-| `ABLT` | **Ref Op#** | \|ref\| | \|ref\| ≤ **Target** |
-| `DIFF` | **Ref Op#1**, **Ref Op#2** | ref1 − ref2 | value = **Target** |
-| `SUMM` | **Ref Op#1**, **Ref Op#2** | ref1 + ref2 | value = **Target** |
-| `PROD` | **Ref Op#1**, **Ref Op#2** | ref1 · ref2 | value = **Target** |
+| `OPGT` | **Ref Op#** | $\text{ref}$ | $\text{ref} \ge$ **Target** |
+| `OPLT` | **Ref Op#** | $\text{ref}$ | $\text{ref} \le$ **Target** |
+| `OPVA` | **Ref Op#** | $\text{ref}$ | $\text{ref} =$ **Target** |
+| `ABSO` | **Ref Op#** | $\lvert\text{ref}\rvert$ | $\lvert\text{ref}\rvert =$ **Target** |
+| `ABGT` | **Ref Op#** | $\lvert\text{ref}\rvert$ | $\lvert\text{ref}\rvert \ge$ **Target** |
+| `ABLT` | **Ref Op#** | $\lvert\text{ref}\rvert$ | $\lvert\text{ref}\rvert \le$ **Target** |
+| `DIFF` | **Ref Op#1**, **Ref Op#2** | $\text{ref}_1 - \text{ref}_2$ | value = **Target** |
+| `SUMM` | **Ref Op#1**, **Ref Op#2** | $\text{ref}_1 + \text{ref}_2$ | value = **Target** |
+| `PROD` | **Ref Op#1**, **Ref Op#2** | $\text{ref}_1 \cdot \text{ref}_2$ | value = **Target** |
 | `CONS` | nothing | **Target** | nothing |
 
 A math row reads the value of another row instead of computing one from the coating. Its target is in that row's unit, shown in percent when every row it reads, other than a `CONS` row, is a T, R or A row. **AOI (°)** and **Pol** show a dash: the value read was computed at the other row's angle and polarization. The optimizers take a math row's slopes from those of the rows it reads. A math row that reads an `EFMX` row, or a curve block whose level is not free, directly or through another math row, makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
@@ -227,16 +227,16 @@ A math row reads the value of another row instead of computing one from the coat
 
 The reference cell lists the rows by their current number and type, such as `#4 TMN`. The link is kept to the row itself, not to its number, so inserting, deleting or moving rows does not break it. Deleting a row also deletes the math rows that read it. A reference to a row that is no longer there, as in a merit function loaded from elsewhere, shows **(deleted)** in red. A row that reads a disabled, missing or valueless row, or that sits on a loop of references, has no value: **Current** shows **Error** and the merit cannot be computed until it is fixed.
 
-**Generate MF** in the [Specification](/design/specification/) window writes, for each ≥ or ≤ specification, a measurement row at weight 0 (`TAV`, `TMN` and so on) and an `OPGT` or `OPLT` row reading it, so the table reads "target 99 %, value 99.5 %".
+**Generate MF** in the [Specification](/design/specification/) window writes, for each $\ge$ or $\le$ specification, a measurement row at weight 0 (`TAV`, `TMN` and so on) and an `OPGT` or `OPLT` row reading it, so the table reads "target 99 %, value 99.5 %".
 
 ## Thickness and stress
 
 | Name | Description |
 | ---- | ----------- |
 | `TT` | Sum of the layer thicknesses of the coating being optimized, locked layers included, in nm. **Cmp** sets ≤, ≥ or =; a new row compares with = and starts at 1000 nm. In symmetric mode it sums the front stack only. |
-| `STR` | Force per unit width the coatings put on the substrate, Σ σ_l·d_l, in N/m. **Cmp** sets ≤, ≥ or =; a new row starts at = 0 N/m, a flat substrate. |
-| `MNT` | Thinnest layer from **Layer 1** to **Layer 2**. Holds it ≥ **Target**, in nm. |
-| `MXT` | Thickest layer from **Layer 1** to **Layer 2**. Holds it ≤ **Target**, in nm. |
+| `STR` | Force per unit width the coatings put on the substrate, $\sum_l \sigma_l d_l$, in N/m. **Cmp** sets ≤, ≥ or =; a new row starts at = 0 N/m, a flat substrate. |
+| `MNT` | Thinnest layer from **Layer 1** to **Layer 2**. Holds it $\ge$ **Target**, in nm. |
+| `MXT` | Thickest layer from **Layer 1** to **Layer 2**. Holds it $\le$ **Target**, in nm. |
 
 Layers are numbered as in the Design Editor, layer 1 on the substrate. With both faces optimized independently, the front layers come first and the back layers follow, each side counted out from its substrate. The range is clamped to the stack, and a new `MNT` or `MXT` row covers layers 1 to 1000, so it keeps covering the layers synthesis adds. A bound holds only the layers a run can move: locked layers are left out of the range, since a run could never bring them inside it. A range that holds no layer has no value and the merit skips it. An `MXT` row is the only upper limit on a layer's thickness: without one, the optimizers let a layer grow as thick as the merit asks.
 
@@ -246,9 +246,9 @@ These four rows are kept out of the OMF and out of the synthesis searches. Needl
 
 A coating pulls on the substrate it sits on, and a substrate too thin to ignore it bends. The force per unit width behind that bend is
 
-```
-F = Σ σ_l · d_l      (N/m, which is MPa·µm)
-```
+$$
+F = \sum_l \sigma_l d_l \qquad \text{(N/m, which is MPa}\cdot\mu\text{m)}
+$$
 
 summed over the films. With coatings on both faces the back one enters negative, because it pulls the other way; a coating on one face alone counts as it would on the front, so it reads the same on the back. A face whose layers are all 0 nm thick counts as bare. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
 
@@ -260,7 +260,7 @@ Which coatings count follows the design's evaluation mode, as in every analysis 
 
 When the back coating counts and the front is bare, the force changes sign as soon as a front layer grows thicker than 0 nm, since the back coating then enters negative. An `STR` row with ≤, ≥ or a target other than 0 changes meaning at that point: in a Needle run on the bare front of a two-sided design, and at the start of a refinement whose front holds only 0 nm layers, since Refinement starts an unlocked 0 nm layer at 1 nm. A row with = and a target of 0 scores the same just before and just after.
 
-The residual is raw N/m and the merit adds weight times its square, so a 1 N/m miss at weight 10⁻⁵ weighs about as much as a 0.3 % reflectance miss at weight 1.
+The residual is raw N/m and the merit adds weight times its square, so a 1 N/m miss at weight $10^{-5}$ weighs about as much as a 0.3 % reflectance miss at weight 1.
 
 ## Table control
 
@@ -277,49 +277,49 @@ A row added in the Merit Function Editor or the Refinement window starts as a `B
 
 The merit function is
 
-```
-MF = √( Σ wᵢ · (rᵢ / σᵢ)²  /  W )
-```
+$$
+\mathrm{MF} = \sqrt{\frac{\sum_i w_i \, (r_i / \sigma_i)^2}{W}}
+$$
 
-with wᵢ the row's weight, rᵢ its residual and σᵢ the [scale of its unit](#unit-scale). W is the sum of the weights of the rows that have a value, leaving out `MNT`, `MXT`, `TT` and `STR`, whose weights count only when the other rows with a value weigh nothing in total. Disabled rows, comment rows, `CONS` rows and rows with no value add nothing. The OMF beside it is the same sum without the `MNT`, `MXT`, `TT` and `STR` rows.
+with $w_i$ the row's weight, $r_i$ its residual and $\sigma_i$ the [scale of its unit](#unit-scale). $W$ is the sum of the weights of the rows that have a value, leaving out `MNT`, `MXT`, `TT` and `STR`, whose weights count only when the other rows with a value weigh nothing in total. Disabled rows, comment rows, `CONS` rows and rows with no value add nothing. The OMF beside it is the same sum without the `MNT`, `MXT`, `TT` and `STR` rows.
 
-| Residual | Rows | rᵢ |
+| Residual | Rows | $r_i$ |
 | -------- | ---- | -- |
-| Equality | `T` `R` `A` `TDB`, band averages, integrals, `MXW*` `MNW*`, `PSI` `TANPSI` `COSDEL`, `GD` `GDD` `TOD` and their transmission forms, `EFMX`, `OPVA` `ABSO` `DIFF` `SUMM` `PROD` | value − target |
-| Equality on a circle | `DEL` `PR` `PT` `DPR` `DPT` | value − target, taken the short way round, −180° to 180° |
-| Color | `RCOL` `TCOL` | value − target; on a hue row the hue miss as ΔE at the coating's chroma, and on a CCT row 10⁶/target − 10⁶/value ([Color](#color)) |
-| At least | `TMN` `RMN` `AMN` `TDBMN` `ODMN` `OPGT` `ABGT` `MNT` | target − value when the value is below the target, else 0 |
-| At most | `TMX` `RMX` `AMX` `TDBMX` `RDBMX` `OPLT` `ABLT` `MXT` `PPEF` | value − target when the value is above the target, else 0 |
+| Equality | `T` `R` `A` `TDB`, band averages, integrals, `MXW*` `MNW*`, `PSI` `TANPSI` `COSDEL`, `GD` `GDD` `TOD` and their transmission forms, `EFMX`, `OPVA` `ABSO` `DIFF` `SUMM` `PROD` | $\text{value} - \text{target}$ |
+| Equality on a circle | `DEL` `PR` `PT` `DPR` `DPT` | $\text{value} - \text{target}$, taken the short way round, −180° to 180° |
+| Color | `RCOL` `TCOL` | $\text{value} - \text{target}$; on a hue row the hue miss as $\Delta E$ at the coating's chroma, and on a CCT row $10^6/\text{target} - 10^6/\text{value}$ ([Color](#color)) |
+| At least | `TMN` `RMN` `AMN` `TDBMN` `ODMN` `OPGT` `ABGT` `MNT` | $\text{target} - \text{value}$ when the value is below the target, else 0 |
+| At most | `TMX` `RMX` `AMX` `TDBMX` `RDBMX` `OPLT` `ABLT` `MXT` `PPEF` | $\text{value} - \text{target}$ when the value is above the target, else 0 |
 | By the **Cmp** cell | `TT` `STR` | ≤ at most, ≥ at least, = equality |
 | Deviation | `TGT` `RGT` `AGT`, the `*FLAT` rows, `MCURVE` | the RMS deviation, which **Current** shows except on a `*FLAT` row, where it is in the tooltip |
 
-A satisfied one-sided row has a residual of zero and pulls on nothing, but its weight still counts in W, except for `MNT`, `MXT`, `TT` and `STR`. It therefore lowers the MF reading: a `T` row missing by 0.1 scores 0.1 alone and 0.0707 beside a satisfied `TMN` row of the same weight.
+A satisfied one-sided row has a residual of zero and pulls on nothing, but its weight still counts in $W$, except for `MNT`, `MXT`, `TT` and `STR`. It therefore lowers the MF reading: a `T` row missing by 0.1 scores 0.1 alone and 0.0707 beside a satisfied `TMN` row of the same weight.
 
 ### Unit scale
 
-Dividing each residual by σ puts rows of different units on one footing, so the weight stays a matter of importance rather than of units.
+Dividing each residual by $\sigma$ puts rows of different units on one footing, so the weight stays a matter of importance rather than of units.
 
-| Rows | σ | A miss that scores 0.01 |
+| Rows | $\sigma$ | A miss that scores 0.01 |
 | ---- | - | ----------------------- |
 | T, R and A rows of every kind, `TANPSI`, `COSDEL`, `EFMX` | 1 | 1 % in T, R or A |
 | `MXW*` `MNW*` | 500 nm | 5 nm |
-| `TDB` `TDBMN` `TDBMX` `RDBMX` `PPEF` | 10/ln 10 ≈ 4.343 dB | about 0.04 dB, a 1 % change in T or R |
-| `ODMN` | 1/ln 10 ≈ 0.4343 | about 0.004 |
+| `TDB` `TDBMN` `TDBMX` `RDBMX` `PPEF` | $10/\ln 10 \approx 4.343$ dB | about 0.04 dB, a 1 % change in T or R |
+| `ODMN` | $1/\ln 10 \approx 0.4343$ | about 0.004 |
 | `PSI` | 10° | 0.1° |
 | `DEL` | 20° | 0.2° |
 | `PR` `PT` `DPR` `DPT` | 180° | 1.8° |
 | `GD*` `GDD*` | 50 fs, 50 fs² | 0.5 fs, 0.5 fs² |
 | `TOD*` | 500 fs³ | 5 fs³ |
-| `MCURVE` | the σ of its channel | |
-| `RCOL` `TCOL` | the σ of the quantity, in the [Color](#color) table | |
+| `MCURVE` | the $\sigma$ of its channel | |
+| `RCOL` `TCOL` | the $\sigma$ of the quantity, in the [Color](#color) table | |
 | `TT` `STR` `MNT` `MXT` | 1, in nm or N/m | 0.01 nm or 0.01 N/m |
-| Math rows | the σ of the rows they read | |
+| Math rows | the $\sigma$ of the rows they read | |
 
-A math row takes the σ of the row it reads, so an `OPLT` on an `MXWT` row scores a miss exactly as the `MXWT` row would with that target. `DIFF` and `SUMM` of two rows with the same σ take that σ; of two rows with different σ they keep 1. `PROD` takes the product of the two σ. A `CONS` row has no unit and so no σ: `DIFF`, `SUMM` or `PROD` of a row and a constant takes that row's σ, so `SUMM` of an `MXWT` row and a `CONS` row of 10, with a target of 560 nm, scores a miss as the `MXWT` row would with a target of 550 nm. A row that reads only constants keeps 1. The thickness and stress rows are scored raw, so a violated manufacturing bound is fixed before anything else.
+A math row takes the $\sigma$ of the row it reads, so an `OPLT` on an `MXWT` row scores a miss exactly as the `MXWT` row would with that target. `DIFF` and `SUMM` of two rows with the same $\sigma$ take that $\sigma$; of two rows with different $\sigma$ they keep 1. `PROD` takes the product of the two $\sigma$. A `CONS` row has no unit and so no $\sigma$: `DIFF`, `SUMM` or `PROD` of a row and a constant takes that row's $\sigma$, so `SUMM` of an `MXWT` row and a `CONS` row of 10, with a target of 560 nm, scores a miss as the `MXWT` row would with a target of 550 nm. A row that reads only constants keeps 1. The thickness and stress rows are scored raw, so a violated manufacturing bound is fixed before anything else.
 
 ## Searching for a peak or dip
 
-The worst-case rows and the `MXW*` / `MNW*` rows report the true highest or lowest value of the band, not the best of a set of samples. A row looks either for a peak of T, 1 − R or A, where a narrow resonance or a leak can sit, or for a dip:
+The worst-case rows and the `MXW*` / `MNW*` rows report the true highest or lowest value of the band, not the best of a set of samples. A row looks either for a peak of T, $1 - R$ or A, where a narrow resonance or a leak can sit, or for a dip:
 
 | Looks for a peak | Looks for a dip |
 | ---------------- | --------------- |
@@ -339,7 +339,7 @@ A check in the [Specification](/design/specification/) window searches or sample
 
 ## Sampling a band
 
-Band averages, spectral targets, weighted integrals, color rows and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. At Step 0, the default, its points are also no more than 2 nm apart. The grid has no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+Band averages, spectral targets, weighted integrals, color rows and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing $\lambda^2/(2G)$ at the short end of the band, where $G$ is the coating's optical thickness taken with the group index $n - \lambda\,dn/d\lambda$ (or with $n$, where $n$ is larger); with both faces coated the two coatings' thicknesses add. At Step 0, the default, its points are also no more than 2 nm apart. The grid has no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
 
 The **Step** flag of a band row sets the step of its grid. At 0, the default, the grid is the fringe grid above; at any other Step it is exactly that step, whether the fringes are finer or not. The cell is never empty: a new band row starts at 0.
 
@@ -360,6 +360,6 @@ When a run starts, each spectral-target row (`TGT`, `RGT`, `AGT`) is checked for
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.: §2.6.4 for the two-sided system; Ch. 3, automatic design, for the merit function.
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996).
 - C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): eq. 14 for the film force, eq. 34 for the zero-deflection condition a `STR` target of 0 asks for.
-- CIE 15:2004, *Colorimetry*, 3rd ed.: the color spaces, the hue difference ΔH and the CIELUV saturation the color rows read.
+- CIE 15:2004, *Colorimetry*, 3rd ed.: the color spaces, the hue difference $\Delta H$ and the CIELUV saturation the color rows read.
 - CIE 15:2018, *Colorimetry*, 4th ed., §9.5; Y. Ohno, *LEUKOS* **10**, 47 (2014): CCT and Duv.
 - Crandell, Freund and Moen, *J. SMPE* **55**, 74 (1950): the least perceptible step in color temperature, in mired.

@@ -22,7 +22,7 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 ## Controls and settings
 
-**Run**, **Stop**, **Reset**, **Best**, **Clear history**, **Restore** and **Candidate materials**: as in [Needle](/synthesis/needle/#controls-and-settings).
+**Run**, **Stop**, **Reset**, **Best**, **Clear history**, **Restore** and **Material Pool**: as in [Needle](/synthesis/needle/#controls-and-settings).
 
 **Max layers**: the most layers the design may hold. Reaching it does not end the run: only needles that fit are taken, and freeing a layer comes before a forced step. 50 by default.
 
@@ -52,22 +52,24 @@ A `PPEF` row, and any math row that reads it, is left out as in Needle; a [Refin
 
 ### Merit and needle function
 
-The needle function P, its averaging over polarization, angle and cone, and the line search for a needle's starting thickness are those of [Needle](/synthesis/needle/#needle-function), with the probe needle at 0.5 nm. The scan and the choice of a forced layer use the optical merit OMF; the refinement and every comparison use the MF.
+The needle function $P$, its averaging over polarization, angle and cone, and the line search for a needle's starting thickness are those of [Needle](/synthesis/needle/#needle-function), with the probe needle at 0.5 nm. The scan and the choice of a forced layer use the optical merit OMF; the refinement and every comparison use the MF.
 
 ### Steps and acceptance
 
-```
-needle accept:   MF_cand < MF_work − 10⁻⁹
-refinement:      N, then ⌊N/2⌋ steps after a needle;  N = Refine iter / gen,
-                 or min(Refine iter / gen, 15) with Preserve bulk
-parked layers:   d_j = d_min,  ∂MF/∂d_j > 0,  not locked;  dropped when MF_without < MF_best
-forced step:     a layer of d_min, material a, at position 0 or N_L; the pair with the lowest OMF
-freeing:         take out the layer j with the lowest MF after the rest is refined (N steps)
-perturbation:    d_j → max(d_min, d_j · (1 + s·u)),  u uniform in [−1, 1],  s = 0.1, 0.2, 0.4, 0.8
-consolidation:   take out the layer j with the lowest MF_without, while MF_without ≤ (1 + tol) · MF_lowest
-```
+$$
+\begin{aligned}
+& \text{needle accept:} && \text{MF}_\text{cand} < \text{MF}_\text{work} - 10^{-9} \\
+& \text{refinement:} && N, \text{ then } \lfloor N/2 \rfloor \text{ steps after a needle;}\quad N = \text{Refine iter / gen}, \\
+& && \text{or } \min(\text{Refine iter / gen},\ 15) \text{ with Preserve bulk} \\
+& \text{parked layers:} && d_j = d_\text{min},\ \partial\text{MF}/\partial d_j > 0,\ \text{not locked;}\ \text{dropped when } \text{MF}_\text{without} < \text{MF}_\text{best} \\
+& \text{forced step:} && \text{a layer of } d_\text{min},\ \text{material } a,\ \text{at position } 0 \text{ or } N_L;\ \text{the pair with the lowest OMF} \\
+& \text{freeing:} && \text{take out the layer } j \text{ with the lowest MF after the rest is refined } (N \text{ steps}) \\
+& \text{perturbation:} && d_j \to \max(d_\text{min},\ d_j \cdot (1 + s u)),\quad u \text{ uniform in } [-1, 1],\quad s = 0.1, 0.2, 0.4, 0.8 \\
+& \text{consolidation:} && \text{take out the layer } j \text{ with the lowest } \text{MF}_\text{without},\ \text{while } \text{MF}_\text{without} \le (1 + \text{tol}) \cdot \text{MF}_\text{lowest}
+\end{aligned}
+$$
 
-MF_work is the working design, which a forced step can leave worse than MF_best, the best so far; d_min is **Min thickness** and N_L the number of layers on the side. A perturbation is refined with the full **Refine iter / gen**, and its random numbers come from a fixed seed, so a run replays the same way.
+$\text{MF}_\text{work}$ is the working design, which a forced step can leave worse than $\text{MF}_\text{best}$, the best so far; $d_\text{min}$ is **Min thickness** and $N_L$ the number of layers on the side. A perturbation is refined with the full **Refine iter / gen**, and its random numbers come from a fixed seed, so a run replays the same way.
 
 Tikhonravov et al. raise the total optical thickness after each needle optimization with an algorithm of their own and stop at a layer-count or thickness limit. Here the forced step is Sullivan and Dobrowolski's layer added at the entrance or exit, gradual evolution in its basic form (Macleod), and **Max layers** frees a layer instead of ending the run. Their thin-layer removal and design cleaning keep the total optical thickness by giving the removed layer a neighbour's index; here freeing and consolidation take the layer out with its thickness, and refinement restores what the merit wants. Deep search is basin hopping (Wales and Doye).
 

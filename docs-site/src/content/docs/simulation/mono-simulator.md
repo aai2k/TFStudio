@@ -27,12 +27,12 @@ Layers with large errors are those whose wavelength or strategy does not serve t
 | 5 **Signal Errors** | **Random errors, %** of the reading, **Absolute noise, %** of full scale, which does not shrink with the signal, and **Drift, % per 1000 s**. |
 | 6 **Deposition Simulation** | **Start** runs the experiment and plays it back. |
 
-The deposited side and how the result is scored follow the surface mode in the [Design Editor](/design/design-editor/). The signal is read through the whole witness chip, coating and bare back face added incoherently, with air above the coating: a bare chip of n = 1.52 reads 91.8 %, not the 95.7 % of its coated surface alone.
+The deposited side and how the result is scored follow the surface mode in the [Design Editor](/design/design-editor/). The signal is read through the whole witness chip, coating and bare back face added incoherently, with air above the coating: a bare chip of $n = 1.52$ reads 91.8 %, not the 95.7 % of its coated surface alone.
 
 ## Termination strategies
 
 - **Turning point**: cut at an extremum of the signal; **Order** picks which. While the signal is clean enough to show its curvature, the monitor forecasts the extremum from the last readings and closes the shutter on it, between scans if need be; on a noisy signal it waits for the signal to turn back, and the cut runs past.
-- **Level**: cut where the signal crosses a target level in the expected direction, armed only on the branch that holds the target, after the last extremum before it, so a layer thicker than a quarter wave is not cut where the signal first passes that level. An **Order** of N ≥ 2 arms it after extremum N − 1; 1 leaves the branch to the model. The monitor waits for the smoothed signal to reach the value the model gives it the confirm scans ahead, works out the crossing between scans and closes on a timer, so confirming costs no thickness and a noiseless run ends on target. On a branch too short for the confirm scans the cut runs late by what did not fit.
+- **Level**: cut where the signal crosses a target level in the expected direction, armed only on the branch that holds the target, after the last extremum before it, so a layer thicker than a quarter wave is not cut where the signal first passes that level. An **Order** of $N \ge 2$ arms it after extremum $N - 1$; 1 leaves the branch to the model. The monitor waits for the smoothed signal to reach the value the model gives it the confirm scans ahead, works out the crossing between scans and closes on a timer, so confirming costs no thickness and a noiseless run ends on target. On a branch too short for the confirm scans the cut runs late by what did not fit.
 - **By time**: cut after the target thickness over the page 1 mean rate, with no signal feedback, so the layer ends off by the rate error.
 
 The plan opens at the reference wavelength. A layer within 6 % of a whole number of quarter waves gets a turning cut when its signal on the chip, over the design's layers, turns within 6 % of a quarter wave of its end; other layers get a level cut, and a layer that barely moves the signal is cut by time. **Auto λ (all)** picks for each layer the wavelength and strategy with the most precise cut: quarter-wave layers keep the reference wavelength's turning point and its self-compensation while the reversal is still detectable; once a stopband saturates the signal its layers are monitored outside the band, and a layer no wavelength serves is cut by time.
@@ -41,14 +41,16 @@ A turning point suits a layer near a quarter-wave multiple at the monitoring wav
 
 ## Theory
 
-The rate model and the witness chip are those of the [broadband simulator](/simulation/bbm-simulator/#theory). At one wavelength λ_m the signal S(d) of a growing layer of index n has its extrema where the layer is a whole number of quarter waves:
+The rate model and the witness chip are those of the [broadband simulator](/simulation/bbm-simulator/#theory). At one wavelength $\lambda_m$ the signal $S(d)$ of a growing layer of index $n$ has its extrema where the layer is a whole number of quarter waves:
 
-```
-n d = m λ_m / 4,     m = 1, 2, …       turning points
-t_cut = d_target / r̄                   by time
-```
+$$
+\begin{aligned}
+n d &= \frac{m \lambda_m}{4}, \quad m = 1, 2, \dots && \text{turning points} \\
+t_\text{cut} &= \frac{d_\text{target}}{\bar r} && \text{by time}
+\end{aligned}
+$$
 
-Near a turning point dS/dd = 0, so a timing error barely moves S but a thickness error barely shows in it either; quarter-wave stacks monitored at their own wavelength gain from the errors of one layer being taken up by the cut of the next.
+Near a turning point $\mathrm{d}S/\mathrm{d}d = 0$, so a timing error barely moves $S$ but a thickness error barely shows in it either; quarter-wave stacks monitored at their own wavelength gain from the errors of one layer being taken up by the cut of the next.
 
 ## References
 

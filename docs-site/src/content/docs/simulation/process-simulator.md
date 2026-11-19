@@ -44,7 +44,7 @@ For CSV and text, Settings also holds:
 
 ## Theory
 
-After layer j the piece is the deposited layers 1 to j on its substrate, the opposite surface bare or coated, the passes through the substrate combined in intensity ([Surface & Evaluation Modes](/design/evaluation-modes/#theory)). On witness chips the deposited thickness is the design layer's times the witness ratio. The time axis is Σ d_i / r_i over the layers deposited, r_i the rate of layer i's material.
+After layer $j$ the piece is the deposited layers 1 to $j$ on its substrate, the opposite surface bare or coated, the passes through the substrate combined in intensity ([Surface & Evaluation Modes](/design/evaluation-modes/#theory)). On witness chips the deposited thickness is the design layer's times the witness ratio. The time axis is $\sum_i d_i / r_i$ over the layers deposited, $r_i$ the rate of layer $i$'s material.
 
 ## References
 

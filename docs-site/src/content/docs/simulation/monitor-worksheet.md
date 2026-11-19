@@ -18,7 +18,7 @@ One row per deposited layer, in run order.
 | **Chip** | Witness chip and the layer's place on it: `2-1` is the first layer on chip 2. |
 | **λ** | Monitoring wavelength; red where the layer cannot be terminated closely enough on it. |
 | **Signal** | The level the operator stops at. **Initial level**, on a chip's first layer only, is where the chip starts and the gain is set. |
-| **Turning points** | How many the layer passes. Zero means it is read against a turning point in an earlier layer on the chip, or the monitor cannot see it move at all (no amplitude, ∞ for Δd), as deep in a saturated stopband. |
+| **Turning points** | How many the layer passes. Zero means it is read against a turning point in an earlier layer on the chip, or the monitor cannot see it move at all (no amplitude, $\infty$ for $\Delta d$), as deep in a saturated stopband. |
 | **Amplitude** | The full swing between the turning points before and after the cut, usually more than the layer traverses. |
 | **Swing in**, **Swing out** | From the layer's starting level to that turning point, and from the turning point to the cut. |
 | **Cutoff ratio** | Swing out over amplitude: near 0 the stop is on the flat turn and the level says little; near 0.5 on the steepest flank, the most informative; near 1 it nears the next turn. |
@@ -47,21 +47,23 @@ The chart under the table is the run as the monitor sees it: signal against cumu
 
 - A run is monitored on witness chips, each carrying only its own layers from bare glass. Too many layers on one chip leaves the last of them almost no swing; too few needs more chips than the fixture holds. Two to four layers a chip is usual.
 - Every layer on a chip is monitored at the same wavelength, since a layer too thin for its own turning point is read against the one before it, which exists only on the same curve.
-- The signal is read through the whole chip, coating and bare back face added incoherently, as in the simulator: a bare chip of n = 1.52 reads 91.8 %, the level the gain is set against. The chip hangs in the chamber with air above the coating, so a filter designed between two glasses still starts at the bare-chip level, not 100 %.
+- The signal is read through the whole chip, coating and bare back face added incoherently, as in the simulator: a bare chip of $n = 1.52$ reads 91.8 %, the level the gain is set against. The chip hangs in the chamber with air above the coating, so a filter designed between two glasses still starts at the bare-chip level, not 100 %.
 - Layers whose curves flatten toward the end of the run are the ones to fix: a chip of their own, another wavelength, or the crystal.
 
 ## Theory
 
 The signal error at the cut is the relative error of the reading plus the floor, both as fractions of full scale:
 
-```
-δS = e_rel · |S| + e_abs
-level cut:     Δd = δS / |dS/dd|
-turning cut:   Δd = √(2 δS / |S″|)
-cutoff ratio = swing out / amplitude
-```
+$$
+\begin{aligned}
+\delta S &= e_\text{rel}\,|S| + e_\text{abs} \\
+\Delta d &= \frac{\delta S}{|\mathrm{d}S/\mathrm{d}d|} && \text{level cut} \\
+\Delta d &= \sqrt{\frac{2\,\delta S}{|S''|}} && \text{turning cut} \\
+\text{cutoff ratio} &= \frac{\text{swing out}}{\text{amplitude}}
+\end{aligned}
+$$
 
-A level cut follows the signal to a computed value, so its error is the signal error over the slope there. A turning cut detects the reversal itself: near an extremum S ≈ S_ext + ½ S″ (d − d_ext)², so the signal must move δS away before the turn is seen. Both put the two rules on one scale.
+A level cut follows the signal to a computed value, so its error is the signal error over the slope there. A turning cut detects the reversal itself: near an extremum $S \approx S_\text{ext} + \tfrac{1}{2} S'' (d - d_\text{ext})^2$, so the signal must move $\delta S$ away before the turn is seen. Both put the two rules on one scale.
 
 ## References
 

@@ -4,7 +4,7 @@ description: n(z) and k(z), the index step profile of the stack at a chosen wave
 ribbonIcon: ri-profiler
 ---
 
-The Refractive Index Profile draws the refractive index n and the extinction coefficient k as a step function of depth through the coating, at one wavelength. It shows the index contrast between layers at a glance, and confirms the stack is built from the materials you meant.
+The Refractive Index Profile draws the refractive index $n$ and the extinction coefficient $k$ as a step function of depth through the coating, at one wavelength. It shows the index contrast between layers at a glance, and confirms the stack is built from the materials you meant.
 
 <!-- shot: ri-profiler | protected silver mirror, n and k both drawn, the silver's k standing out against the oxide overcoat -->
 ![Refractive Index Profile](/screenshots/ri-profiler.png)
@@ -28,13 +28,13 @@ Reading the profile against the [Electric Field](/analysis/efield/) profile show
 
 ## Theory
 
-Inside layer j the complex index is constant:
+Inside layer $j$ the complex index is constant:
 
-```
-N(z) = n_j(λ) − i·k_j(λ)        z inside layer j
-```
+$$
+N(z) = n_j(\lambda) - i \cdot k_j(\lambda) \qquad z \text{ inside layer } j
+$$
 
-with n_j and k_j read from the material's data or formula at λ, and k ≥ 0 for an absorbing material in Macleod's convention. The layers are drawn at their physical thickness d_j; their optical thickness is n_j·d_j.
+with $n_j$ and $k_j$ read from the material's data or formula at $\lambda$, and $k \ge 0$ for an absorbing material in Macleod's convention. The layers are drawn at their physical thickness $d_j$; their optical thickness is $n_j \cdot d_j$.
 
 ## References
 

@@ -21,8 +21,8 @@ Every constant comes off the **Mechanical** tab of the [Material Editor](/design
 | Strain energy | elastic energy one film stores per unit area | stress, modulus, Poisson's ratio |
 | Delamination | energy of a film and everything outside it against the surface energy of the interface below; at 1 there is the energy to let go | strain energies, surface energy of both materials |
 | Total strain energy | sum over the films | every strain energy |
-| Cracking parameter | Σ U/2γ; at 1 the stack can pay for the two faces of a crack | every strain energy and surface energy |
-| Film force | Σ σ·d, what Stoney's equation turns into a bow, and what the `STR` merit row targets | every film's stress (none stated counts as none) |
+| Cracking parameter | $\sum U / 2\gamma$; at 1 the stack can pay for the two faces of a crack | every strain energy and surface energy |
+| Film force | $\sum \sigma \cdot d$, what Stoney's equation turns into a bow, and what the `STR` merit row targets | every film's stress (none stated counts as none) |
 | Edge shear | peak shear at the rim of the coating | stresses, moduli and Poisson's ratios of the coating and substrate, substrate thickness |
 | Radius of curvature | positive for the convex face a compressive coating leaves | film force, substrate modulus, Poisson's ratio, thickness |
 | Centre deflection | bow of the centre against the rim, positive convex | the radius and the substrate diameter |
@@ -35,7 +35,7 @@ The chart is a bar per film in its material's color, tensile up and compressive 
 
 **Substrate d**: the thickness, the same value the [Design Editor](/design/design-editor/) carries. The bow goes as one over its square, so it is the strongest lever in the window. **Substrate ⌀**: the diameter, for the centre deflection only. All four are saved with the design.
 
-Which coatings count follows the design's evaluation mode. With coatings on both faces the two bending moments oppose, so the force is F_front − F_back, and a mirrored back coating cancels the bow exactly. A coating on one face reads the same on the back as on the front.
+Which coatings count follows the design's evaluation mode. With coatings on both faces the two bending moments oppose, so the force is $F_\text{front} - F_\text{back}$, and a mirrored back coating cancels the bow exactly. A coating on one face reads the same on the back as on the front.
 
 **Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. The films and substrate are the ones that environment computes with, and with temperatures set **T** moves by the environment's temperature less environment 1's. A field the environment changes shows the value it computes with and is not edited here. The choice is not saved with the design.
 
@@ -45,36 +45,42 @@ A film force of zero is the zero-deflection condition. Put an `STR` row with a t
 
 ## Theory
 
-A film condenses strain free at its own deposition temperature, then takes the substrate's temperature without changing its lateral size, the intrinsic strain; σ_ref is that stress for a film deposited at the material's reference temperature T_ref. From there to T the film follows the substrate and the expansion mismatch adds:
+A film condenses strain free at its own deposition temperature, then takes the substrate's temperature without changing its lateral size, the intrinsic strain; $\sigma_\text{ref}$ is that stress for a film deposited at the material's reference temperature $T_\text{ref}$. From there to $T$ the film follows the substrate and the expansion mismatch adds:
 
-```
-σ = σ_ref + E/(1 − ν) · [ α_f (T_ref − T_dep) + (α_s − α_f) (T − T_dep) ]
-```
+$$
+\sigma = \sigma_\text{ref} + \frac{E}{1 - \nu} \cdot \left[ \alpha_f \left(T_\text{ref} - T_\text{dep}\right) + (\alpha_s - \alpha_f) \left(T - T_\text{dep}\right) \right]
+$$
 
-The force, the curvature (Stoney, Klein 2001 Eq. 26) and the centre deflection of a disc of radius r₀:
+The force, the curvature (Stoney, Klein 2001 Eq. 26) and the centre deflection of a disc of radius $r_0$:
 
-```
-F  = Σ σ_l d_l
-K  = 6F / (E′_s t_s²),        E′_s = E_s / (1 − ν_s),    R = −1/K
-ω₀ = −(1 − cos K r₀) / K  ≈  −r₀² K / 2
-```
+$$
+\begin{aligned}
+F &= \sum \sigma_l d_l \\
+K &= \frac{6F}{E'_s t_s^2}, \qquad E'_s = \frac{E_s}{1 - \nu_s}, \qquad R = -\frac{1}{K} \\
+\omega_0 &= -\frac{1 - \cos K r_0}{K} \approx -\frac{r_0^2 K}{2}
+\end{aligned}
+$$
 
-The energies (Klokholm 1987, Eqs. 1, 2 and 6), with γ the surface energy and film j's interface below it shared with film j − 1 or the substrate:
+The energies (Klokholm 1987, Eqs. 1, 2 and 6), with $\gamma$ the surface energy and film $j$'s interface below it shared with film $j - 1$ or the substrate:
 
-```
-U_l      = σ_l² d_l (1 − ν_l) / E_l
-cracking = Σ_l U_l / (2 γ_l)
-delam_j  = Σ_{l ≥ j} U_l / (γ_j + γ_{j−1})
-```
+$$
+\begin{aligned}
+U_l &= \frac{\sigma_l^2\, d_l (1 - \nu_l)}{E_l} \\
+\text{cracking} &= \sum_l \frac{U_l}{2\gamma_l} \\
+\text{delam}_j &= \frac{\sum_{l \ge j} U_l}{\gamma_j + \gamma_{j-1}}
+\end{aligned}
+$$
 
-The edge shear at the interface below film j (Klein 2001 Eqs. 8 and 25), F_j the force of film j and everything outside it:
+The edge shear at the interface below film $j$ (Klein 2001 Eqs. 8 and 25), $F_j$ the force of film $j$ and everything outside it:
 
-```
-k     = √[ (3/2) E_s / ((1 + ν_s) t_s)  /  Σ_l E_l d_l / (1 − ν_l²) ]
-τ_max = k · |F_j|
-```
+$$
+\begin{aligned}
+k &= \sqrt{\frac{\tfrac{3}{2} E_s / \left((1 + \nu_s) t_s\right)}{\sum_l E_l d_l / (1 - \nu_l^2)}} \\
+\tau_\text{max} &= k \cdot |F_j|
+\end{aligned}
+$$
 
-1/k is the width of the strip at the rim that carries the shear.
+$1/k$ is the width of the strip at the rim that carries the shear.
 
 ## References
 

@@ -66,7 +66,7 @@ Each tool computes as its window does, with the same code, so its numbers are th
 | `indexProfile`, `layerThicknesses`, `designFacts` | the [Refractive Index Profile](/analysis/refractive-index-profile/) and [Layer Thicknesses](/analysis/layer-thicknesses/) at one wavelength; total and optical thickness, layers per material and each layer's QWOT |
 | `admittance`, `electricField` | the [Admittance Diagram](/analysis/admittance/) and [Electric Field](/analysis/efield/), one coated side at one wavelength |
 | `color`, `integrals` | [Color Evaluation](/analysis/color-evaluation/) and [Integral Values](/analysis/integral-values/), on the scored sides and over the cone |
-| `ellipsometry`, `ellipsometryVsAngle` | [Ellipsometry](/analysis/ellipsometry/), against wavelength or angle, Δ in either sign |
+| `ellipsometry`, `ellipsometryVsAngle` | [Ellipsometry](/analysis/ellipsometry/), against wavelength or angle, $\Delta$ in either sign |
 | `groupDelay`, `pulseAnalysis`, `setPulseSpectrum` | [Group Delay / GDD](/analysis/gd-gdd/) and [Pulse Analysis](/analysis/pulse-analysis/), from a model pulse or a spectrum set on the design |
 | `inhomogeneities`, `roughness`, `stress`, `materialDispersion` | [Inhomogeneities](/analysis/inhomogeneities/) with the specification verdict, [Roughness / Scattering](/analysis/roughness-scattering/), [Stress](/analysis/stress/) from the materials' constants and `setDesignSetup`, [Material Dispersion](/analysis/material-dispersion/) |
 | `processSteps`, `exportProcess`, `monitorWorksheet` | the [Process Exporter](/simulation/process-simulator/) and its Save; the [Monitor Worksheet](/simulation/monitor-worksheet/) rows |

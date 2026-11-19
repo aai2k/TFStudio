@@ -4,7 +4,7 @@ description: n(z) 和 k(z)，膜系在选定波长下的折射率阶梯剖面。
 ribbonIcon: ri-profiler
 ---
 
-折射率剖面在单一波长下，把折射率 n 和消光系数 k 画成随深度变化的阶梯函数。它一眼就能看出层间的折射率差，并确认膜系使用的是你想要的材料。
+折射率剖面在单一波长下，把折射率 $n$ 和消光系数 $k$ 画成随深度变化的阶梯函数。它一眼就能看出层间的折射率差，并确认膜系使用的是你想要的材料。
 
 <!-- shot: ri-profiler | protected silver mirror, n and k both drawn, the silver's k standing out against the oxide overcoat -->
 ![折射率分布](/screenshots/ri-profiler-zh.png)
@@ -28,13 +28,13 @@ ribbonIcon: ri-profiler
 
 ## 理论
 
-在第 j 层内复折射率为常数：
+在第 $j$ 层内复折射率为常数：
 
-```
-N(z) = n_j(λ) − i·k_j(λ)        z 位于第 j 层内
-```
+$$
+N(z) = n_j(\lambda) - i \cdot k_j(\lambda) \qquad z \text{ 位于第 } j \text{ 层内}
+$$
 
-n_j 和 k_j 由材料的数据或公式在 λ 处读取，按 Macleod 约定吸收材料的 k ≥ 0。各层按其物理厚度 d_j 画出；其光学厚度为 n_j·d_j。
+$n_j$ 和 $k_j$ 由材料的数据或公式在 $\lambda$ 处读取，按 Macleod 约定吸收材料的 $k \ge 0$。各层按其物理厚度 $d_j$ 画出；其光学厚度为 $n_j \cdot d_j$。
 
 ## 参考文献
 

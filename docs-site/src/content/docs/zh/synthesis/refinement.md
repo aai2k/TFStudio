@@ -37,16 +37,16 @@ ribbonIcon: refinement
 
 按下 **运行** 时，每个波段行获得设计的条纹间距所需的采样波长数，波段中藏有窄特征的地方还会加密（见 [操作数参考](/zh/design/operands/#sampling-a-band)）。没有启用的行，或有行无法计算时，运行不会开始。随后最小化：
 
-```
-MF = √( Σ_i  w_i · (m_i / σ_i)²  /  W )        m_i：第 i 行与目标的差，w_i 其权重，σ_i 其尺度，W = Σ w_i
-
-d_k ≥ 1 nm         所有方法；没有 MXT 行时无上限
-MNT, MXT           SQP 中为硬限制，其他方法中为罚函数行
-
-已到达目标             MF < 10⁻⁶
-已达最大迭代           最大迭代使方法停止
-无进一步改善           方法按自身的判据停止（见优化方法）
-```
+$$
+\begin{aligned}
+\text{MF} &= \sqrt{\frac{\sum_i w_i \, (m_i / \sigma_i)^2}{W}} \qquad m_i\text{：第 } i \text{ 行与目标的差，} w_i \text{ 其权重，} \sigma_i \text{ 其尺度，} W = \textstyle\sum w_i \\
+d_k &\ge 1\ \text{nm} \qquad \text{所有方法；没有 MXT 行时无上限} \\
+\text{MNT, MXT} &\quad \text{SQP 中为硬限制，其他方法中为罚函数行} \\
+\text{已到达目标} &\quad \text{MF} < 10^{-6} \\
+\text{已达最大迭代} &\quad \text{最大迭代使方法停止} \\
+\text{无进一步改善} &\quad \text{方法按自身的判据停止（见优化方法）}
+\end{aligned}
+$$
 
 “全部尝试”依次运行共轭梯度法、阻尼最小二乘法、牛顿法、牛顿-CG 法、序列二次规划、信赖域牛顿法、差分进化、模拟退火和 DLS 多起点，每种都从同一起点出发，而不是从上一种的结果出发，并保留 MF 最低者。DLS 多起点同时运行多个重启，每个线程一个；有四个或更多可变层时，差分进化在多个线程上为每一代打分。两者都不改变结果。
 

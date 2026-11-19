@@ -4,7 +4,7 @@ description: The design's requirements as pass/fail checks, judged live on the d
 ribbonIcon: specification
 ---
 
-The Specification holds what the coating must meet, as pass/fail checks such as "T ≥ 99 % averaged over 450–650 nm" or "no more than 30 layers". It is the requirement sheet, kept apart from the [merit function](/design/merit-function-editor/) the optimizers minimize; **Generate MF** turns the sheet into a merit function so a run aims at exactly what was specified. The checks are saved with the design.
+The Specification holds what the coating must meet, as pass/fail checks such as "$T \ge 99\,\%$ averaged over 450–650 nm" or "no more than 30 layers". It is the requirement sheet, kept apart from the [merit function](/design/merit-function-editor/) the optimizers minimize; **Generate MF** turns the sheet into a merit function so a run aims at exactly what was specified. The checks are saved with the design.
 
 <!-- shot: specification | the 8-layer AR's own spec plus the Photopic AR preset appended and a layer count ≤ 8, every row passing and the banner green -->
 ![Specification](/screenshots/specification.png)
@@ -58,22 +58,26 @@ The same step holds wherever the check is read: the report, the Coating Library,
 
 ## Theory
 
-With C(λ) the channel as a fraction, a band average and an integral read
+With $C(\lambda)$ the channel as a fraction, a band average and an integral read
 
-```
-C̄ = ∫ C dλ / (λ₂ − λ₁)
-C_w = ∫ S(λ) D(λ) C(λ) dλ / ∫ S(λ) D(λ) dλ
-```
+$$
+\begin{aligned}
+\bar{C} &= \frac{\int C\,d\lambda}{\lambda_2 - \lambda_1} \\
+C_w &= \frac{\int S(\lambda)\,D(\lambda)\,C(\lambda)\,d\lambda}{\int S(\lambda)\,D(\lambda)\,d\lambda}
+\end{aligned}
+$$
 
-over the band, with S the source and D the detector of the integral. FWHM and Edge λ start from the peak λ_p found as Central λ finds it, with value C_p. For level L the crossing value is
+over the band, with $S$ the source and $D$ the detector of the integral. FWHM and Edge λ start from the peak $\lambda_p$ found as Central λ finds it, with value $C_p$. For level $L$ the crossing value is
 
-```
-C_x = L · C_p                   on a peak (max)
-C_x = C_p + L · (1 − C_p)       on a notch (min)
-FWHM = λ_right − λ_left
-```
+$$
+\begin{aligned}
+C_x &= L\,C_p && \text{on a peak (max)} \\
+C_x &= C_p + L\,(1 - C_p) && \text{on a notch (min)} \\
+\text{FWHM} &= \lambda_\text{right} - \lambda_\text{left}
+\end{aligned}
+$$
 
-where λ_left and λ_right are the first wavelengths either side of λ_p at which C reaches C_x, each found by bisection between scan samples. Edge λ is λ_left or λ_right. L is held between 0.001 and 0.999, since a level of 0 or 1 has no crossing.
+where $\lambda_\text{left}$ and $\lambda_\text{right}$ are the first wavelengths either side of $\lambda_p$ at which $C$ reaches $C_x$, each found by bisection between scan samples. Edge λ is $\lambda_\text{left}$ or $\lambda_\text{right}$. $L$ is held between 0.001 and 0.999, since a level of 0 or 1 has no crossing.
 
 ## References
 

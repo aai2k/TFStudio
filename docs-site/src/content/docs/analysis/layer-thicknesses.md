@@ -11,10 +11,10 @@ Layer Thicknesses draws a coating as one bar per layer, colored by material. It 
 
 ## Computed quantities
 
-- **nm**: physical thickness d.
-- **OT**: optical thickness n·d, in nm.
-- **QW**: quarter waves, `4·n·d / λ₀`. A quarter-wave layer reads 1, a half-wave cavity 2.
-- **FW**: full waves, `n·d / λ₀`.
+- **nm**: physical thickness $d$.
+- **OT**: optical thickness $n \cdot d$, in nm.
+- **QW**: quarter waves, $4 \cdot n \cdot d / \lambda_0$. A quarter-wave layer reads 1, a half-wave cavity 2.
+- **FW**: full waves, $n \cdot d / \lambda_0$.
 
 Layers are numbered from the substrate, as in the [Design Editor](/design/design-editor/), and a layer of zero thickness keeps its number. **Results** lists every layer in all four units.
 
@@ -26,16 +26,18 @@ Layers are numbered from the substrate, as in the [Design Editor](/design/design
 
 ## Theory
 
-With n the real part of the layer's index at λ₀:
+With $n$ the real part of the layer's index at $\lambda_0$:
 
-```
-OT = n·d
-QW = 4·n·d / λ₀
-FW = n·d / λ₀
-δ  = 2π·n·d / λ₀ = (π/2)·QW
-```
+$$
+\begin{aligned}
+\mathrm{OT} &= n \cdot d \\
+\mathrm{QW} &= \frac{4 \cdot n \cdot d}{\lambda_0} \\
+\mathrm{FW} &= \frac{n \cdot d}{\lambda_0} \\
+\delta &= \frac{2\pi \cdot n \cdot d}{\lambda_0} = \frac{\pi}{2} \cdot \mathrm{QW}
+\end{aligned}
+$$
 
-δ is the phase thickness at λ₀ at normal incidence. A layer with QW = 1 has δ = π/2 and turns the admittance from Y′ to n²/Y′; a layer with QW = 2 is a half wave, which at λ₀ changes nothing and is called an absentee layer (Macleod, Section 3.1).
+$\delta$ is the phase thickness at $\lambda_0$ at normal incidence. A layer with $\mathrm{QW} = 1$ has $\delta = \pi/2$ and turns the admittance from $Y'$ to $n^2/Y'$; a layer with $\mathrm{QW} = 2$ is a half wave, which at $\lambda_0$ changes nothing and is called an absentee layer (Macleod, Section 3.1).
 
 ## References
 

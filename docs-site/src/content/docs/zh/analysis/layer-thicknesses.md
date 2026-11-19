@@ -11,10 +11,10 @@ ribbonIcon: layer-thicknesses
 
 ## 计算的量
 
-- **nm**：物理厚度 d。
-- **OT**：光学厚度 n·d，单位 nm。
-- **QW**：四分之一波数，`4·n·d / λ₀`。四分之一波层读数为 1，半波腔层为 2。
-- **FW**：全波数，`n·d / λ₀`。
+- **nm**：物理厚度 $d$。
+- **OT**：光学厚度 $n \cdot d$，单位 nm。
+- **QW**：四分之一波数，$4 \cdot n \cdot d / \lambda_0$。四分之一波层读数为 1，半波腔层为 2。
+- **FW**：全波数，$n \cdot d / \lambda_0$。
 
 膜层从基底开始编号，与[设计编辑器](/zh/design/design-editor/)相同，厚度为零的层保留其编号。**结果**以四种单位列出每一层。
 
@@ -26,16 +26,18 @@ ribbonIcon: layer-thicknesses
 
 ## 理论
 
-n 为该层在 λ₀ 处折射率的实部：
+$n$ 为该层在 $\lambda_0$ 处折射率的实部：
 
-```
-OT = n·d
-QW = 4·n·d / λ₀
-FW = n·d / λ₀
-δ  = 2π·n·d / λ₀ = (π/2)·QW
-```
+$$
+\begin{aligned}
+\mathrm{OT} &= n \cdot d \\
+\mathrm{QW} &= \frac{4 \cdot n \cdot d}{\lambda_0} \\
+\mathrm{FW} &= \frac{n \cdot d}{\lambda_0} \\
+\delta &= \frac{2\pi \cdot n \cdot d}{\lambda_0} = \frac{\pi}{2} \cdot \mathrm{QW}
+\end{aligned}
+$$
 
-δ 是正入射时 λ₀ 处的相位厚度。QW = 1 的膜层 δ = π/2，把导纳从 Y′ 变为 n²/Y′；QW = 2 的膜层是半波层，在 λ₀ 处不起任何作用，称为虚设层（Macleod，第 3.1 节）。
+$\delta$ 是正入射时 $\lambda_0$ 处的相位厚度。$\mathrm{QW} = 1$ 的膜层 $\delta = \pi/2$，把导纳从 $Y'$ 变为 $n^2/Y'$；$\mathrm{QW} = 2$ 的膜层是半波层，在 $\lambda_0$ 处不起任何作用，称为虚设层（Macleod，第 3.1 节）。
 
 ## 参考文献
 

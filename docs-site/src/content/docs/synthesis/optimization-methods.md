@@ -11,25 +11,31 @@ Each figure is the merit function of a two-layer antireflection coating on BK7, 
 
 ## Merit, slopes and bounds
 
-```
-residuals   r_p = √w_i · m_i / σ_i              one per row; a range target (TGT, RGT, AGT) gives
-                                               one per sampled wavelength, √(w_i q_s) · m_s
-merit       MF = √( Σ_p r_p² / W )              W = Σ w_i over the rows that score
-Jacobian    J_pk = ∂r_p / ∂d_k                  from the layer matrices; central differences for a row without one
-gradient    g = ∇MF = Jᵀr / (W · MF)
-Hessian     H = JᵀJ + Σ_p r_p ∇²r_p             JᵀJ alone where the curvature is not available
-```
+$$
+\begin{aligned}
+\text{residuals} \quad & r_p = \sqrt{w_i}\, m_i / \sigma_i && \text{one per row; a range target (TGT, RGT, AGT) gives} \\
+& && \text{one per sampled wavelength, } \sqrt{w_i q_s}\, m_s \\
+\text{merit} \quad & \mathrm{MF} = \sqrt{\sum_p r_p^2 / W} && W = \sum w_i \text{ over the rows that score} \\
+\text{Jacobian} \quad & J_{pk} = \partial r_p / \partial d_k && \text{from the layer matrices; central differences for a row without one} \\
+\text{gradient} \quad & g = \nabla\mathrm{MF} = J^T r / (W \cdot \mathrm{MF}) \\
+\text{Hessian} \quad & H = J^T J + \sum_p r_p \nabla^2 r_p && J^T J \text{ alone where the curvature is not available}
+\end{aligned}
+$$
 
-m_i is how far row i misses its target, w_i its weight and σ_i its scale, as in the Merit Function Editor; m_s is the miss at sample s of a band and q_s its trapezoid weight. H has its curvature term when the merit is scored on one side alone, in one environment, with no cone, and with no math, color, ellipsometry, field or curve-block row and no row with a σ of its own (dB, phase, group delay).
+$m_i$ is how far row $i$ misses its target, $w_i$ its weight and $\sigma_i$ its scale, as in the Merit Function Editor; $m_s$ is the miss at sample $s$ of a band and $q_s$ its trapezoid weight. $H$ has its curvature term when the merit is scored on one side alone, in one environment, with no cone, and with no math, color, ellipsometry, field or curve-block row and no row with a $\sigma$ of its own (dB, phase, group delay).
 
-```
-floor       d_k ≥ 1 nm; no upper limit unless an MXT row sets one
-MNT, MXT    hard limits in SQP; penalty rows of the merit in every other method, zero while the limit holds
-held layer  a layer on a bound whose slope pushes it out sits out the step (DLS, Newton, Newton-CG, Trust-region Newton)
-step span   |Δd_k| ≤ s_k = λ_max / (2 |ñ_k(λ_max)|)   (DLS, Newton, Newton-CG, SQP, CG's first probe)
-```
+$$
+\begin{aligned}
+\text{floor} \quad & d_k \ge 1\ \text{nm} && \text{no upper limit unless an MXT row sets one} \\
+\text{MNT, MXT} \quad & \text{hard limits in SQP; penalty rows of the merit in} \\
+& \text{every other method, zero while the limit holds} \\
+\text{held layer} \quad & \text{a layer on a bound whose slope pushes it out sits out the step} \\
+& \text{(DLS, Newton, Newton-CG, Trust-region Newton)} \\
+\text{step span} \quad & \lvert\Delta d_k\rvert \le s_k = \lambda_{\max} / (2\,\lvert\tilde n_k(\lambda_{\max})\rvert) && \text{(DLS, Newton, Newton-CG, SQP, CG's first probe)}
+\end{aligned}
+$$
 
-λ_max is the longest wavelength the merit samples. A layer a half wave thicker gives the same R and T at that wavelength (Macleod, Eq. 2.111), so the slopes a step is built on say nothing past s_k. Locked layers never move.
+$\lambda_{\max}$ is the longest wavelength the merit samples. A layer a half wave thicker gives the same R and T at that wavelength (Macleod, Eq. 2.111), so the slopes a step is built on say nothing past $s_k$. Locked layers never move.
 
 ## Refinement methods
 
@@ -39,14 +45,16 @@ The default. Each step minimizes a quadratic model of the merit inside a box mad
 
 ![Sequential QP from the start at 160 nm MgF₂, 200 nm Ta₂O₅: a few short moves into the nearest valley, near 97 nm MgF₂ and 249 nm Ta₂O₅.](/diagrams/optimization/refine-sqp.gif)
 
-```
-model    q(Δ) = ½ Δᵀ(H + μ |diag H|) Δ + (Jᵀr)ᵀΔ
-box      lo_k ≤ d_k + Δ_k ≤ hi_k,  |Δ_k| ≤ s_k          lo, hi from 1 nm and the MNT and MXT rows
-solve    primal active set; at its pass cap, the lower of its point and the Cauchy point;
-         μ × 10 while the matrix is not positive definite, at most 12 times, then one DLS step
-accept   MF(d + Δ) < MF(d):  μ ← max(0.3μ, 10⁻⁶);  otherwise μ ← min(10μ, 10⁸)      μ₀ = 10⁻³
-stop     μ = 10⁸;  MF < 10⁻⁷;  Max iter (200)
-```
+$$
+\begin{aligned}
+\text{model} \quad & q(\Delta) = \tfrac12\, \Delta^T (H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta + (J^T r)^T \Delta \\
+\text{box} \quad & \mathrm{lo}_k \le d_k + \Delta_k \le \mathrm{hi}_k, \quad \lvert\Delta_k\rvert \le s_k && \mathrm{lo},\ \mathrm{hi}\ \text{from 1 nm and the MNT and MXT rows} \\
+\text{solve} \quad & \text{primal active set; at its pass cap, the lower of its point and the Cauchy point;} \\
+& \mu \times 10 \text{ while the matrix is not positive definite, at most 12 times, then one DLS step} \\
+\text{accept} \quad & \mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \mu \leftarrow \max(0.3\mu,\, 10^{-6});\ \text{otherwise } \mu \leftarrow \min(10\mu,\, 10^{8}) && \mu_0 = 10^{-3} \\
+\text{stop} \quad & \mu = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{Max iter (200)}
+\end{aligned}
+$$
 
 ### Damped Least Squares
 
@@ -54,15 +62,17 @@ Each step solves the linearized least-squares problem for all residuals at once,
 
 ![Damped Least Squares from the same start: the first step overshoots the valley floor, the next ones are shorter, and it stops near 97 nm MgF₂, 249 nm Ta₂O₅.](/diagrams/optimization/refine-dls.gif)
 
-```
-step     [ J ; √(λM) ] Δ = [ −r ; 0 ] by QR,  M = diag(JᵀJ)        the same Δ as (JᵀJ + λM) Δ = −Jᵀr
-         Δ scaled down so that no |Δ_k| > s_k
-accept   MF(d + Δ) < MF(d):  λ ← max(λ/2, 10⁻⁸);  otherwise λ ← min(5λ, 10⁸)        λ₀ = 10⁻²
-stop     λ = 10⁸;  MF < 10⁻⁷;  after an accepted step, the actual and the predicted fall of Σr² both ≤ √ε
-         with the actual ≤ 2 × the predicted, or ‖M^½ Δ‖ ≤ √ε ‖M^½ d‖;  Max iter (500)
-```
+$$
+\begin{aligned}
+\text{step} \quad & \begin{bmatrix} J \\ \sqrt{\lambda M} \end{bmatrix} \Delta = \begin{bmatrix} -r \\ 0 \end{bmatrix} \text{ by QR}, \quad M = \operatorname{diag}(J^T J) && \text{the same } \Delta \text{ as } (J^T J + \lambda M)\,\Delta = -J^T r \\
+& \Delta \text{ scaled down so that no } \lvert\Delta_k\rvert > s_k \\
+\text{accept} \quad & \mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \lambda \leftarrow \max(\lambda/2,\, 10^{-8});\ \text{otherwise } \lambda \leftarrow \min(5\lambda,\, 10^{8}) && \lambda_0 = 10^{-2} \\
+\text{stop} \quad & \lambda = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{after an accepted step, the actual and the predicted fall of } \sum r^2 \text{ both} \le \sqrt{\varepsilon} \\
+& \text{with the actual} \le 2 \times \text{the predicted, or } \lVert M^{1/2}\Delta\rVert \le \sqrt{\varepsilon}\,\lVert M^{1/2} d\rVert;\ \text{Max iter (500)}
+\end{aligned}
+$$
 
-The predicted fall is 1 − ‖r + JΔ‖² / ‖r‖², and ε = 2.2·10⁻¹⁶: the stopping tests of MINPACK's lmder.
+The predicted fall is $1 - \lVert r + J\Delta\rVert^2 / \lVert r\rVert^2$, and $\varepsilon = 2.2 \cdot 10^{-16}$: the stopping tests of MINPACK's lmder.
 
 ### Conjugate Gradient
 
@@ -70,17 +80,19 @@ Each step picks a direction from the slope and the previous direction, then take
 
 ![Conjugate Gradient from the same start: two line searches reach the valley near 97 nm MgF₂, 249 nm Ta₂O₅.](/diagrams/optimization/refine-cg.gif)
 
-```
-direction  β = max(0, gₖᵀ(gₖ − gₖ₋₁) / gₖ₋₁ᵀgₖ₋₁),  β = 0 every n steps (n free layers, at least 2)
-           pₖ = −gₖ + β pₖ₋₁,  or −gₖ when gₖᵀpₖ ≥ 0
-search     first α: where the first layer along p has moved by its span s_k, or 4 × the last α if shorter;
-           halve α until MF(P(d + αp)) ≤ MF(d) + 10⁻⁴ gᵀ(P(d + αp) − d), go on halving while MF falls,
-           keep the lowest;  P clamps to 1 nm
-restart    a failed search is tried again along −g with a fresh first α;  after 12 steps in a row that each
-           gain under 10⁻⁷ of MF, start again from the best point, at most 8 times
-stop       ‖g‖ < 10⁻⁹;  4 failed searches in a row;  a plateau after a restart that gained under 10⁻⁷;
-           MF < 10⁻⁷;  Max iter (600)
-```
+$$
+\begin{aligned}
+\text{direction} \quad & \beta = \max\!\left(0,\ \frac{g_k^T (g_k - g_{k-1})}{g_{k-1}^T g_{k-1}}\right), \quad \beta = 0 \text{ every } n \text{ steps (} n \text{ free layers, at least 2)} \\
+& p_k = -g_k + \beta\, p_{k-1}, \quad \text{or } -g_k \text{ when } g_k^T p_k \ge 0 \\
+\text{search} \quad & \text{first } \alpha\text{: where the first layer along } p \text{ has moved by its span } s_k\text{, or } 4 \times \text{the last } \alpha \text{ if shorter;} \\
+& \text{halve } \alpha \text{ until } \mathrm{MF}(P(d + \alpha p)) \le \mathrm{MF}(d) + 10^{-4}\, g^T (P(d + \alpha p) - d)\text{, go on halving while MF falls,} \\
+& \text{keep the lowest; } P \text{ clamps to 1 nm} \\
+\text{restart} \quad & \text{a failed search is tried again along } -g \text{ with a fresh first } \alpha\text{; after 12 steps in a row that each} \\
+& \text{gain under } 10^{-7} \text{ of MF, start again from the best point, at most 8 times} \\
+\text{stop} \quad & \lVert g\rVert < 10^{-9};\ \text{4 failed searches in a row; a plateau after a restart that gained under } 10^{-7}\text{;} \\
+& \mathrm{MF} < 10^{-7};\ \text{Max iter (600)}
+\end{aligned}
+$$
 
 As the inner refiner of the synthesis windows, CG starts each search from a scan up to 2000 nm instead of the span and has no restarts.
 
@@ -90,12 +102,14 @@ Each step solves the Newton equations with the full second derivative of the mer
 
 ![Newton from the same start: its first step reaches the 1 nm floor of MgF₂, then it follows the valley floor to 94 nm MgF₂, 121 nm Ta₂O₅.](/diagrams/optimization/refine-newton.gif)
 
-```
-step     (H + μ |diag H|) Δ = −Jᵀr by Cholesky;  μ × 10 until it factors, at most 12 times, then one DLS step;
-         Δ scaled to the spans, the trial clamped to 1 nm
-accept   MF falls:  μ ← max(0.3μ, 10⁻⁶);  otherwise μ ← min(10μ, 10⁸)        μ₀ = 10⁻³
-stop     μ = 10⁸;  MF < 10⁻⁷;  Max iter (200)
-```
+$$
+\begin{aligned}
+\text{step} \quad & (H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta = -J^T r \text{ by Cholesky; } \mu \times 10 \text{ until it factors, at most 12 times, then one DLS step;} \\
+& \Delta \text{ scaled to the spans, the trial clamped to 1 nm} \\
+\text{accept} \quad & \text{MF falls:}\ \mu \leftarrow \max(0.3\mu,\, 10^{-6});\ \text{otherwise } \mu \leftarrow \min(10\mu,\, 10^{8}) && \mu_0 = 10^{-3} \\
+\text{stop} \quad & \mu = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{Max iter (200)}
+\end{aligned}
+$$
 
 ### Newton-CG
 
@@ -103,45 +117,51 @@ Each step solves the Newton equations only roughly, by conjugate gradients insid
 
 ![Newton-CG from the same start: three steps to the valley near 97 nm MgF₂, 249 nm Ta₂O₅.](/diagrams/optimization/refine-newton-cg.gif)
 
-```
-model    m(p) = gᵀp + ½ pᵀHp,  ‖p‖ ≤ Δ;   Hv ≈ (∇MF(d + εv) − ∇MF(d)) / ε,  ε = 1.5·10⁻⁸ (1 + ‖d‖∞) / ‖v‖∞
-solve    Steihaug CG, at most min(n, 25) iterations, to ‖residual‖ ≤ min(0.5, √‖g‖) ‖g‖, the radius
-         or negative curvature;  p scaled to the spans
-ratio    ρ = (MF(d) − MF(d + s)) / (−gᵀs − ½ sᵀHs),  s the move after clamping to 1 nm
-radius   ρ < 0.25: Δ ← Δ/4;  ρ > 0.75 and ‖p‖ > 0.8Δ: Δ ← min(2Δ, 10⁴ nm);   Δ₀ = max(1, 0.1 (1 + ‖d‖∞)) nm
-accept   ρ > 0.1 and MF falls
-stop     6 steps in a row rejected or with ‖g‖ < 10⁻¹⁰;  MF < 10⁻⁷;  Max iter (200)
-```
+$$
+\begin{aligned}
+\text{model} \quad & m(p) = g^T p + \tfrac12\, p^T H p, \quad \lVert p\rVert \le \Delta; \qquad Hv \approx \frac{\nabla\mathrm{MF}(d + \varepsilon v) - \nabla\mathrm{MF}(d)}{\varepsilon}, \quad \varepsilon = 1.5 \cdot 10^{-8}\, (1 + \lVert d\rVert_\infty) / \lVert v\rVert_\infty \\
+\text{solve} \quad & \text{Steihaug CG, at most } \min(n, 25) \text{ iterations, to } \lVert\text{residual}\rVert \le \min(0.5, \sqrt{\lVert g\rVert})\,\lVert g\rVert\text{, the radius} \\
+& \text{or negative curvature; } p \text{ scaled to the spans} \\
+\text{ratio} \quad & \rho = \frac{\mathrm{MF}(d) - \mathrm{MF}(d + s)}{-g^T s - \tfrac12\, s^T H s}, \quad s \text{ the move after clamping to 1 nm} \\
+\text{radius} \quad & \rho < 0.25:\ \Delta \leftarrow \Delta/4;\ \rho > 0.75 \text{ and } \lVert p\rVert > 0.8\Delta:\ \Delta \leftarrow \min(2\Delta,\, 10^{4}\ \text{nm}); && \Delta_0 = \max(1,\, 0.1\,(1 + \lVert d\rVert_\infty))\ \text{nm} \\
+\text{accept} \quad & \rho > 0.1 \text{ and MF falls} \\
+\text{stop} \quad & \text{6 steps in a row rejected or with } \lVert g\rVert < 10^{-10};\ \mathrm{MF} < 10^{-7};\ \text{Max iter (200)}
+\end{aligned}
+$$
 
 ### Trust-region Newton
 
-Each step minimizes a quadratic model of the merit within ± a trust radius of every thickness, and can put several layers onto the 1 nm floor at once. It is also the default refiner of Needle and Deep Synthesis, and a choice in Gradual Evolution and the Structural Optimizer.
+Each step minimizes a quadratic model of the merit within $\pm$ a trust radius of every thickness, and can put several layers onto the 1 nm floor at once. It is also the default refiner of Needle and Deep Synthesis, and a choice in Gradual Evolution and the Structural Optimizer.
 
 ![Trust-region Newton from the same start: a few steps to the valley near 97 nm MgF₂, 249 nm Ta₂O₅.](/diagrams/optimization/refine-trust-region.gif)
 
-```
-model    q(s) = gᵀs + ½ sᵀHs   for F = ½‖r‖²,  g = Jᵀr;   1 nm ≤ d_k + s_k,  |s_k| ≤ Δ
-step     the Cauchy point along the projected −g, then at most 2n + 5 minor iterates: CG on the layers
-         off a bound and a projected search with sufficient decrease 0.01
-ratio    ρ = (F(d) − F(d + s)) / (−q(s))
-radius   ρ < 0.25: Δ ← Δ/4;  ρ > 0.75 with s on the edge: Δ ← min(2Δ, 500 nm);   Δ₀ = 20 nm
-accept   ρ > 10⁻⁴
-stop     predicted fall < 10⁻¹⁵ F;  F = 0;  an accepted step whose actual and predicted fall are ≤ 10⁻¹⁰ F;
-         a step or radius ≤ 10⁻¹⁰ (10⁻¹⁰ + ‖d‖∞);  MF down by under 0.01 % over the last 6 steps;  Max iter (200)
-```
+$$
+\begin{aligned}
+\text{model} \quad & q(s) = g^T s + \tfrac12\, s^T H s \quad \text{for } F = \tfrac12 \lVert r\rVert^2, \quad g = J^T r; \qquad 1\ \text{nm} \le d_k + s_k, \quad \lvert s_k\rvert \le \Delta \\
+\text{step} \quad & \text{the Cauchy point along the projected } -g \text{, then at most } 2n + 5 \text{ minor iterates: CG on the layers} \\
+& \text{off a bound and a projected search with sufficient decrease 0.01} \\
+\text{ratio} \quad & \rho = \frac{F(d) - F(d + s)}{-q(s)} \\
+\text{radius} \quad & \rho < 0.25:\ \Delta \leftarrow \Delta/4;\ \rho > 0.75 \text{ with } s \text{ on the edge:}\ \Delta \leftarrow \min(2\Delta,\, 500\ \text{nm}); && \Delta_0 = 20\ \text{nm} \\
+\text{accept} \quad & \rho > 10^{-4} \\
+\text{stop} \quad & \text{predicted fall} < 10^{-15} F;\ F = 0;\ \text{an accepted step whose actual and predicted fall are} \le 10^{-10} F; \\
+& \text{a step or radius} \le 10^{-10}\,(10^{-10} + \lVert d\rVert_\infty);\ \text{MF down by under 0.01 \% over the last 6 steps;}\ \text{Max iter (200)}
+\end{aligned}
+$$
 
 ### DLS multi-start
 
-Runs Damped Least Squares from N copies of the start, each with every free thickness scaled at random, and keeps the lowest merit.
+Runs Damped Least Squares from $N$ copies of the start, each with every free thickness scaled at random, and keeps the lowest merit.
 
 ![DLS multi-start: twenty restarts from perturbed copies of the start end in several valleys; the best ends near 94 nm MgF₂, 121 nm Ta₂O₅.](/diagrams/optimization/refine-dls-multi.gif)
 
-```
-start j   d_k,j = max(1 nm, d_k (1 + f (2u − 1))),  u uniform in [0, 1) from restart j's own stream of the Seed,
-          f = Perturb ±% / 100,  j = 1 … N  (N = Restarts;  20 and 30 % by default)
-run       Damped Least Squares from each start with Max iter (500), several at once on the CPU threads
-keep      the restart with the lowest MF
-```
+$$
+\begin{aligned}
+\text{start } j \quad & d_{k,j} = \max(1\ \text{nm},\ d_k (1 + f (2u - 1))), \quad u \text{ uniform in } [0, 1) \text{ from restart } j\text{'s own stream of the Seed,} \\
+& f = \text{Perturb } {\pm}\text{\%} / 100, \quad j = 1 \ldots N \quad (N = \text{Restarts};\ \text{20 and 30 \% by default}) \\
+\text{run} \quad & \text{Damped Least Squares from each start with Max iter (500), several at once on the CPU threads} \\
+\text{keep} \quad & \text{the restart with the lowest MF}
+\end{aligned}
+$$
 
 ### Differential Evolution
 
@@ -149,13 +169,16 @@ Keeps a population of designs. Each generation builds a trial for every member f
 
 ![Differential Evolution: ten designs spread around the start and gather in the valley near 94 nm MgF₂, 121 nm Ta₂O₅.](/diagrams/optimization/refine-de.gif)
 
-```
-population  NP = max(10, 5n);  member 1 is the start, the others d_k (1 + 0.5 (2u − 1)), at least 1 nm
-mutation    v = x_r1 + F (x_r2 − x_r3),  r1, r2, r3 distinct and ≠ i,  F = 0.7
-crossover   trial_k = v_k when u < CR or k = k_rand, otherwise x_i,k;  CR = 0.9;  clamped to 1 nm
-selection   the trial replaces x_i when MF(trial) ≤ MF(x_i); a generation's trials all come from the old population
-stop        no new best in 60 generations;  MF < 10⁻⁷;  Max iter (250)
-```
+$$
+\begin{aligned}
+\text{population} \quad & \mathrm{NP} = \max(10, 5n);\ \text{member 1 is the start, the others } d_k (1 + 0.5 (2u - 1))\text{, at least 1 nm} \\
+\text{mutation} \quad & v = x_{r_1} + F (x_{r_2} - x_{r_3}), \quad r_1, r_2, r_3 \text{ distinct and } \ne i, \quad F = 0.7 \\
+\text{crossover} \quad & \text{trial}_k = v_k \text{ when } u < \mathrm{CR} \text{ or } k = k_\text{rand}\text{, otherwise } x_{i,k};\ \mathrm{CR} = 0.9;\ \text{clamped to 1 nm} \\
+\text{selection} \quad & \text{the trial replaces } x_i \text{ when } \mathrm{MF}(\text{trial}) \le \mathrm{MF}(x_i); \\
+& \text{a generation's trials all come from the old population} \\
+\text{stop} \quad & \text{no new best in 60 generations;}\ \mathrm{MF} < 10^{-7};\ \text{Max iter (250)}
+\end{aligned}
+$$
 
 With four or more free layers and more than two CPU threads, each generation's trials are scored on several workers at once, with the same result.
 
@@ -165,13 +188,15 @@ Each sweep tries random moves of every thickness. It keeps a move that lowers th
 
 ![Simulated Annealing: the walk crosses several valleys while the temperature is high, then settles near 94 nm MgF₂, 121 nm Ta₂O₅.](/diagrams/optimization/refine-sa.gif)
 
-```
-move     d'_k = d_k + max(1 nm, f d_k) · N(0, 1),  f = max(0.01, 0.15 T / T₀);  clamped to 1 nm
-accept   ΔMF ≤ 0, or u < exp(−ΔMF / T)
-sweep    max(8, 2n) moves, then T ← 0.95 T
-T₀       the mean ΔMF of the uphill moves among 20 trial moves from the start (f = 0.15), divided by −ln 0.8
-stop     T < 10⁻⁷;  no new best in 100 sweeps;  MF < 10⁻⁷;  Max iter (400)
-```
+$$
+\begin{aligned}
+\text{move} \quad & d'_k = d_k + \max(1\ \text{nm},\ f d_k) \cdot N(0, 1), \quad f = \max(0.01,\ 0.15\, T / T_0);\ \text{clamped to 1 nm} \\
+\text{accept} \quad & \Delta\mathrm{MF} \le 0 \text{, or } u < \exp(-\Delta\mathrm{MF} / T) \\
+\text{sweep} \quad & \max(8, 2n) \text{ moves, then } T \leftarrow 0.95\,T \\
+T_0 \quad & \text{the mean } \Delta\mathrm{MF} \text{ of the uphill moves among 20 trial moves from the start (} f = 0.15 \text{), divided by } -\ln 0.8 \\
+\text{stop} \quad & T < 10^{-7};\ \text{no new best in 100 sweeps;}\ \mathrm{MF} < 10^{-7};\ \text{Max iter (400)}
+\end{aligned}
+$$
 
 The result is the lowest design met on the way, not the last one.
 

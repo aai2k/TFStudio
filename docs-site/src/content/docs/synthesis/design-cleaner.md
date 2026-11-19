@@ -38,21 +38,23 @@ Locked layers are never merged or removed, and a symmetric design gets the clean
 
 ### Merging
 
-Merging changes nothing optically. Two neighbouring layers of one material share the admittance η and their phase thicknesses add, so their matrices (see [Needle](/synthesis/needle/#needle-function)) multiply to the matrix of one layer of the summed thickness:
+Merging changes nothing optically. Two neighbouring layers of one material share the admittance $\eta$ and their phase thicknesses add, so their matrices (see [Needle](/synthesis/needle/#needle-function)) multiply to the matrix of one layer of the summed thickness:
 
-```
-M(d_1) · M(d_2) = M(d_1 + d_2)        δ = 2π ñ d cos θ / λ
-```
+$$
+M(d_1)\,M(d_2) = M(d_1 + d_2), \qquad \delta = \frac{2\pi \tilde n d \cos\theta}{\lambda}
+$$
 
 R, T and the MF are therefore the same before and after a merge. Only removals move **MF after**.
 
 ### Removing and re-optimizing
 
-```
-removed:        unlocked layer j with d_j < Remove below
-passes:         merge, remove; again while a pass removes a layer, at most 4; then merge
-refinement:     Method, at most Max iter steps,  d_j ≥ max(Remove below, 1 nm)
-```
+$$
+\begin{aligned}
+& \text{removed:} && \text{unlocked layer } j \text{ with } d_j < \text{Remove below} \\
+& \text{passes:} && \text{merge, remove; again while a pass removes a layer, at most 4; then merge} \\
+& \text{refinement:} && \text{Method, at most Max iter steps,}\quad d_j \ge \max(\text{Remove below},\ 1\ \text{nm})
+\end{aligned}
+$$
 
 The refinement uses every row of the merit function, its band rows sampled as a Refinement run samples them at launch, and no layer may go below the larger of the threshold and 1 nm, so a layer the cleaner kept cannot be refined back under it.
 

@@ -38,7 +38,7 @@ A needle insertion comes from the [needle](/synthesis/needle/#needle-function) s
 
 **Smart starting design**: start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first. Off by default, since on other targets it holds the search in an antireflection design's basin.
 
-**Deep search**: when no new best has come for P iterations, restart from the best design with one to three mutations at three times the jitter and the temperature back at **T₀**. The run then ends only at the **Target MF**, at the **Time budget (min)** or on **Stop**.
+**Deep search**: when no new best has come for $P$ iterations, restart from the best design with one to three mutations at three times the jitter and the temperature back at **T₀**. The run then ends only at the **Target MF**, at the **Time budget (min)** or on **Stop**.
 
 **Synthesis refiner**: the method that refines each proposal; **Conjugate Gradient** by default. See [Optimization Methods](/synthesis/optimization-methods/).
 
@@ -64,36 +64,40 @@ A `PPEF` row, and any math row that reads it, is left out as in Needle; a Refine
 
 ### Merit and refinement
 
-Each proposal is refined on the merit rows less `MNT` and `MXT`, with every thickness between the floor d_min and the ceiling d_max those rows set, then tidied (neighbours of one material merged) and scored on every row, `MNT` and `MXT` included. That score is the MF the accept test and the history use. The needle insertions use the needle function and the starting-thickness search of [Needle](/synthesis/needle/#needle-function), at four points inside each layer.
+Each proposal is refined on the merit rows less `MNT` and `MXT`, with every thickness between the floor $d_\text{min}$ and the ceiling $d_\text{max}$ those rows set, then tidied (neighbours of one material merged) and scored on every row, `MNT` and `MXT` included. That score is the MF the accept test and the history use. The needle insertions use the needle function and the starting-thickness search of [Needle](/synthesis/needle/#needle-function), at four points inside each layer.
 
 ### Annealing
 
-```
-temperature:    T_i = T₀ · 0.005^(i / I)
-accept:         MF_new ≤ MF_cur always;  otherwise with probability exp(−(MF_new − MF_cur) / (MF_cur · T_i))
-batch move:     the lowest move if MF_low < MF_best;  else the first move, in random order, that passes
-same design:    every layer within 0.5 nm of the current design, same materials: not a move
-fall back:      MF_cur > 1.3 · MF_best  →  the chain goes back to the best design
-stall:          P = max(15, round(Max iterations / 3)) iterations without a new best
-```
+$$
+\begin{aligned}
+& \text{temperature:} && T_i = T_0 \cdot 0.005^{\,i / I} \\
+& \text{accept:} && \text{MF}_\text{new} \le \text{MF}_\text{cur} \text{ always;}\quad \text{otherwise with probability } \exp\!\left(-\frac{\text{MF}_\text{new} - \text{MF}_\text{cur}}{\text{MF}_\text{cur} \cdot T_i}\right) \\
+& \text{batch move:} && \text{the lowest move if } \text{MF}_\text{low} < \text{MF}_\text{best};\ \text{else the first move, in random order, that passes} \\
+& \text{same design:} && \text{every layer within 0.5 nm of the current design, same materials: not a move} \\
+& \text{fall back:} && \text{MF}_\text{cur} > 1.3 \cdot \text{MF}_\text{best} \ \to\ \text{the chain goes back to the best design} \\
+& \text{stall:} && P = \max\!\left(15,\ \text{round}(\text{Max iterations} / 3)\right) \text{ iterations without a new best}
+\end{aligned}
+$$
 
-I is **Max iterations**. With Deep search, i counts from the last reheat and I = max(40, Max iterations). The accept test uses the relative rise of the MF, so T₀ means the same on a design whose MF is 10⁻⁴ as on one whose MF is 1.
+$I$ is **Max iterations**. With Deep search, $i$ counts from the last reheat and $I = \max(40,\ \text{Max iterations})$. The accept test uses the relative rise of the MF, so $T_0$ means the same on a design whose MF is $10^{-4}$ as on one whose MF is 1.
 
 ### Mutations
 
-```
-odds:           add, split, perturb 1;  remove, merge 0.7
-add:            a pool material, unlike its neighbours where it can be, at a random position;
-                thickness uniform in [d_min, Max added]
-remove:         layer j with weight 1 / (d_j + d_min)
-split:          host of at least 2·d_min, cut at 30 to 70 %, another pool material between the parts,
-                thickness uniform in [d_min, min(Max added, d_host / 2)]
-merge:          two neighbours → one layer, the thicker one's material, d_1 + d_2
-perturb:        every unlocked d_j → d_j · (1 + jitter · u),  u uniform in [−1, 1]
-reheat:         1 to 3 mutations of the best design, jitter · 3 (at most 60 %)
-```
+$$
+\begin{aligned}
+& \text{odds:} && \text{add, split, perturb } 1;\ \text{remove, merge } 0.7 \\
+& \text{add:} && \text{a pool material, unlike its neighbours where it can be, at a random position;} \\
+& && \text{thickness uniform in } [d_\text{min},\ \text{Max added}] \\
+& \text{remove:} && \text{layer } j \text{ with weight } 1 / (d_j + d_\text{min}) \\
+& \text{split:} && \text{host of at least } 2 d_\text{min}, \text{ cut at 30 to 70 \%, another pool material between the parts,} \\
+& && \text{thickness uniform in } [d_\text{min},\ \min(\text{Max added},\ d_\text{host} / 2)] \\
+& \text{merge:} && \text{two neighbours} \to \text{one layer, the thicker one's material, } d_1 + d_2 \\
+& \text{perturb:} && \text{every unlocked } d_j \to d_j \cdot (1 + \text{jitter} \cdot u),\quad u \text{ uniform in } [-1, 1] \\
+& \text{reheat:} && \text{1 to 3 mutations of the best design, jitter} \cdot 3 \text{ (at most 60 \%)}
+\end{aligned}
+$$
 
-Every thickness is then clamped to [d_min, d_max]. A kind that cannot apply, such as a merge on a single layer, gives way to another kind drawn from the rest.
+Every thickness is then clamped to $[d_\text{min},\ d_\text{max}]$. A kind that cannot apply, such as a merge on a single layer, gives way to another kind drawn from the rest.
 
 Kirkpatrick et al. accept on the absolute rise of the cost. Here it is the relative rise, because merit values differ by orders of magnitude between problems. For a batch of moves refined side by side, testing each in random order and taking the first that passes is the synchronous parallel annealing rule given by Delamarre and Virot, which Ferrero et al. show is equivalent to a serial chain. The run adds one rule to it: a move that beats the best design so far is always taken, so a batch does not throw away a lower design it found. Deep search is basin hopping (Wales and Doye).
 

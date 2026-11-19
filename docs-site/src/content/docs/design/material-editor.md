@@ -4,7 +4,7 @@ description: "Browse, import and create optical materials: the n(λ), k(λ) data
 ribbonIcon: material-editor
 ---
 
-The Material Editor holds every source of refractive index TFStudio knows. Each material gives n(λ) and k(λ), k > 0 for an absorbing one, and every material picker in the app reads from here. Materials sit in catalogs by source:
+The Material Editor holds every source of refractive index TFStudio knows. Each material gives $n(\lambda)$ and $k(\lambda)$, $k > 0$ for an absorbing one, and every material picker in the app reads from here. Materials sit in catalogs by source:
 
 | Catalog | Source | Editable |
 |---|---|---|
@@ -29,8 +29,8 @@ The chart shows n on the left axis and k dashed on the right. Under it, a wavele
 
 A material has two pages. **n & k** takes a data type:
 
-1. **Tabular**: a λ, n, k table, typed or pasted from a spreadsheet, with a rule for the wavelengths between points ([below](#between-the-table-points)).
-2. **Formula**: a dispersion formula with its coefficients and an optional λ, k table. The formulas are grouped by source under the source's own numbers: Zemax (Schott, Sellmeier, Herzberger, Conrady and the rest), the general series and OptiLayer forms, and the nine refractiveindex.info formulas. Cauchy, general Sellmeier and the series take as many terms as you add; a zero term is dropped on save.
+1. **Tabular**: a $\lambda$, $n$, $k$ table, typed or pasted from a spreadsheet, with a rule for the wavelengths between points ([below](#between-the-table-points)).
+2. **Formula**: a dispersion formula with its coefficients and an optional $\lambda$, $k$ table. The formulas are grouped by source under the source's own numbers: Zemax (Schott, Sellmeier, Herzberger, Conrady and the rest), the general series and OptiLayer forms, and the nine refractiveindex.info formulas. Cauchy, general Sellmeier and the series take as many terms as you add; a zero term is dropped on save.
 
 The validity range at the top bounds where the material holds and what the chart spans.
 
@@ -57,11 +57,11 @@ Catalogs are saved in the data folder's `Materials` subfolder. **Refresh all**, 
 - The copy is used only where no catalog here holds the material: a design from another computer, a deleted material or catalog, or a catalog here with a different material under the same ID. It is listed under **This design**; **Copy to my catalog…** makes an editable material of it under a new ID, and the design keeps its copy until you pick the new material for its layers.
 - Where a catalog here has a different material under the same ID, that catalog's material is not offered for the design's layers. A deleted material's ID is never given to a new material in its catalog.
 - A material TFStudio cannot compute, a formula with no evaluator or a table with no row holding both a wavelength and an n, is never given a stand-in index: the design lists it as unavailable and calculations stop until it is replaced. Saving keeps its definition as written.
-- A formula is evaluated as written, with no floor under n. Where it gives no real, positive n, at a pole or where n² turns negative, the material has no index and a design gets no result at those wavelengths.
+- A formula is evaluated as written, with no floor under n. Where it gives no real, positive n, at a pole or where $n^2$ turns negative, the material has no index and a design gets no result at those wavelengths.
 
 ## Importing
 
-**New catalog from Zemax AGF**: the internal transmittance an AGF file stores becomes k(λ) ([Theory](#theory)). A glass whose formula number TFStudio does not evaluate is left out and the import message names it; files picked up at startup have no window to report in, so import one by hand to see what was left out.
+**New catalog from Zemax AGF**: the internal transmittance an AGF file stores becomes $k(\lambda)$ ([Theory](#theory)). A glass whose formula number TFStudio does not evaluate is left out and the import message names it; files picked up at startup have no window to report in, so import one by hand to see what was left out.
 
 **From TFCalc, Macleod or OptiLayer files**, any mix in one pick:
 
@@ -74,7 +74,7 @@ Catalogs are saved in the data folder's `Materials` subfolder. **Refresh all**, 
 - The dialog lists each material with its program and data type and previews the highlighted one; untick what you do not want and pick the catalog.
 - TFCalc and Essential Macleod files do not record their wavelength unit. Nanometres are assumed, an Essential Macleod database's own setting is read when the `.tfx` sits in its folder, and a switch sets micrometres when the preview is in the wrong place.
 - A formula keeps its form where TFStudio has it. The TFCalc forms it lacks (Hartmann, Drude and every k formula) are sampled to a table over the file's range. An Essential Macleod internal-transmittance table is left out and its k column used as it is; the compressed files of its materials library cannot be read.
-- A table point with k below zero, the residue of the fit behind some tables, is imported as written and marked; every calculation reads k = 0 there, since negative k would be gain.
+- A table point with k below zero, the residue of the fit behind some tables, is imported as written and marked; every calculation reads $k = 0$ there, since negative k would be gain.
 
 **From refractiveindex.info**: the online database, needing a connection the first time. A table page arrives with every row; a formula page arrives as that formula with its stated range and the page's k table, and is evaluated as the formula gives it outside that range. The browser plots or tables a page, reads n and k at a wavelength, and says where a formula page has no real n inside its range.
 
@@ -85,11 +85,11 @@ Each tabulated n and k column carries its own rule for the wavelengths between p
 - **Shape-preserving cubic** (PCHIP), the default: passes through every point and stays inside the values of each bracketing pair, so a non-negative k table gains no overshoot, and it has a slope everywhere, which phase and dispersion need.
 - **Linear**: straight lines between points. A material imported from TFCalc or Essential Macleod files keeps it, so an imported design gives the numbers it gave there. Its slope jumps at each point, and the GD/GDD window breaks its curves there.
 
-Neither rule adds information the table lacks. Where the answer depends on the curvature of n(λ) between measurements, a smooth fit is the honest model.
+Neither rule adds information the table lacks. Where the answer depends on the curvature of $n(\lambda)$ between measurements, a smooth fit is the honest model.
 
 ## Smooth dispersion fit
 
-An editable table can carry a smooth fit for calculations that need higher derivatives: Cauchy or a one- to three-term Sellmeier for n, with a non-negative Urbach k when the table has enough positive values and k = 0 otherwise, or for a metal a Drude or Drude-Lorentz model fitting n and k together.
+An editable table can carry a smooth fit for calculations that need higher derivatives: Cauchy or a one- to three-term Sellmeier for n, with a non-negative Urbach k when the table has enough positive values and $k = 0$ otherwise, or for a metal a Drude or Drude-Lorentz model fitting n and k together.
 
 - **Fit from** and **Fit to** set its range, apart from the validity range. It starts at the design's evaluation range where the table reaches; outside it the table is read. Where the fit ends inside the table, n and k step by the fit's residual there: the panel names the step, and the GD/GDD and Material Dispersion windows break their curves at it.
 - A range over more than a decade of photon energy is reported, since no one model holds free electrons, an interband edge and the transparent region at once, and the design's range is offered with the residual it reaches.
@@ -98,25 +98,27 @@ An editable table can carry a smooth fit for calculations that need higher deriv
 
 ## Theory
 
-The fit models, λ in µm and E = 1.239841984 / λ in eV:
+The fit models, $\lambda$ in µm and $E = 1.239841984 / \lambda$ in eV:
 
-```
-Cauchy:          n = A₀ + A₁/λ² + A₂/λ⁴ + …
-Sellmeier:       n² = A + Σ_j B_j λ² / (λ² − C_j)
-Urbach:          k = k₀ exp(k_b/λ + k_c λ)
-Drude-Lorentz:   ε = ε∞ − E_p² / (E² + iΓE) + Σ_j f_j / (E_j² − E² − iγ_j E)
-                 n + ik = √ε
-```
+$$
+\begin{aligned}
+\text{Cauchy:} \quad & n = A_0 + \frac{A_1}{\lambda^2} + \frac{A_2}{\lambda^4} + \cdots \\
+\text{Sellmeier:} \quad & n^2 = A + \sum_j \frac{B_j \lambda^2}{\lambda^2 - C_j} \\
+\text{Urbach:} \quad & k = k_0 \exp\!\left(\frac{k_b}{\lambda} + k_c \lambda\right) \\
+\text{Drude-Lorentz:} \quad & \varepsilon = \varepsilon_\infty - \frac{E_p^2}{E^2 + i\Gamma E} + \sum_j \frac{f_j}{E_j^2 - E^2 - i\gamma_j E} \\
+& n + ik = \sqrt{\varepsilon}
+\end{aligned}
+$$
 
-The metal model is Rakić's Lorentz-Drude function with its signs conjugated for TFStudio's n + ik convention; Drude alone has no oscillator terms. A term is added only while it cuts the residual by a clear margin, so the fit follows the dispersion rather than the rounding of the table.
+The metal model is Rakić's Lorentz-Drude function with its signs conjugated for TFStudio's $n + ik$ convention; Drude alone has no oscillator terms. A term is added only while it cuts the residual by a clear margin, so the fit follows the dispersion rather than the rounding of the table.
 
-An AGF glass's internal transmittance τ over thickness d becomes, at each tabulated wavelength (Beer–Lambert):
+An AGF glass's internal transmittance $\tau$ over thickness $d$ becomes, at each tabulated wavelength (Beer–Lambert):
 
-```
-k(λ) = −λ / (4π d) · ln τ(λ)
-```
+$$
+k(\lambda) = -\frac{\lambda}{4\pi d} \ln\tau(\lambda)
+$$
 
-A τ of 0 in the run of rows that opens the glass's data at the short-wave end is its UV cut-off: it is read as τ = 0.0005 over that row's thickness, half the last printed digit: the least absorption the printed 0 allows, so a piece thinner than the catalog's still passes some light there. A τ of 0 anywhere else, such as the 1.06 µm rows of some older Schott glasses, means no data and the row is left out.
+A $\tau$ of 0 in the run of rows that opens the glass's data at the short-wave end is its UV cut-off: it is read as $\tau$ = 0.0005 over that row's thickness, half the last printed digit: the least absorption the printed 0 allows, so a piece thinner than the catalog's still passes some light there. A $\tau$ of 0 anywhere else, such as the 1.06 µm rows of some older Schott glasses, means no data and the row is left out.
 
 ## References
 

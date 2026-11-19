@@ -37,13 +37,13 @@ The peak against the transform limit compares the output with the shortest pulse
 
 ## Pulse shapes and table files
 
-Each model shape is symmetric in frequency about the centre, with no phase of its own. Δω is the angular frequency less the carrier's, the intensity is per unit frequency, and the time-bandwidth product is FWHM in time times FWHM in ν = ω/2π.
+Each model shape is symmetric in frequency about the centre, with no phase of its own. $\Delta\omega$ is the angular frequency less the carrier's, the intensity is per unit frequency, and the time-bandwidth product is FWHM in time times FWHM in $\nu = \omega/2\pi$.
 
 | Shape | Set by | Spectral intensity | Transform-limited intensity | Time-bandwidth product |
 |---|---|---|---|---|
-| **Gaussian** | Duration τ | `exp(−τ²·Δω² / (4 ln2))` | `exp(−4 ln2 · t²/τ²)` | 0.441 |
-| **sech²** | Duration τ | `sech²(π·T₀·Δω / 2)` | `sech²(t/T₀)`, τ = 1.763·T₀ | 0.315 |
-| **Super-Gaussian** | FWHM W, order p | `exp(−ln2 · (2·\|Δω\|/W)^p)` | no closed form | 0.441 at p = 2, rising with p |
+| **Gaussian** | Duration $\tau$ | $\exp\left(-\tau^2 \cdot \Delta\omega^2 / (4 \ln 2)\right)$ | $\exp\left(-4 \ln 2 \cdot t^2/\tau^2\right)$ | 0.441 |
+| **sech²** | Duration $\tau$ | $\operatorname{sech}^2\left(\pi \cdot T_0 \cdot \Delta\omega / 2\right)$ | $\operatorname{sech}^2(t/T_0)$, $\tau = 1.763 \cdot T_0$ | 0.315 |
+| **Super-Gaussian** | FWHM $W$, order $p$ | $\exp\left(-\ln 2 \cdot (2 \cdot \lvert\Delta\omega\rvert / W)^p\right)$ | no closed form | 0.441 at $p = 2$, rising with $p$ |
 
 A table file holds wavelength (nm, µm, cm⁻¹ or eV, from the header or told from the numbers), relative intensity, and optionally phase in rad, read as the [Spectrum File Formats](/data-exchange/spectrum-file-formats/#delimited-text) page describes:
 
@@ -62,18 +62,22 @@ Intensity against nm or µm is per unit wavelength and is converted to per unit 
 
 The output spectrum is the input times the coating's full complex response, once per bounce, with nothing reduced to GD and GDD:
 
-```
-Ẽ_out(ω) = Ẽ_in(ω) · H(ω)^N
-Φ_out(ω) = Φ_in(ω) + N · arg H(ω)
-I(t)     = | ∫ Ẽ(ω) e^{−iΔω·t} dω |²
-```
+$$
+\begin{aligned}
+\tilde E_\text{out}(\omega) &= \tilde E_\text{in}(\omega) \cdot H(\omega)^N \\
+\Phi_\text{out}(\omega) &= \Phi_\text{in}(\omega) + N \cdot \arg H(\omega) \\
+I(t) &= \left| \int \tilde E(\omega)\, e^{-i\Delta\omega \cdot t}\, d\omega \right|^2
+\end{aligned}
+$$
 
-H is r in reflection, and in transmission t scaled so that `|H|² = T`; for **Whole part** it is the front coating, one pass through the substrate and the back coating. arg H has the sign whose derivative is the coating's group delay, as in the [GD / GDD window](/analysis/gd-gdd/). The FLP is the same |Ẽ_in| with a flat phase.
+$H$ is $r$ in reflection, and in transmission $t$ scaled so that $|H|^2 = T$; for **Whole part** it is the front coating, one pass through the substrate and the back coating. $\arg H$ has the sign whose derivative is the coating's group delay, as in the [GD / GDD window](/analysis/gd-gdd/). The FLP is the same $|\tilde E_\text{in}|$ with a flat phase.
 
-```
-delay   = ∫ |Ẽ_out|² · dΦ_out/dω dω  /  ∫ |Ẽ_out|² dω
-GDD_res = ∫ |Ẽ_out|² · d²Φ_out/dω² dω  /  ∫ |Ẽ_out|² dω
-```
+$$
+\begin{aligned}
+\text{delay} &= \frac{\int |\tilde E_\text{out}|^2 \cdot \frac{d\Phi_\text{out}}{d\omega}\, d\omega}{\int |\tilde E_\text{out}|^2\, d\omega} \\
+\mathrm{GDD}_\text{res} &= \frac{\int |\tilde E_\text{out}|^2 \cdot \frac{d^2\Phi_\text{out}}{d\omega^2}\, d\omega}{\int |\tilde E_\text{out}|^2\, d\omega}
+\end{aligned}
+$$
 
 The delay is the shift of the intensity centroid, which by Parseval's theorem equals the spectrally weighted group delay. Delay, GDD and TOD come from exact derivatives of the phase. Durations are full widths at half maximum between the outermost half-maximum points, so a satellite above half the peak counts.
 

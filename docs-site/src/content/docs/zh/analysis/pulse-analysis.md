@@ -37,13 +37,13 @@ ribbonIcon: pulse-analysis
 
 ## 脉冲形状与表格文件
 
-每种模型形状在频率上关于中心对称，本身没有相位。Δω 为角频率减去载波频率，强度按单位频率计，时间带宽积为时间上的半高全宽乘以 ν = ω/2π 上的半高全宽。
+每种模型形状在频率上关于中心对称，本身没有相位。$\Delta\omega$ 为角频率减去载波频率，强度按单位频率计，时间带宽积为时间上的半高全宽乘以 $\nu = \omega/2\pi$ 上的半高全宽。
 
 | 形状 | 设定参数 | 光谱强度 | 变换极限强度 | 时间带宽积 |
 |---|---|---|---|---|
-| **高斯** | 脉宽 τ | `exp(−τ²·Δω² / (4 ln2))` | `exp(−4 ln2 · t²/τ²)` | 0.441 |
-| **sech²** | 脉宽 τ | `sech²(π·T₀·Δω / 2)` | `sech²(t/T₀)`，τ = 1.763·T₀ | 0.315 |
-| **超高斯** | 半高全宽 W，阶数 p | `exp(−ln2 · (2·\|Δω\|/W)^p)` | 无解析形式 | p = 2 时为 0.441，随 p 增大 |
+| **高斯** | 脉宽 $\tau$ | $\exp\left(-\tau^2 \cdot \Delta\omega^2 / (4 \ln 2)\right)$ | $\exp\left(-4 \ln 2 \cdot t^2/\tau^2\right)$ | 0.441 |
+| **sech²** | 脉宽 $\tau$ | $\operatorname{sech}^2\left(\pi \cdot T_0 \cdot \Delta\omega / 2\right)$ | $\operatorname{sech}^2(t/T_0)$，$\tau = 1.763 \cdot T_0$ | 0.315 |
+| **超高斯** | 半高全宽 $W$，阶数 $p$ | $\exp\left(-\ln 2 \cdot (2 \cdot \lvert\Delta\omega\rvert / W)^p\right)$ | 无解析形式 | $p = 2$ 时为 0.441，随 $p$ 增大 |
 
 表格文件包含波长（nm、µm、cm⁻¹ 或 eV，由表头或数值判断）、相对强度，以及可选的以弧度表示的相位，读取方式见[光谱文件格式](/zh/data-exchange/spectrum-file-formats/#分隔文本)：
 
@@ -62,18 +62,22 @@ Wavelength (nm)	Intensity	Phase (rad)
 
 输出光谱等于输入光谱乘以镀膜的完整复响应，每次反射乘一次，不简化为 GD 和 GDD：
 
-```
-Ẽ_out(ω) = Ẽ_in(ω) · H(ω)^N
-Φ_out(ω) = Φ_in(ω) + N · arg H(ω)
-I(t)     = | ∫ Ẽ(ω) e^{−iΔω·t} dω |²
-```
+$$
+\begin{aligned}
+\tilde E_\text{out}(\omega) &= \tilde E_\text{in}(\omega) \cdot H(\omega)^N \\
+\Phi_\text{out}(\omega) &= \Phi_\text{in}(\omega) + N \cdot \arg H(\omega) \\
+I(t) &= \left| \int \tilde E(\omega)\, e^{-i\Delta\omega \cdot t}\, d\omega \right|^2
+\end{aligned}
+$$
 
-H 在反射中为 r，在透射中为缩放后使 `|H|² = T` 的 t；**整体**时它是正面镀膜、一次穿过基底和背面镀膜的乘积。arg H 的符号使其导数等于镀膜的群延迟，与 [GD / GDD 窗口](/zh/analysis/gd-gdd/)相同。FLP 是相同的 |Ẽ_in| 配以平坦相位。
+$H$ 在反射中为 $r$，在透射中为缩放后使 $|H|^2 = T$ 的 $t$；**整体**时它是正面镀膜、一次穿过基底和背面镀膜的乘积。$\arg H$ 的符号使其导数等于镀膜的群延迟，与 [GD / GDD 窗口](/zh/analysis/gd-gdd/)相同。FLP 是相同的 $|\tilde E_\text{in}|$ 配以平坦相位。
 
-```
-delay   = ∫ |Ẽ_out|² · dΦ_out/dω dω  /  ∫ |Ẽ_out|² dω
-GDD_res = ∫ |Ẽ_out|² · d²Φ_out/dω² dω  /  ∫ |Ẽ_out|² dω
-```
+$$
+\begin{aligned}
+\text{delay} &= \frac{\int |\tilde E_\text{out}|^2 \cdot \frac{d\Phi_\text{out}}{d\omega}\, d\omega}{\int |\tilde E_\text{out}|^2\, d\omega} \\
+\mathrm{GDD}_\text{res} &= \frac{\int |\tilde E_\text{out}|^2 \cdot \frac{d^2\Phi_\text{out}}{d\omega^2}\, d\omega}{\int |\tilde E_\text{out}|^2\, d\omega}
+\end{aligned}
+$$
 
 延迟是强度重心的移动，由帕塞瓦尔定理，它等于按光谱加权的群延迟。延迟、GDD 和 TOD 来自相位的精确导数。脉宽是最外侧两个半峰点之间的半高全宽，因此高于峰值一半的卫星脉冲也计算在内。
 

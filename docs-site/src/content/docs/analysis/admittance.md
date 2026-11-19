@@ -11,12 +11,12 @@ The Admittance Diagram builds the coating up on the substrate one layer at a tim
 
 ## Computed quantities
 
-Optical admittance is the ratio of the magnetic to the electric field along the layers, in units of the admittance of free space. At normal incidence it equals the refractive index: air at 1, glass at 1.52. An absorbing material, `n − ik`, sits below the real axis.
+Optical admittance is the ratio of the magnetic to the electric field along the layers, in units of the admittance of free space. At normal incidence it equals the refractive index: air at 1, glass at 1.52. An absorbing material, $n - ik$, sits below the real axis.
 
-- **η_s** (square): the substrate's admittance, where the path starts.
-- **Y₀** (diamond): the admittance at the outer surface of the finished coating, where the path ends.
-- **η₀** (cross): the incident medium's admittance. The path has to end on it for zero reflectance.
-- **Γ**: the amplitude reflection coefficient for light from the incident medium. `|Γ|²` is the reflectance and the angle of Γ the phase change on reflection.
+- **$\eta_s$** (square): the substrate's admittance, where the path starts.
+- **$Y_0$** (diamond): the admittance at the outer surface of the finished coating, where the path ends.
+- **$\eta_0$** (cross): the incident medium's admittance. The path has to end on it for zero reflectance.
+- **$\Gamma$**: the amplitude reflection coefficient for light from the incident medium. $|\Gamma|^2$ is the reflectance and the angle of $\Gamma$ the phase change on reflection.
 
 Arcs are numbered as in the [Design Editor](/design/design-editor/), L1 on the substrate; hover the dot at an arc's end for its value. A layer of zero thickness draws nothing and keeps its number.
 
@@ -30,74 +30,75 @@ Arcs are numbered as in the [Design Editor](/design/design-editor/), L1 on the s
 
 **Settings**: **Wavelength (nm)** follows the design's reference wavelength and resets to it when you switch designs, 550 nm on a design without one. **AOI (°)** runs from 0 to 89.
 
-**Range warning**: a ⚠ badge appears when the wavelength lies outside a material's data range, with a button that moves λ to the nearest wavelength every material covers.
+**Range warning**: a ⚠ badge appears when the wavelength lies outside a material's data range, with a button that moves $\lambda$ to the nearest wavelength every material covers.
 
 **Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows, a numbered one holds the window on it even while it is switched off, and **All** draws every environment that is on in its own color, with the table rows led by their environment. The choice is not saved with the design.
 
-**Plot**: Re and Im keep one scale, so circles stay round. The wheel zooms about the pointer and dragging pans. The Y plane opens on η_s, η₀ and the arcs near them, so a mirror's outer arcs need a zoom out.
+**Plot**: Re and Im keep one scale, so circles stay round. The wheel zooms about the pointer and dragging pans. The Y plane opens on $\eta_s$, $\eta_0$ and the arcs near them, so a mirror's outer arcs need a zoom out.
 
-**Results**: one row per layer boundary from η_s out to η₀. The Γ on a layer's row is the reflection coefficient the coating would have if it ended with that layer.
+**Results**: one row per layer boundary from $\eta_s$ out to $\eta_0$. The $\Gamma$ on a layer's row is the reflection coefficient the coating would have if it ended with that layer.
 
 ## Loci in the Y and Γ planes
 
-A layer without absorption draws a circle centred on the real axis, clockwise as it thickens. A quarter wave is half a circle, from Y′ on the real axis to `n²/Y′`. A half wave is a full circle back to its start, which is why it changes nothing at its own wavelength. An absorbing layer spirals in toward its own admittance `n − ik`, because a thick absorbing layer looks to the light like the bulk material.
+A layer without absorption draws a circle centred on the real axis, clockwise as it thickens. A quarter wave is half a circle, from $Y'$ on the real axis to $n^2/Y'$. A half wave is a full circle back to its start, which is why it changes nothing at its own wavelength. An absorbing layer spirals in toward its own admittance $n - ik$, because a thick absorbing layer looks to the light like the bulk material.
 
 ![Admittance locus of a two-layer V-coat on glass at 550 nm. From the glass at 1.52, a thin ZnS layer draws a short arc upward and the MgF₂ layer swings clockwise round most of a circle, ending exactly on air at 1. A dashed circle through the glass marks the reflectance of bare glass.](/diagrams/admittance-vcoat.svg)
 
-An antireflection coating has to bring the path onto η₀. In this V-coat the thin ZnS layer moves the admittance just far enough that the MgF₂ circle from there passes through air at 1. Points of equal reflectance lie on circles around η₀, like the dashed one through bare glass: inside it a coating reflects less than bare glass, outside it more.
+An antireflection coating has to bring the path onto $\eta_0$. In this V-coat the thin ZnS layer moves the admittance just far enough that the MgF₂ circle from there passes through air at 1. Points of equal reflectance lie on circles around $\eta_0$, like the dashed one through bare glass: inside it a coating reflects less than bare glass, outside it more.
 
 ![The same five-layer quarter-wave mirror in both planes. In Y each half circle is larger than the last, and the fifth runs off the plot to Y₀ = 30.6. In Γ the same path is a chain of clockwise half circles spiralling out toward the dotted unit circle, ending at Y₀ close to it.](/diagrams/admittance-mirror.svg)
 
-In a quarter-wave mirror each pair of layers scales the admittance by `(n_H/n_L)²`, up after a ZnS layer and down after an MgF₂ one, so in Y the half circles soon leave any frame. In Γ the same path spirals out toward the unit circle, here to |Γ| = 0.94, R = 88 %. In the Γ plane:
+In a quarter-wave mirror each pair of layers scales the admittance by $(n_H/n_L)^2$, up after a ZnS layer and down after an MgF₂ one, so in Y the half circles soon leave any frame. In Γ the same path spirals out toward the unit circle, here to $|\Gamma| = 0.94$, $R = 88\,\%$. In the Γ plane:
 
-- The centre is η₀: no reflection.
-- The distance from the centre is `√R`; the dotted unit circle is total reflection.
-- Left of the centre on the real axis the admittance is above η₀ and the phase change on reflection is 180°; right of it, 0.
+- The centre is $\eta_0$: no reflection.
+- The distance from the centre is $\sqrt{R}$; the dotted unit circle is total reflection.
+- Left of the centre on the real axis the admittance is above $\eta_0$ and the phase change on reflection is 180°; right of it, 0.
 - Layers still draw clockwise circular arcs, joined with no break at the interfaces.
 
-At an angle the s admittances fall and the p admittances rise, the incident medium's included: in air at 45°, η₀ is 0.707 for s and 1.414 for p, so the two loci aim at different points.
+At an angle the s admittances fall and the p admittances rise, the incident medium's included: in air at 45°, $\eta_0$ is 0.707 for s and 1.414 for p, so the two loci aim at different points.
 
 ## Theory
 
-Each layer r has a complex index `N_r = n_r − i·k_r`, a tilted admittance and a phase thickness (Macleod, Eqs. 2.113 and 2.114):
+Each layer $r$ has a complex index $N_r = n_r - i k_r$, a tilted admittance and a phase thickness (Macleod, Eqs. 2.113 and 2.114):
 
-```
-n₀ sin θ₀ = N_r sin θ_r
-η_r = N_r cos θ_r          s-polarization
-η_r = N_r / cos θ_r        p-polarization
-δ_r = 2π N_r d_r cos θ_r / λ
-```
+$$
+\begin{aligned}
+n_0 \sin\theta_0 &= N_r \sin\theta_r \\
+\eta_r &= N_r \cos\theta_r && \text{s-polarization} \\
+\eta_r &= N_r / \cos\theta_r && \text{p-polarization} \\
+\delta_r &= \frac{2\pi N_r d_r \cos\theta_r}{\lambda}
+\end{aligned}
+$$
 
-θ₀ is the AOI, n₀ the index of the incident medium, d_r the physical thickness and λ the wavelength, both in nm. η_s and η₀ come from the same expressions.
+$\theta_0$ is the AOI, $n_0$ the index of the incident medium, $d_r$ the physical thickness and $\lambda$ the wavelength, both in nm. $\eta_s$ and $\eta_0$ come from the same expressions.
 
-One layer takes the admittance Y′ at its inner face to Y at its outer face, the characteristic matrix applied to `[1, Y′]` with `Y = C/B` (Eq. 2.113, Section 3.2):
+One layer takes the admittance $Y'$ at its inner face to $Y$ at its outer face, the characteristic matrix applied to $(1,\ Y')$ with $Y = C/B$ (Eq. 2.113, Section 3.2):
 
-```
-Y = (Y′ cos δ_r + i η_r sin δ_r) / (cos δ_r + i (Y′/η_r) sin δ_r)
-```
+$$
+Y = \frac{Y' \cos\delta_r + i\,\eta_r \sin\delta_r}{\cos\delta_r + i\,(Y'/\eta_r) \sin\delta_r}
+$$
 
-The path starts at `Y′ = η_s` and steps out layer by layer to Y₀; each arc is this expression with δ_r growing from zero to its full value.
+The path starts at $Y' = \eta_s$ and steps out layer by layer to $Y_0$; each arc is this expression with $\delta_r$ growing from zero to its full value.
 
-For a layer without absorption below the critical angle, η_r and δ_r are real. With `Y = x + iy` and the start point `Y′ = α + iβ`, eliminating δ_r gives Eq. 3.3:
+For a layer without absorption below the critical angle, $\eta_r$ and $\delta_r$ are real. With $Y = x + iy$ and the start point $Y' = \alpha + i\beta$, eliminating $\delta_r$ gives Eq. 3.3:
 
-```
-x² + y² − x (α² + β² + η_r²) / α + η_r² = 0
-```
+$$
+x^2 + y^2 - x\,\frac{\alpha^2 + \beta^2 + \eta_r^2}{\alpha} + \eta_r^2 = 0
+$$
 
-a circle centred on the real axis at `(α² + β² + η_r²) / 2α` through the start point, traced clockwise. Its two real-axis crossings multiply to η_r², which is the quarter-wave rule. With absorption δ_r is complex, the circle becomes a spiral, and Y tends to η_r as the layer thickens.
+a circle centred on the real axis at $(\alpha^2 + \beta^2 + \eta_r^2)/2\alpha$ through the start point, traced clockwise. Its two real-axis crossings multiply to $\eta_r^2$, which is the quarter-wave rule. With absorption $\delta_r$ is complex, the circle becomes a spiral, and $Y$ tends to $\eta_r$ as the layer thickens.
 
 The reflection coefficient follows from the admittance (Eq. 2.112):
 
-```
-Γ = (η₀ − Y) / (η₀ + Y)
-R = |Γ|²
-```
+$$
+\Gamma = \frac{\eta_0 - Y}{\eta_0 + Y}, \qquad R = |\Gamma|^2
+$$
 
-For a transparent incident medium this maps η₀ to the centre of the Γ plane, the right half of the Y plane, where every passive stack lies, into the unit circle, and circles to circles. It is Macleod's reflection circle diagram (Section 3.4.5): the stack is built up in the final incident medium, so the path has no break at an interface. The circle of constant reflectance R in the Y plane, centred at `η₀(1 + R)/(1 − R)` with radius `2η₀√R/(1 − R)` (Eq. 3.5), becomes the circle of radius `√R` about the centre of the Γ plane.
+For a transparent incident medium this maps $\eta_0$ to the centre of the Γ plane, the right half of the Y plane, where every passive stack lies, into the unit circle, and circles to circles. It is Macleod's reflection circle diagram (Section 3.4.5): the stack is built up in the final incident medium, so the path has no break at an interface. The circle of constant reflectance $R$ in the Y plane, centred at $\eta_0(1 + R)/(1 - R)$ with radius $2\eta_0\sqrt{R}/(1 - R)$ (Eq. 3.5), becomes the circle of radius $\sqrt{R}$ about the centre of the Γ plane.
 
-The window uses Macleod's sign convention: an index enters as `n − ik` with the k ≥ 0 of the material's data, so an absorbing substrate starts below the real axis, as in the book's figures. The table and the CSV carry the same signs.
+The window uses Macleod's sign convention: an index enters as $n - ik$ with the $k \ge 0$ of the material's data, so an absorbing substrate starts below the real axis, as in the book's figures. The table and the CSV carry the same signs.
 
-The substrate counts as infinitely thick, so Y₀ and Γ describe the coated surface alone. On the back side the exit medium takes the place of the incident medium.
+The substrate counts as infinitely thick, so $Y_0$ and $\Gamma$ describe the coated surface alone. On the back side the exit medium takes the place of the incident medium.
 
 ## References
 

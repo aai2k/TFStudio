@@ -20,11 +20,11 @@ ribbonIcon: needle
 <!-- shot: needle-manual | P-function profile of a multilayer design with two pool materials, a point below zero picked, the Insertion Preview with d_new and the OMF now and after -->
 ![针法变异](/screenshots/needle-manual-zh.png)
 
-点击零线以下的一个点，即选中其位置和材料。**应用插入**以 **d_new** 插入针层，d_new 的初值由与针法自动相同的线搜索给出。开启**插入后精炼**时，随后用序列二次规划（SQP）精炼膜系，最多**精炼迭代**步，并遵守 `MNT` 和 `MXT` 行。图中显示计算出的每一个点，包括那些会使某层的一部分低于**最小厚度**的拆分点。
+点击零线以下的一个点，即选中其位置和材料。**应用插入**以 **d_new** 插入针层，$d_\text{new}$ 的初值由与针法自动相同的线搜索给出。开启**插入后精炼**时，随后用序列二次规划（SQP）精炼膜系，最多**精炼迭代**步，并遵守 `MNT` 和 `MXT` 行。图中显示计算出的每一个点，包括那些会使某层的一部分低于**最小厚度**的拆分点。
 
 ## 计算量
 
-- **P**，即 P 函数：某种池中材料的针层在某个深度、厚度 d 趋于零时，评价函数的斜率 ∂MF/∂d。低于零表示在那里插入针层会降低 MF。
+- **P**，即 $P$ 函数：某种池中材料的针层在某个深度、厚度 $d$ 趋于零时，评价函数的斜率 $\partial\mathrm{MF}/\partial d$。低于零表示在那里插入针层会降低 MF。
 - **MF**：[评价函数编辑器](/zh/design/merit-function-editor/)中的评价函数；**OMF**，即不含厚度行 `TT`、`STR`、`MNT` 和 `MXT` 的同一评价函数。
 - **ΔMF**：已接受的改善中，相对此前最好设计的变化。**总厚**：总物理厚度，nm。
 - **最佳设计**：在膜层数和 MF 两方面都没有被其他代同时超过的代。
@@ -33,7 +33,7 @@ ribbonIcon: needle
 
 **运行**、**停止**、**重置**、**最佳**、**清除历史**：停止会暂停运行并显示该运行最后接受的设计，下次按运行会从它出发在同一次运行中继续。重置撤销最近一次按下的运行。最佳把 MF 最低的一代放到设计上，任意一行的**恢复**也是如此。清除历史清除所有行，设计保持不变。
 
-**候选材料**：允许针法插入的材料池。材料池一开始只勾选设计中前、后表面膜层所用的材料；基底和介质列在**此设计**下但不勾选，其他目录也都不勾选。**全部 / 清空**可一键选中或清空材料池。你一旦改动材料池，窗口就会对所有设计保留你的选择，只是每个设计的基底和介质在你于该设计上勾选之前保持不勾选；用**清空**清空的材料池，在下次打开窗口时重新从设计自身的材料开始。
+**材料池**：允许针法插入的材料。材料池一开始只勾选设计中前、后表面膜层所用的材料；基底和介质列在**此设计**下但不勾选，其他目录也都不勾选。**全部 / 清空**可一键选中或清空材料池。你一旦改动材料池，窗口就会对所有设计保留你的选择，只是每个设计的基底和介质在你于该设计上勾选之前保持不勾选；用**清空**清空的材料池，在下次打开窗口时重新从设计自身的材料开始。
 
 **最大膜层数**：膜系达到这么多层后不再开始新的循环。默认 60。
 
@@ -41,7 +41,7 @@ ribbonIcon: needle
 
 **智能起始设计**：从设计本身以及由材料池构建的四分之一波和半波减反设计中，取各自精炼后最好的一个作为起点。默认关闭。
 
-**针法 δ (nm)**（针法手动中为**探测 δ**）：对 P 没有精确斜率的行，以及精确扫描不运行的情况所用的探测针层。默认 0.5 nm。
+**针法 δ (nm)**（针法手动中为**探测 δ**）：对 $P$ 没有精确斜率的行，以及精确扫描不运行的情况所用的探测针层。默认 0.5 nm。
 
 **最小厚度 (nm)**：针层起始的最小厚度、精炼时的下限，以及拆分一层时每部分的最小厚度；默认 1 nm。综合期间保持这一值，只在之后的精炼和[设计清理器](/zh/synthesis/design-cleaner/)处理中才提高到你的制造下限，以免可制造的下限拖累综合。当 `MNT` 行与它不同时，字段下方会有提示。
 
@@ -63,76 +63,89 @@ ribbonIcon: needle
 
 ### 评价函数
 
-```
-MF = √( Σ_i  w_i · (r_i / σ_i)²  /  W )
-```
+$$
+\mathrm{MF} = \sqrt{\frac{\sum_i w_i \, (r_i / \sigma_i)^2}{W}}
+$$
 
-r_i 为第 i 行的偏差，w_i 为其权重，σ_i 为其尺度，W 为权重之和。扫描和起始厚度搜索使用 OMF；精炼和 0.01 % 规则使用 MF。在带有[环境](/zh/design/environments/)的设计上，MF² 是各环境 MF² 的平均值，扫描也以同样的方式把各环境的斜率相加。
+$r_i$ 为第 $i$ 行的偏差，$w_i$ 为其权重，$\sigma_i$ 为其尺度，$W$ 为权重之和。扫描和起始厚度搜索使用 OMF；精炼和 0.01 % 规则使用 MF。在带有[环境](/zh/design/environments/)的设计上，$\mathrm{MF}^2$ 是各环境 $\mathrm{MF}^2$ 的平均值，扫描也以同样的方式把各环境的斜率相加。
 
 ### P 函数
 
-在 TFStudio 的约定 ñ = n + ik、exp(−iωt) 下（见[约定](/zh/#本手册中的约定)），层矩阵就是 Macleod 式 2.111 把 i 的符号反过来：
+在 TFStudio 的约定 $\tilde n = n + ik$、$\exp(-i\omega t)$ 下（见[约定](/zh/#本手册中的约定)），层矩阵就是 Macleod 式 2.111 把 $i$ 的符号反过来：
 
-```
-M_j = [ cos δ_j            −i sin δ_j / η_j ]        δ_j = 2π ñ_j d_j cos θ_j / λ
-      [ −i η_j sin δ_j     cos δ_j          ]
+$$
+M_j = \begin{bmatrix} \cos\delta_j & -i \sin\delta_j / \eta_j \\ -i \eta_j \sin\delta_j & \cos\delta_j \end{bmatrix}, \qquad \delta_j = \frac{2\pi \tilde n_j d_j \cos\theta_j}{\lambda}
+$$
 
-[B; C] = M_1 M_2 ⋯ M_N [1; η_m]
+$$
+\begin{bmatrix} B \\ C \end{bmatrix} = M_1 M_2 \cdots M_N \begin{bmatrix} 1 \\ \eta_m \end{bmatrix}
+$$
 
-ρ = (η_0 B − C) / (η_0 B + C)        τ = 2 η_0 / (η_0 B + C)
-R = |ρ|²                             T = Re(η_m) / Re(η_0) · |τ|²
-```
+$$
+\begin{aligned}
+\rho &= \frac{\eta_0 B - C}{\eta_0 B + C}, & \tau &= \frac{2 \eta_0}{\eta_0 B + C} \\
+R &= \lvert\rho\rvert^2, & T &= \frac{\operatorname{Re}(\eta_m)}{\operatorname{Re}(\eta_0)}\, \lvert\tau\rvert^2
+\end{aligned}
+$$
 
-在深度 z 处插入材料 a 的针层，把膜系分为其上方的矩阵乘积 Pre(z) 和其下方的向量 Post(z)；厚度 d 很小时，针层的矩阵等于单位矩阵加上 d 乘以它的导数：
+在深度 $z$ 处插入材料 $a$ 的针层，把膜系分为其上方的矩阵乘积 $\mathrm{Pre}(z)$ 和其下方的向量 $\mathrm{Post}(z)$；厚度 $d$ 很小时，针层的矩阵等于单位矩阵加上 $d$ 乘以它的导数：
 
-```
-[B; C](d) = Pre(z) · M_a(d) · Post(z)        M_a(d) = I + d · G_a + O(d²)
+$$
+\begin{bmatrix} B \\ C \end{bmatrix}(d) = \mathrm{Pre}(z)\, M_a(d)\, \mathrm{Post}(z), \qquad M_a(d) = I + d\, G_a + O(d^2)
+$$
 
-G_a = [ 0              −i Q_a / η_a ]        Q_a = 2π ñ_a cos θ_a / λ
-      [ −i η_a Q_a     0            ]
+$$
+G_a = \begin{bmatrix} 0 & -i Q_a / \eta_a \\ -i \eta_a Q_a & 0 \end{bmatrix}, \qquad Q_a = \frac{2\pi \tilde n_a \cos\theta_a}{\lambda}
+$$
 
-∂[B; C]/∂d = Pre(z) · G_a · Post(z)
-```
+$$
+\frac{\partial}{\partial d} \begin{bmatrix} B \\ C \end{bmatrix} = \mathrm{Pre}(z)\, G_a\, \mathrm{Post}(z)
+$$
 
-```
-∂ρ/∂d = 2 η_0 (C ∂B − B ∂C) / (η_0 B + C)²
-∂τ/∂d = −τ (η_0 ∂B + ∂C) / (η_0 B + C)
-∂R/∂d = 2 Re(ρ* ∂ρ/∂d)        ∂T/∂d = 2 Re(η_m) / Re(η_0) · Re(τ* ∂τ/∂d)
-∂A/∂d = −∂R/∂d − ∂T/∂d
-```
+$$
+\begin{aligned}
+\frac{\partial\rho}{\partial d} &= \frac{2 \eta_0 (C\, \partial B - B\, \partial C)}{(\eta_0 B + C)^2} \\
+\frac{\partial\tau}{\partial d} &= -\tau\, \frac{\eta_0\, \partial B + \partial C}{\eta_0 B + C} \\
+\frac{\partial R}{\partial d} &= 2 \operatorname{Re}\!\left(\rho^* \frac{\partial\rho}{\partial d}\right), & \frac{\partial T}{\partial d} &= \frac{2 \operatorname{Re}(\eta_m)}{\operatorname{Re}(\eta_0)} \operatorname{Re}\!\left(\tau^* \frac{\partial\tau}{\partial d}\right) \\
+\frac{\partial A}{\partial d} &= -\frac{\partial R}{\partial d} - \frac{\partial T}{\partial d}
+\end{aligned}
+$$
 
-入射介质有吸收时，∂A/∂d 还多一项，与 Im ∂ρ/∂d 有关。每一行的斜率按精炼对层厚度所用的链式法则得到，P 就是评价函数的斜率：
+入射介质有吸收时，$\partial A/\partial d$ 还多一项，与 $\operatorname{Im} \partial\rho/\partial d$ 有关。每一行的斜率按精炼对层厚度所用的链式法则得到，$P$ 就是评价函数的斜率：
 
-```
-P(z, a) = d = 0 处的 ∂MF/∂d = Σ_i  w_i · r_i · (∂r_i/∂d) / σ_i²  /  (W · MF)
+$$
+\begin{aligned}
+P(z, a) &= d = 0 \text{ 处的 } \frac{\partial\mathrm{MF}}{\partial d} = \frac{\sum_i w_i\, r_i\, (\partial r_i / \partial d) / \sigma_i^2}{W \cdot \mathrm{MF}} \\
+\text{预测降幅：} \quad \Delta\mathrm{MF} &\approx P(z, a)\, \delta
+\end{aligned}
+$$
 
-预测降幅：   ΔMF ≈ P(z, a) · δ
-```
-
-这是 Sullivan 和 Dobrowolski 的前后矩阵针法在 d → 0 时的极限，也是 Tikhonravov 等人级数 ΔF = P₁(z, n)·Δ + P₂(z, n)·Δ² + … 的第一个系数 P₁；每个位置上的每种材料各自是一个候选。没有精确针层斜率的行，例如相位、群延迟和椭偏行，用插入与不插入厚度为 δ 的针层来比较。精确扫描不运行时，即在裸基底上，或**表面**设为正面或背面且**忽略另一面**未勾选时（[表面与评价模式](/zh/design/evaluation-modes/)），P = (MF(δ) − MF(0)) / δ。
+这是 Sullivan 和 Dobrowolski 的前后矩阵针法在 $d \to 0$ 时的极限，也是 Tikhonravov 等人级数 $\Delta F = P_1(z, n)\,\Delta + P_2(z, n)\,\Delta^2 + \ldots$ 的第一个系数 $P_1$；每个位置上的每种材料各自是一个候选。没有精确针层斜率的行，例如相位、群延迟和椭偏行，用插入与不插入厚度为 $\delta$ 的针层来比较。精确扫描不运行时，即在裸基底上，或**表面**设为正面或背面且**忽略另一面**未勾选时（[表面与评价模式](/zh/design/evaluation-modes/)），$P = (\mathrm{MF}(\delta) - \mathrm{MF}(0)) / \delta$。
 
 ### 偏振、角度与锥角
 
-```
-s:  η = ñ cos θ        p:  η = ñ / cos θ        n_0 sin θ_0 = ñ sin θ
-```
+$$
+\text{s:}\quad \eta = \tilde n \cos\theta \qquad \text{p:}\quad \eta = \tilde n / \cos\theta \qquad n_0 \sin\theta_0 = \tilde n \sin\theta
+$$
 
-η 以自由空间导纳为单位，n_0 为入射介质的实折射率。对 s 和 p 取平均的行，或在照明锥上评分的行（[设计编辑器](/zh/design/design-editor/)），以它平均 R、T 或 A 时所用的同样权重平均斜率。**表面**设为**两面**时，斜率经过两面与基底的非相干叠加；勾选**对称（背面 = 正面）**时，针层同时插入两面，两个斜率相加。
+$\eta$ 以自由空间导纳为单位，$n_0$ 为入射介质的实折射率。对 s 和 p 取平均的行，或在照明锥上评分的行（[设计编辑器](/zh/design/design-editor/)），以它平均 R、T 或 A 时所用的同样权重平均斜率。**表面**设为**两面**时，斜率经过两面与基底的非相干叠加；勾选**对称（背面 = 正面）**时，针层同时插入两面，两个斜率相加。
 
 ### 起始厚度、精炼与接受
 
-```
-拆分一层：      f·d_h | 针层 | (1 − f)·d_h      f = k / 17,  k = 1 … 16
-                仅当 f·d_h ≥ d_min 且 (1 − f)·d_h ≥ d_min 时提出
-起始厚度：      d_0 使 OMF(d) 在 d_min ≤ d ≤ max(4·d_min, 60 nm) 上最小
-                黄金分割搜索到 0.5 nm；除非 OMF(d_0) < OMF(d_min)，否则 d_0 = d_min
-精炼停止：      k = N_iter，或 (MF_(k−6) − MF_k) / MF_(k−6) < 10⁻⁴
-接受：          MF_new < (1 − 10⁻⁴) · MF_best
-停在下限的层：  d_j = d_min，∂MF/∂d_j > 0，未锁定
-更厚的起点：    未锁定的层 d_j → s · d_j，s = 2, 4, 8, 16
-```
+$$
+\begin{aligned}
+\text{拆分一层：} \quad & f d_h \mid \text{针层} \mid (1 - f) d_h, \quad f = k / 17,\ k = 1 \ldots 16 \\
+& \text{仅当 } f d_h \ge d_{\min} \text{ 且 } (1 - f) d_h \ge d_{\min} \text{ 时提出} \\
+\text{起始厚度：} \quad & d_0 \text{ 使 } \mathrm{OMF}(d) \text{ 在 } d_{\min} \le d \le \max(4 d_{\min},\ 60\ \text{nm}) \text{ 上最小} \\
+& \text{黄金分割搜索到 0.5 nm；除非 } \mathrm{OMF}(d_0) < \mathrm{OMF}(d_{\min}) \text{，否则 } d_0 = d_{\min} \\
+\text{精炼停止：} \quad & k = N_\text{iter} \text{，或 } (\mathrm{MF}_{k-6} - \mathrm{MF}_k) / \mathrm{MF}_{k-6} < 10^{-4} \\
+\text{接受：} \quad & \mathrm{MF}_\text{new} < (1 - 10^{-4})\, \mathrm{MF}_\text{best} \\
+\text{停在下限的层：} \quad & d_j = d_{\min} \text{，} \partial\mathrm{MF} / \partial d_j > 0 \text{，未锁定} \\
+\text{更厚的起点：} \quad & \text{未锁定的层 } d_j \to s\, d_j \text{，} s = 2, 4, 8, 16
+\end{aligned}
+$$
 
-d_h 是被拆分层的厚度，d_min 为**最小厚度**，N_iter 为**精炼迭代/代**，k 为精炼步数。
+$d_h$ 是被拆分层的厚度，$d_{\min}$ 为**最小厚度**，$N_\text{iter}$ 为**精炼迭代/代**，$k$ 为精炼步数。
 
 Tikhonravov 等人让新层取使评价函数降低最多的任意厚度。这里的搜索在 60 nm 处停止：在大范围内，固定膜系的评价函数有许多极小值，这样找到的厚板可能降低评价函数却破坏设计；之后由精炼使针层增厚。Sullivan 和 Dobrowolski 去掉精炼后低于设定厚度的层；带下限的精炼器会把这样的层停在下限上，因此是否去掉它，按 Tikhonravov 等人在渐变演化中的判断方式决定：去掉，精炼，只有评价函数不变差时才保留结果。
 

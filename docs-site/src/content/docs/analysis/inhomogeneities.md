@@ -33,26 +33,30 @@ Deposition never makes a perfectly abrupt boundary between two materials. Inhomo
 
 ## What a graded interface does
 
-A transition a few nanometres thick has an optical thickness far below half a wavelength, so the interface still reflects almost as a step would. What it mostly adds is optical thickness of an intermediate index, which shifts the spectrum and softens stopband edges and passband ripple. Only a grade whose optical thickness is comparable to the wavelength cuts the reflection of the interface itself, which is how a graded-index antireflection coating works: Macleod shows that a smooth grade of optical thickness T reflects nothing for wavelengths below 2T and stops working near 4T.
+A transition a few nanometres thick has an optical thickness far below half a wavelength, so the interface still reflects almost as a step would. What it mostly adds is optical thickness of an intermediate index, which shifts the spectrum and softens stopband edges and passband ripple. Only a grade whose optical thickness is comparable to the wavelength cuts the reflection of the interface itself, which is how a graded-index antireflection coating works: Macleod shows that a smooth grade of optical thickness $T$ reflects nothing for wavelengths below $2T$ and stops working near $4T$.
 
 ## Theory
 
-An interlayer of thickness t between materials A and B, sliced into N sub-layers, gives slice i the thickness t/N and the index taken at the slice's middle:
+An interlayer of thickness $t$ between materials A and B, sliced into $N$ sub-layers, gives slice $i$ the thickness $t/N$ and the index taken at the slice's middle:
 
-```
-s_i = (i + ½) / N                      i = 0 … N−1
-N_i = (1 − f(s_i)) · N_A + f(s_i) · N_B
-```
+$$
+\begin{aligned}
+s_i &= \frac{i + \tfrac{1}{2}}{N}, \qquad i = 0 \dots N-1 \\
+N_i &= (1 - f(s_i))\, N_A + f(s_i)\, N_B
+\end{aligned}
+$$
 
-n and k are mixed alike, k kept at 0 or above. Sampling the middle of each slice makes the error of the staircase fall as 1/N². The profile f runs from 0 at A to 1 at B:
+$n$ and $k$ are mixed alike, $k$ kept at 0 or above. Sampling the middle of each slice makes the error of the staircase fall as $1/N^2$. The profile $f$ runs from 0 at A to 1 at B:
 
-```
-Linear              f = s
-Parabolic           f = s²
-Inverse parabolic   f = 1 − (1 − s)²
-Exponential         f = (e^{3s} − 1) / (e³ − 1)
-Sigmoid             f = (σ(s) − σ(0)) / (σ(1) − σ(0)),   σ(s) = 1 / (1 + e^{−12(s − ½)})
-```
+$$
+\begin{aligned}
+f &= s && \text{Linear} \\
+f &= s^2 && \text{Parabolic} \\
+f &= 1 - (1 - s)^2 && \text{Inverse parabolic} \\
+f &= \frac{e^{3s} - 1}{e^3 - 1} && \text{Exponential} \\
+f &= \frac{\sigma(s) - \sigma(0)}{\sigma(1) - \sigma(0)}, \quad \sigma(s) = \frac{1}{1 + e^{-12(s - 1/2)}} && \text{Sigmoid}
+\end{aligned}
+$$
 
 The slices are ordinary homogeneous layers in the stack, so the spectrum is computed exactly as [Optical Evaluation](/analysis/optical-evaluation/) computes it.
 

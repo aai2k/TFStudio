@@ -11,8 +11,8 @@ Optical Evaluation plots **how your coating transmits, reflects and absorbs ligh
 
 ## Computed quantities
 
-- **T**, **R** and **A** = 1 − R − T, each for **s**, **p** and their average **avg**. For transparent materials A stays at zero.
-- Read in **%**, as a fraction **0-1**, in **dB** (`10·log₁₀`), or for T alone as optical density **OD** (`−log₁₀ T`).
+- **T**, **R** and **A** = $1 - R - T$, each for **s**, **p** and their average **avg**. For transparent materials A stays at zero.
+- Read in **%**, as a fraction **0-1**, in **dB** ($10 \cdot \log_{10}$), or for T alone as optical density **OD** ($-\log_{10} T$).
 - What is computed follows the evaluation mode set in the [Design Editor](/design/design-editor/), shown as a badge under the plot: **Front** is the front coating on the substrate, **Back** the back coating, **Total** the whole part through the substrate, which is what a spectrophotometer measures for a part coated on both faces. A second badge shows when the curves are averaged over a cone of incidence.
 
 ## Controls and settings
@@ -38,34 +38,40 @@ dB and OD draw the axis logarithmically, which is what a blocking specification 
 
 Decibels apply to T, R and A alike, since each is a fraction of the incident flux; absorptance gains the most, a 10 ppm loss reading −50 dB. Optical density is a quantity of transmittance only, so choosing OD draws the T curves alone. These are display choices: the computed values and the targets do not change.
 
-The gridlines follow the span on screen, and both axes stop at OD 12 (−120 dB). A curve breaks off where it reaches zero: the absorptance of a transparent stack is only the rounding left by `1 − R − T` and is not drawn. A target at zero, such as R = 0, has no place on a logarithmic axis and is not drawn until you return to a linear unit.
+The gridlines follow the span on screen, and both axes stop at OD 12 (−120 dB). A curve breaks off where it reaches zero: the absorptance of a transparent stack is only the rounding left by $1 - R - T$ and is not drawn. A target at zero, such as $R = 0$, has no place on a logarithmic axis and is not drawn until you return to a linear unit.
 
 ## Theory
 
-For one coating, from the characteristic matrix `[B, C]` of the stack on the substrate admittance η_m (Macleod, Eqs. 2.123 and 2.125):
+For one coating, from the characteristic matrix $[B, C]$ of the stack on the substrate admittance $\eta_m$ (Macleod, Eqs. 2.123 and 2.125):
 
-```
-R = |(η₀B − C) / (η₀B + C)|²
-T = 4 η₀ Re(η_m) / |η₀B + C|²
-A = 1 − R − T
-```
+$$
+\begin{aligned}
+R &= \left| \frac{\eta_0 B - C}{\eta_0 B + C} \right|^2 \\
+T &= \frac{4\,\eta_0 \operatorname{Re}(\eta_m)}{|\eta_0 B + C|^2} \\
+A &= 1 - R - T
+\end{aligned}
+$$
 
-with the tilted admittances and phase thicknesses of the [Admittance Diagram](/analysis/admittance/). **avg** is `(X_s + X_p) / 2` for each quantity.
+with the tilted admittances and phase thicknesses of the [Admittance Diagram](/analysis/admittance/). **avg** is $(X_s + X_p)/2$ for each quantity.
 
 **Total** adds the substrate incoherently, as a thick slab whose multiple reflections add in intensity, not amplitude:
 
-```
-P = exp(−4π k_s d_s / (λ cos θ_s))
-T = T_f · P · T_b / (1 − R_f′ · R_b · P²)
-R = R_f + T_f · T_f′ · P² · R_b / (1 − R_f′ · R_b · P²)
-```
+$$
+\begin{aligned}
+P &= \exp\left( -\frac{4\pi k_s d_s}{\lambda \cos\theta_s} \right) \\
+T &= \frac{T_f \cdot P \cdot T_b}{1 - R_f' \cdot R_b \cdot P^2} \\
+R &= R_f + \frac{T_f \cdot T_f' \cdot P^2 \cdot R_b}{1 - R_f' \cdot R_b \cdot P^2}
+\end{aligned}
+$$
 
-T_f, R_f are the front coating seen from the incident medium and T_f′, R_f′ seen from inside the substrate, R_b, T_b the back coating seen from the substrate, P the substrate's internal transmittance for one pass of thickness d_s, each polarization summed apart (Macleod, Section 2.14).
+$T_f$, $R_f$ are the front coating seen from the incident medium and $T_f'$, $R_f'$ seen from inside the substrate, $R_b$, $T_b$ the back coating seen from the substrate, $P$ the substrate's internal transmittance for one pass of thickness $d_s$, each polarization summed apart (Macleod, Section 2.14).
 
-```
-T(dB) = 10 · log₁₀ T
-OD    = −log₁₀ T
-```
+$$
+\begin{aligned}
+T(\mathrm{dB}) &= 10 \cdot \log_{10} T \\
+\mathrm{OD} &= -\log_{10} T
+\end{aligned}
+$$
 
 ## References
 

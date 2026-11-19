@@ -66,7 +66,7 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 | `indexProfile`、`layerThicknesses`、`designFacts` | 单一波长下的[折射率分布](/zh/analysis/refractive-index-profile/)和[膜层厚度](/zh/analysis/layer-thicknesses/)；总厚度与光学厚度、每种材料的层数以及每层的 QWOT |
 | `admittance`、`electricField` | [导纳图](/zh/analysis/admittance/)和[电场](/zh/analysis/efield/)，单一波长下的一个镀膜面 |
 | `color`、`integrals` | [颜色评价](/zh/analysis/color-evaluation/)和[积分值](/zh/analysis/integral-values/)，在评分的面上并对锥角取平均 |
-| `ellipsometry`、`ellipsometryVsAngle` | [椭偏测量](/zh/analysis/ellipsometry/)，随波长或入射角变化，Δ 可取任一符号 |
+| `ellipsometry`、`ellipsometryVsAngle` | [椭偏测量](/zh/analysis/ellipsometry/)，随波长或入射角变化，$\Delta$ 可取任一符号 |
 | `groupDelay`、`pulseAnalysis`、`setPulseSpectrum` | [群延迟 / GDD](/zh/analysis/gd-gdd/) 和[脉冲分析](/zh/analysis/pulse-analysis/)，脉冲取自模型或设计上设置的光谱 |
 | `inhomogeneities`、`roughness`、`stress`、`materialDispersion` | 带规格判定的[不均匀性与过渡层](/zh/analysis/inhomogeneities/)、[粗糙度 / 散射](/zh/analysis/roughness-scattering/)、按材料常数和 `setDesignSetup` 计算的[应力](/zh/analysis/stress/)、[材料色散](/zh/analysis/material-dispersion/) |
 | `processSteps`、`exportProcess`、`monitorWorksheet` | [工艺导出器](/zh/simulation/process-simulator/)及其保存；[监控工作表](/zh/simulation/monitor-worksheet/)的各行 |

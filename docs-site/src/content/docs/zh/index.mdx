@@ -25,9 +25,9 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 ## 什么是 TFStudio？
 
-TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌面应用程序。它实现了传输矩阵法（TMM），遵循 Macleod 的 *Thin-Film Optical Filters*（第5版），并提供完整的合成工具栈（阻尼最小二乘精炼、Sullivan & Dobrowolski 数值针式优化、Tikhonravov 渐进演化）。
+TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌面应用程序。它实现了传输矩阵法（TMM），遵循 Macleod 的 *Thin-Film Optical Filters*（第5版），并提供完整的合成工具栈（阻尼最小二乘精炼、Sullivan & Dobrowolski 数值针法优化、Tikhonravov 渐变演化）。
 
-本手册是参考手册。应用中的每个工具窗口都有一个 `?` 按钮，点击可打开对应的帮助页面。下方内容按照应用的功能区排列，工具在此手册中的分组与屏幕上的分组一致。
+本手册是参考手册。应用中的每个工具窗口都有一个 `?` 按钮，点击可打开对应的帮助页面。下方内容按工具的用途分组，因此从某个窗口很容易找到它对应的页面。
 
 ## 目录
 
@@ -38,7 +38,7 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
 <CardGrid>
   <LinkCard title="设计编辑器" href="/zh/design/design-editor/" description="构建和编辑镀膜：膜层堆栈、基底、介质和您正在设计的表面。" />
   <LinkCard title="材料编辑器" href="/zh/design/material-editor/" description="浏览、导入和创建光学材料：每个镀膜层使用的 n(λ)、k(λ) 数据。" />
-  <LinkCard title="技术规格" href="/zh/design/specification/" description="将设计要求定义为 PASS/FAIL 限定符，并将其转换为评价函数。" />
+  <LinkCard title="规格" href="/zh/design/specification/" description="将设计要求定义为 PASS/FAIL 限定符，并将其转换为评价函数。" />
   <LinkCard title="膜系公式" href="/zh/design/stack-formula/" description="从紧凑的符号公式（如 Air | (HL)^4 H | Glass）生成完整的膜层堆栈。" />
   <LinkCard title="边缘滤光片" href="/zh/design/edge-filter/" description="用两种材料构建边缘滤光片，使其 s 与 p 边缘在斜入射角下落在同一波长。" />
 </CardGrid>
@@ -63,7 +63,7 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
 
 <CardGrid>
   <LinkCard title="蒙特卡洛" href="/zh/analysis/error-analysis/" description="查看随机制造误差如何模糊您的光谱，以及预期的成品率。" />
-  <LinkCard title="层灵敏度" href="/zh/analysis/layer-sensitivity/" description="查看哪些层对制造精度最关键。" />
+  <LinkCard title="膜层灵敏度" href="/zh/analysis/layer-sensitivity/" description="查看哪些层对制造精度最关键。" />
   <LinkCard title="非均匀性" href="/zh/analysis/inhomogeneities/" description="建模渐变过渡层，查看非阶跃界面如何改变光谱。" />
   <LinkCard title="系统偏差" href="/zh/analysis/systematic-deviations/" description="在整个堆栈上施加相关的厚度或折射率偏移，并扫描其影响。" />
   <LinkCard title="粗糙度 / 散射" href="/zh/analysis/roughness-scattering/" description="估算界面粗糙度引起的散射损耗，以及透射的镜面 R 和 T。" />
@@ -75,10 +75,10 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
   <LinkCard title="评价函数编辑器" href="/zh/design/merit-function-editor/" description="目标、操作数、权重和厚度约束：优化器追求的方向。" />
   <LinkCard title="操作数参考" href="/zh/design/operands/" description="每个评价函数操作数：计算内容、参数及其驱动优化器的方式。" />
   <LinkCard title="精炼" href="/zh/synthesis/refinement/" description="调整层厚度以最小化评价函数，提供多种优化方法选择。" />
-  <LinkCard title="针式优化" href="/zh/synthesis/needle/" description="在改善评价函数的位置插入薄针式层，然后精炼。支持自动和手动模式。" />
-  <LinkCard title="渐进演化" href="/zh/synthesis/gradual-evolution/" description="将针式优化包装在外层循环中，强制插入操作逃离局部极小值。" />
+  <LinkCard title="针法变异" href="/zh/synthesis/needle/" description="在改善评价函数的位置插入薄针层，然后精炼。支持自动和手动模式。" />
+  <LinkCard title="渐变演化" href="/zh/synthesis/gradual-evolution/" description="将针法优化包装在外层循环中，强制插入操作逃离局部极小值。" />
   <LinkCard title="结构优化器" href="/zh/synthesis/structural-optimizer/" description="通过添加、删除、分裂、合并或扰动层来重构堆栈，使用模拟退火接受准则。" />
-  <LinkCard title="变化器" href="/zh/design/variator/" description="用于假设分析的实时滑块：逐层厚度、基底和每种材料的 n/k。" />
+  <LinkCard title="参数变化器" href="/zh/design/variator/" description="用于假设分析的实时滑块：逐层厚度、基底和每种材料的 n/k。" />
   <LinkCard title="设计清理器" href="/zh/synthesis/design-cleaner/" description="合并相邻的同种材料层并删除极薄层，然后可选择重新精炼。" />
   <LinkCard title="滤光片设计" href="/zh/synthesis/wdm-wizard/" description="通过几个引导步骤构建多腔 Fabry-Perot 带通原型（DWDM、LWDM 或陷波）。" />
   <LinkCard title="优化方法" href="/zh/synthesis/optimization-methods/" description="每种精炼和合成算法：功能及选择时机。" />
@@ -87,8 +87,8 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
 ### 仿真
 
 <CardGrid>
-  <LinkCard title="BBM 仿真器" href="/zh/simulation/bbm-simulator/" description="模拟在宽带光学监控下制造镀膜的过程，查看实际制造的光谱。" />
-  <LinkCard title="单色仿真器" href="/zh/simulation/mono-simulator/" description="模拟单波长监控，支持逐层的转折点、电平或定时切割策略。" />
+  <LinkCard title="宽带监控模拟器" href="/zh/simulation/bbm-simulator/" description="模拟在宽带光学监控下制造镀膜的过程，查看实际制造的光谱。" />
+  <LinkCard title="单色监控模拟器" href="/zh/simulation/mono-simulator/" description="模拟单波长监控，支持逐层的转折点、电平或定时切割策略。" />
   <LinkCard title="监控工作表" href="/zh/simulation/monitor-worksheet/" description="逐层检查该设计能否在光学监控下停切，以及应放在哪一片监控片上。" />
 </CardGrid>
 
@@ -98,8 +98,8 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
   <LinkCard title="实测光谱" href="/zh/data-exchange/measured-spectra/" description="导入实测的 R/T/A 光谱作为叠加层，并将曲线导出为 CSV 或 JCAMP-DX。" />
   <LinkCard title="实测椭偏" href="/zh/data-exchange/measured-ellipsometry/" description="从光谱椭偏仪导入一对实测 Ψ 与 Δ，与设计对比，并把实测或计算的 Ψ/Δ 导出为 CSV。" />
   <LinkCard title="n,k 表征" href="/zh/data-exchange/nk-characterization/" description="由实测 R/T 光谱或一对实测 Ψ/Δ 求出薄膜的折射率、消光系数与厚度，并把结果保存为材料。" />
-  <LinkCard title="Zemax 膜层" href="/zh/data-exchange/zemax-coatings/" description="读写 Zemax OpticStudio COATING.DAT，包括材料和膜层堆栈。" />
-  <LinkCard title="CODE V 膜层" href="/zh/data-exchange/codev-coatings/" description="从 .seq 和 .mul 文件读取 CODE V MUL 镀膜，并把设计写成供 CODE V 使用的 .seq 文件。" />
+  <LinkCard title="Zemax 镀膜" href="/zh/data-exchange/zemax-coatings/" description="读写 Zemax OpticStudio COATING.DAT，包括材料和膜层堆栈。" />
+  <LinkCard title="CODE V 镀膜" href="/zh/data-exchange/codev-coatings/" description="从 .seq 和 .mul 文件读取 CODE V MUL 镀膜，并把设计写成供 CODE V 使用的 .seq 文件。" />
   <LinkCard title="工艺导出" href="/zh/simulation/process-simulator/" description="逐层回放镀膜过程，并导出每步的沉积数据。" />
 </CardGrid>
 
@@ -127,7 +127,7 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
 
 - **波长**单位为纳米（nm）。
 - **入射角（AOI）**从表面法线测量，单位为度。
-- **偏振** `s`（TE）、`p`（TM）或 `avg` = ½(R_s + R_p)。
-- **复折射率符号约定**：`ñ = n + ik`（吸收介质中 k ≥ 0），时间谐波因子为 exp(−iωt)。这是 Macleod 的 `ñ = n − ik` / exp(+iωt) 形式（§2.2）的复共轭；结果相同，相位符号相反。
-- **吸收性入射介质**（胶合立方体、浸没液体）：膜系中的每个角度都由 `n₀ sin θ₀` 决定，其中 `n₀` 取折射率的实部（Macleod §10.2）。R 为 |r|²，即表面处反射波强度与入射波强度之比。T 以入射介质单独存在时所携带的辐照度为基准，即 Macleod 式 2.83；该书只在正入射下给出此式，TFStudio 将其用于所有角度。勾选**忽略另一侧**时，A 为镀膜各层吸收的部分，R + T + A 与 1 的差值来自入射波与反射波在吸收介质内的干涉项，可正可负：对裸界面是 k₀ 的二阶小量，对镀膜是一阶小量，在超过临界角或接近掠入射时可达百分之几十。R 本身也可能大于 1。此时镀膜返回的光为 1 − T − A，而不是 R。未勾选**忽略另一侧**时，A 为 1 − R − T（不小于 0），其中也包含这一干涉项。
+- **偏振** `s`（TE）、`p`（TM）或 `avg` = $\tfrac{1}{2}(R_s + R_p)$。
+- **复折射率符号约定**：$\tilde n = n + ik$（吸收介质中 $k \ge 0$），时间谐波因子为 $\exp(-i\omega t)$。这是 Macleod 的 $\tilde n = n - ik$ / $\exp(+i\omega t)$ 形式（§2.2）的复共轭；结果相同，相位符号相反。
+- **吸收性入射介质**（胶合立方体、浸没液体）：膜系中的每个角度都由 $n_0 \sin\theta_0$ 决定，其中 $n_0$ 取折射率的实部（Macleod §10.2）。R 为 $|r|^2$，即表面处反射波强度与入射波强度之比。T 以入射介质单独存在时所携带的辐照度为基准，即 Macleod 式 2.83；该书只在正入射下给出此式，TFStudio 将其用于所有角度。勾选**忽略另一侧**时，A 为镀膜各层吸收的部分，$R + T + A$ 与 1 的差值来自入射波与反射波在吸收介质内的干涉项，可正可负：对裸界面是 $k_0$ 的二阶小量，对镀膜是一阶小量，在超过临界角或接近掠入射时可达百分之几十。R 本身也可能大于 1。此时镀膜返回的光为 $1 - T - A$，而不是 R。未勾选**忽略另一侧**时，A 为 $1 - R - T$（不小于 0），其中也包含这一干涉项。
 - **第1层** = 与基底接触的层（最先沉积的层）。

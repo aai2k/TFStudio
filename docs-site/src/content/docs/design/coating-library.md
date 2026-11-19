@@ -15,7 +15,7 @@ Selecting a coating shows:
 
 - **Spectrum**: the coating alone on its substrate, seen from its incident medium, at the entry's own angle and polarization, which the plot states. At normal incidence T, R and A; at an angle s solid and p dashed, as a beamsplitter or polarizer is specified. The design bands are shaded.
 - **Stack**: layers from the substrate up, numbered as in the Design Editor, thicknesses in nm.
-- **Properties in the design band**, at the entry's angle, chosen for its family: average and maximum R for an antireflection coating; minimum R and A for a mirror; pass and stop T and the edge λ at T = 50 % for an edge filter; peak, centre λ and FWHM for a band-pass; notch centre and width at T = 50 % for a notch; Ts, Tp and extinction Tp / Ts for a polarizer. At an angle R and T are given for s, p and their average, with one column per band; layer count and total thickness close the list.
+- **Properties in the design band**, at the entry's angle, chosen for its family: average and maximum R for an antireflection coating; minimum R and A for a mirror; pass and stop T and the edge $\lambda$ at $T = 50\,\%$ for an edge filter; peak, centre $\lambda$ and FWHM for a band-pass; notch centre and width at $T = 50\,\%$ for a notch; $T_s$, $T_p$ and extinction $T_p / T_s$ for a polarizer. At an angle R and T are given for s, p and their average, with one column per band; layer count and total thickness close the list.
 - **Specification**: each claim the entry makes, at its angle and polarization, with its value and a pass or fail mark, judged as the [Specification](/design/specification/) window judges it, each at its own step.
 - **Use this when**, **Limitations** and **Source**.
 
@@ -34,5 +34,5 @@ The list keeps one folder per family, each with a count; a strip on every row sh
 ## Materials in a coating
 
 - A saved coating embeds every material that is not built in, so it stays usable when its catalog is renamed or removed. While the catalog it came from is on this computer, the coating computes with that catalog's current data, in the library and in the design.
-- A coating from another computer can carry its own copy under an ID that a catalog here holds with other n, k. The library computes with that copy, and so does a design that does not use the ID yet.
+- A coating from another computer can carry its own copy under an ID that a catalog here holds with other $n$, $k$. The library computes with that copy, and so does a design that does not use the ID yet.
 - When a coating brings a definition under an ID the design already computes with other data, the design keeps its own and the window says so; the coating may then compute differently than it does in the library.

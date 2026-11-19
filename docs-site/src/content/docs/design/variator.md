@@ -4,7 +4,7 @@ description: Sliders for each layer thickness, the substrate thickness and each 
 ribbonIcon: variator
 ---
 
-The Variator shows which parameter of a design matters. Drag a slider and the spectrum redraws at once over the unmoved design. The thickness sliders move the design itself, so every open window follows them; the n and k sliders act on the Variator's preview alone.
+The Variator shows which parameter of a design matters. Drag a slider and the spectrum redraws at once over the unmoved design. The thickness sliders move the design itself, so every open window follows them; the $n$ and $k$ sliders act on the Variator's preview alone.
 
 <!-- shot: variator | the 550 nm bandpass with its spacer 2 nm thicker and TiO2 0.01 higher in index, solid curves over the dotted unmoved design and the bandpass target, preview narrowed to 450-660 nm -->
 ![Variator](/screenshots/variator.png)
@@ -32,17 +32,19 @@ Layer sliders carry the Design Editor's layer number, the material and the thick
 
 - The first thickness move puts down one undo step, so one Ctrl+Z takes back the whole session.
 - The sliders stay where they were when you switch to another window and back.
-- If the design changes some other way, by Ctrl+Z or an edit in another window, the Variator takes the design as it now is for its baseline and sets the thickness sliders to zero. The n and k sliders keep their values, since they are not part of the design.
+- If the design changes some other way, by Ctrl+Z or an edit in another window, the Variator takes the design as it now is for its baseline and sets the thickness sliders to zero. The $n$ and $k$ sliders keep their values, since they are not part of the design.
 
 ## Theory
 
 Each slider adds to the value the session started from:
 
-```
-d′ = max(0, d + Δd)
-n′(λ) = n(λ) + Δn
-k′(λ) = max(0, k(λ) + Δk)
-```
+$$
+\begin{aligned}
+d' &= \max(0,\ d + \Delta d) \\
+n'(\lambda) &= n(\lambda) + \Delta n \\
+k'(\lambda) &= \max(0,\ k(\lambda) + \Delta k)
+\end{aligned}
+$$
 
 The offsets are the same at every wavelength, so the shape of the material's dispersion is kept. Both curves come from the characteristic matrix of the stack (Macleod, Section 2.6), as in [Optical Evaluation](/analysis/optical-evaluation/). How far a curve moves for a small slider move shows how tightly that layer or material has to be held in the coater (Macleod, Section 13.7).
 

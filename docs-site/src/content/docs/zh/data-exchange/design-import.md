@@ -33,8 +33,8 @@ Rugate 或渐变折射率设计会被拒绝并注明原因：OptiLayer 的 rugat
 | 量 | TFCalc | Essential Macleod | OptiLayer | 在 TFStudio 中 |
 |---|---|---|---|---|
 | 层编号 | 从基底起 | 从入射介质起 | 从基底起 | 无论来自哪个程序，存储方式相同 |
-| 层厚度 | 物理厚度 nm；QWOT 仅作参考 | λ₀ 处的全波光学厚度，或物理厚度 | 控制波长处的四分之一波数，按层中记录的折射率，在匹配角度下定义 | 物理厚度 nm（[理论](#理论)） |
-| 吸收层 | 物理厚度 nm | 光学厚度，按 n 的实部 | 四分之一波数，按 n 的实部；在匹配角度下为倏逝波的层按正入射换算并注明 | 物理厚度 nm |
+| 层厚度 | 物理厚度 nm；QWOT 仅作参考 | $\lambda_0$ 处的全波光学厚度，或物理厚度 | 控制波长处的四分之一波数，按层中记录的折射率，在匹配角度下定义 | 物理厚度 nm（[理论](#理论)） |
+| 吸收层 | 物理厚度 nm | 光学厚度，按 $n$ 的实部 | 四分之一波数，按 $n$ 的实部；在匹配角度下为倏逝波的层按正入射换算并注明 | 物理厚度 nm |
 | 参考波长 | Environment，由各层数据判断 | 按文件的单位 | 控制波长 | nm |
 | 背面 | 背面层 | 无 | 无 | 背面堆栈；表面模式随之设置 |
 | 出射介质 | Environment；与基底相同表示半无限基底，否则计算两个表面 | 基底即出射介质 | 项目文件；基底为半无限，即程序的默认设置 | 按文件，并相应设置评估模式 |
@@ -46,12 +46,14 @@ Rugate 或渐变折射率设计会被拒绝并注明原因：OptiLayer 的 rugat
 
 ## 理论
 
-光学厚度以该层在文件波长处折射率的实部 n 换算为物理厚度：
+光学厚度以该层在文件波长处折射率的实部 $n$ 换算为物理厚度：
 
-```
-Essential Macleod, full waves T at λ₀:      d = T · λ₀ / n(λ₀)
-OptiLayer, quarter waves Q at λc:           d = Q · λc / (4 n cos θ)
-                                            sin θ = n_m sin θ_m / n
-```
+$$
+\begin{aligned}
+& \text{Essential Macleod, full waves } T \text{ at } \lambda_0\text{:} & \quad d &= T \cdot \lambda_0 / n(\lambda_0) \\
+& \text{OptiLayer, quarter waves } Q \text{ at } \lambda_c\text{:} & \quad d &= Q \cdot \lambda_c / (4 n \cos\theta) \\
+& & \quad \sin\theta &= n_m \sin\theta_m / n
+\end{aligned}
+$$
 
-θ_m 为匹配介质（折射率 n_m）中的匹配角度。当 n_m sin θ_m ≥ n 时光波为倏逝波，没有实的 cos θ，因此该层按正入射换算并注明。
+$\theta_m$ 为匹配介质（折射率 $n_m$）中的匹配角度。当 $n_m \sin\theta_m \ge n$ 时光波为倏逝波，没有实的 $\cos\theta$，因此该层按正入射换算并注明。

@@ -22,7 +22,7 @@ Every value comes from three numbers, X, Y and Z: the light reaching the eye wei
 | u, v | CIE 1960 chromaticity, on which CCT is measured. |
 | L\*, a\*, b\* | Lightness 0 to 100; a\* green to red, b\* blue to yellow, 0, 0 neutral. |
 | C\*ab, hab | a\*, b\* as chroma (strength of tint) and hue angle, 0° red, 90° yellow, 180° green, 270° blue. |
-| L\*, u\*, v\*, C\*uv, huv, suv | The same in CIE L\*u\*v\*, built on u′, v′; suv is chroma per unit lightness. |
+| L\*, u\*, v\*, C\*uv, huv, suv | The same in CIE L\*u\*v\*, built on $u'$, $v'$; suv is chroma per unit lightness. |
 | Hunter L, a, b | An older opponent scale, still named in some specifications. |
 | λd, λc | Dominant wavelength, the spectral color that mixed with the white matches the coating; for a purple, which has none, the complementary wavelength. |
 | Purity | Distance from the white toward the spectral locus, 0 % to 100 %. |
@@ -58,26 +58,30 @@ The fill shows each chromaticity as an sRGB screen shows it at full brightness; 
 
 ## Theory
 
-With S the illuminant, R the coating's reflectance (or T) and x̄, ȳ, z̄ the observer's color-matching functions (Macleod, Eqs. 12.1–12.5):
+With $S$ the illuminant, $R$ the coating's reflectance (or T) and $\bar x, \bar y, \bar z$ the observer's color-matching functions (Macleod, Eqs. 12.1–12.5):
 
-```
-X = 100 ∫ S R x̄ dλ / ∫ S ȳ dλ
-Y = 100 ∫ S R ȳ dλ / ∫ S ȳ dλ
-Z = 100 ∫ S R z̄ dλ / ∫ S ȳ dλ
-x = X / (X + Y + Z),    y = Y / (X + Y + Z)
-```
+$$
+\begin{aligned}
+X &= \frac{100 \int S\,R\,\bar x\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+Y &= \frac{100 \int S\,R\,\bar y\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+Z &= \frac{100 \int S\,R\,\bar z\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+x &= \frac{X}{X + Y + Z}, \qquad y = \frac{Y}{X + Y + Z}
+\end{aligned}
+$$
 
-taken by the trapezoidal rule on the window's grid. Against the illuminant's white X_n, Y_n, Z_n (CIE 15:2004):
+taken by the trapezoidal rule on the window's grid. Against the illuminant's white $X_n, Y_n, Z_n$ (CIE 15:2004):
 
-```
-L* = 116 f(Y/Y_n) − 16
-a* = 500 [ f(X/X_n) − f(Y/Y_n) ]
-b* = 200 [ f(Y/Y_n) − f(Z/Z_n) ]
-f(t) = t^(1/3)  for t > (6/29)³,   t / (3 (6/29)²) + 4/29  below
-ΔE*ab = √(ΔL*² + Δa*² + Δb*²)
-```
+$$
+\begin{aligned}
+L^* &= 116\, f(Y/Y_n) - 16 \\
+a^* &= 500\,[\, f(X/X_n) - f(Y/Y_n) \,] \\
+b^* &= 200\,[\, f(Y/Y_n) - f(Z/Z_n) \,] \\
+f(t) &= \begin{cases} t^{1/3} & \text{for } t > (6/29)^3 \\ \dfrac{t}{3\,(6/29)^2} + \dfrac{4}{29} & \text{below} \end{cases} \\
+\Delta E^*_{ab} &= \sqrt{\Delta L^{*2} + \Delta a^{*2} + \Delta b^{*2}}
+\end{aligned}
+$$
 
-The dominant wavelength is where the line from the white through the coating's point meets the spectral locus, and purity is the coating's distance from the white over the locus's. CCT is the temperature of the nearest point of the Planckian locus in the CIE 1960 u, v plane, and Duv the distance to it. ΔE00 is the CIEDE2000 formula as Sharma, Wu and Dalal implement it.
+The dominant wavelength is where the line from the white through the coating's point meets the spectral locus, and purity is the coating's distance from the white over the locus's. CCT is the temperature of the nearest point of the Planckian locus in the CIE 1960 $u$, $v$ plane, and Duv the distance to it. ΔE00 is the CIEDE2000 formula as Sharma, Wu and Dalal implement it.
 
 ## References
 

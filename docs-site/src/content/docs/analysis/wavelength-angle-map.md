@@ -30,17 +30,17 @@ For a map over something other than angle, such as a layer thickness, use the [P
 
 At oblique incidence a layer's phase thickness is (Macleod, Eq. 9.2)
 
-```
-δ = 2π n d cos θ / λ
-```
+$$
+\delta = \frac{2\pi n d \cos\theta}{\lambda}
+$$
 
-with θ the angle inside the layer. The layer looks thinner by cos θ, so every feature of the spectrum moves to shorter wavelengths as the light tilts. For a narrowband filter the peak follows
+with $\theta$ the angle inside the layer. The layer looks thinner by $\cos\theta$, so every feature of the spectrum moves to shorter wavelengths as the light tilts. For a narrowband filter the peak follows
 
-```
-λ_θ = λ₀ · √( 1 − (n₀ sin θ₀ / n*)² )
-```
+$$
+\lambda_\theta = \lambda_0 \cdot \sqrt{1 - \left( \frac{n_0 \sin\theta_0}{n^*} \right)^2}
+$$
 
-with n* the effective index of the filter, `√(n_H n_L)` for a first-order cavity (Macleod, Section 8.2, Eq. 8.36). A higher n* shifts less. That is why an edge filter specified at normal incidence lands short in a converging beam, and why a bandpass filter is often made slightly long so a tilt brings it onto wavelength. The admittances change with angle too, which separates s from p; the map computes both exactly, as [Optical Evaluation](/analysis/optical-evaluation/) does.
+with $n^*$ the effective index of the filter, $\sqrt{n_H n_L}$ for a first-order cavity (Macleod, Section 8.2, Eq. 8.36). A higher $n^*$ shifts less. That is why an edge filter specified at normal incidence lands short in a converging beam, and why a bandpass filter is often made slightly long so a tilt brings it onto wavelength. The admittances change with angle too, which separates s from p; the map computes both exactly, as [Optical Evaluation](/analysis/optical-evaluation/) does.
 
 ## References
 

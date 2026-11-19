@@ -14,7 +14,7 @@ GD/GDD 窗口计算镀膜在反射或透射中的光谱相位，以及它对角�
 - **相位 φ**，单位为度：反射或透射的相移，沿波长展开，并在参考波长处归零。
 - **GD**，群延迟，单位为 fs：镀膜把脉冲保持多久。
 - **GDD**，群延迟色散，单位为 fs²：该延迟在光谱上的变化，它使短脉冲展宽。
-- **CDC**，色散系数，单位为 fs/nm：按每 nm 波长而非每 rad/fs 表示的 GDD，符号与 GDD 相同。数据表中按每千米给出的光纤色散 D = dτ/dλ 符号相反；镀膜没有长度。
+- **CDC**，色散系数，单位为 fs/nm：按每 nm 波长而非每 rad/fs 表示的 GDD，符号与 GDD 相同。数据表中按每千米给出的光纤色散 $D = d\tau/d\lambda$ 符号相反；镀膜没有长度。
 - **TOD**，三阶色散，单位为 fs³：GDD 之外残留的不对称性，会在脉冲一侧形成结构。
 
 ## 控件与设置
@@ -41,16 +41,18 @@ GD/GDD 窗口计算镀膜在反射或透射中的光谱相位，以及它对角�
 
 ## 理论
 
-记 φ(ω) 为 Macleod 约定下的反射或透射相移：
+记 $\varphi(\omega)$ 为 Macleod 约定下的反射或透射相移：
 
-```
-GD  = −dφ/dω       [fs]
-GDD = −d²φ/dω²     [fs²]
-TOD = −d³φ/dω³     [fs³]
-CDC = GDD · 2πc / λ²   [fs/nm]
-```
+$$
+\begin{aligned}
+\mathrm{GD} &= -\frac{d\varphi}{d\omega} && [\text{fs}] \\
+\mathrm{GDD} &= -\frac{d^2\varphi}{d\omega^2} && [\text{fs}^2] \\
+\mathrm{TOD} &= -\frac{d^3\varphi}{d\omega^3} && [\text{fs}^3] \\
+\mathrm{CDC} &= \mathrm{GDD} \cdot \frac{2\pi c}{\lambda^2} && [\text{fs/nm}]
+\end{aligned}
+$$
 
-按这样的符号，把脉冲保持得更久的镀膜 GD 为正，镀膜的 GDD 与介质的 `L·d²κ/dω²` 相加，如 Macleod 式 11.19 所示。这些导数是精确值而不是差分：每层的折射率和相位厚度连同其对 ω 的前三阶导数一起，经由[导纳图](/zh/analysis/admittance/)中的特征矩阵传递，GD、GDD 和 TOD 由 r 或 t 的对数导数得到。公式材料被精确求导；表格材料给出其插值曲线的导数。相位展开只用于绘制相位曲线。
+按这样的符号，把脉冲保持得更久的镀膜 GD 为正，镀膜的 GDD 与介质的 $L\,d^2\kappa/d\omega^2$ 相加，如 Macleod 式 11.19 所示。这些导数是精确值而不是差分：每层的折射率和相位厚度连同其对 $\omega$ 的前三阶导数一起，经由[导纳图](/zh/analysis/admittance/)中的特征矩阵传递，GD、GDD 和 TOD 由 $r$ 或 $t$ 的对数导数得到。公式材料被精确求导；表格材料给出其插值曲线的导数。相位展开只用于绘制相位曲线。
 
 ## 参考文献
 

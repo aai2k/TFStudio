@@ -33,24 +33,26 @@ The coating side deposited, and how the result is scored, follow the surface mod
 - From 60 % of a layer's planned time, every scan the monitor fits the thickness of the growing layer. Each fit scans 0 to 3 times the target at a step finer than the band's fringes before refining, so it needs no starting guess and lands in the best-fitting fringe rather than the nearest.
 - A tracker follows thickness and rate from these fits, weighting each by how well its scan pins the thickness, and the shutter closes where the tracked thickness reaches the target, between scans if need be. Without noise every layer ends on target at any scan interval.
 - Each fit uses the monitor's own estimate of the layers below, not what was really deposited, so an error carries into the fits of later layers as in a real chamber. An excluded layer enters that estimate at its target.
-- The signal is read through the whole witness chip: the growing coating on its front, the bare back face, added incoherently, with air above the coating whatever medium the design is embedded in. A bare chip of n = 1.52 reads 91.8 %, not the 95.7 % of its coated surface alone.
+- The signal is read through the whole witness chip: the growing coating on its front, the bare back face, added incoherently, with air above the coating whatever medium the design is embedded in. A bare chip of $n = 1.52$ reads 91.8 %, not the 95.7 % of its coated surface alone.
 
 ## Theory
 
-The rate of each material is an Ornstein–Uhlenbeck process about its mean r̄, with RMS σ and correlation time τ, and a layer grows by the integral of the rate:
+The rate of each material is an Ornstein–Uhlenbeck process about its mean $\bar r$, with RMS $\sigma$ and correlation time $\tau$, and a layer grows by the integral of the rate:
 
-```
-dx = −x / τ · dt + σ √(2/τ) dW,      r = r̄ + x
-d(t) = ∫ r dt
-```
+$$
+\begin{aligned}
+\mathrm{d}x &= -\frac{x}{\tau}\,\mathrm{d}t + \sigma \sqrt{\frac{2}{\tau}}\,\mathrm{d}W, \qquad r = \bar r + x \\
+d(t) &= \int r\,\mathrm{d}t
+\end{aligned}
+$$
 
-Both are drawn together at each step, so a layer's thickness noise does not depend on the scan interval; with τ = 0 the rate noise averages out of the thickness entirely. A layer's index is n + Δn_syst + Δn_rand, one random draw per material and run. At each scan the monitor fits
+Both are drawn together at each step, so a layer's thickness noise does not depend on the scan interval; with $\tau = 0$ the rate noise averages out of the thickness entirely. A layer's index is $n + \Delta n_\text{syst} + \Delta n_\text{rand}$, one random draw per material and run. At each scan the monitor fits
 
-```
-d̂ = argmin_d  Σ_λ ( S_meas(λ) − S_model(λ; d) )²
-```
+$$
+\hat d = \arg\min_d \sum_\lambda \left( S_\text{meas}(\lambda) - S_\text{model}(\lambda; d) \right)^2
+$$
 
-over the band, S being T or R of the witness chip with the layers below at their estimated thicknesses, and the shutter delay adds r · t_delay after the cut.
+over the band, $S$ being T or R of the witness chip with the layers below at their estimated thicknesses, and the shutter delay adds $r \cdot t_\text{delay}$ after the cut.
 
 ## References
 

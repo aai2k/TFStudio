@@ -33,8 +33,8 @@ A rugate or graded-index design is refused with the reason: OptiLayer's rugate l
 | Quantity | TFCalc | Essential Macleod | OptiLayer | In TFStudio |
 |---|---|---|---|---|
 | Layer numbering | from the substrate | from the incident medium | from the substrate | stored the same whichever program wrote it |
-| Layer thickness | physical nm; QWOT shown for reference | full-wave optical at λ₀, or physical | quarter waves at the control wavelength, with the layer's stored index, at the match angle | physical nm ([Theory](#theory)) |
-| Absorbing layer | physical nm | optical, with the real part of n | quarter waves with the real part of n; a layer evanescent at the match angle is converted at normal incidence and noted | physical nm |
+| Layer thickness | physical nm; QWOT shown for reference | full-wave optical at $\lambda_0$, or physical | quarter waves at the control wavelength, with the layer's stored index, at the match angle | physical nm ([Theory](#theory)) |
+| Absorbing layer | physical nm | optical, with the real part of $n$ | quarter waves with the real part of $n$; a layer evanescent at the match angle is converted at normal incidence and noted | physical nm |
 | Reference wavelength | Environment, read from the layers | in the file's unit | the control wavelength | nm |
 | Back side | back layers | none | none | back stack; the surface mode follows |
 | Exit medium | Environment; the substrate material means a semi-infinite substrate, another means both faces are evaluated | the substrate is the emergent medium | the project file; semi-infinite substrate, the program's default | as in the file, with the evaluation mode to match |
@@ -46,12 +46,14 @@ The stack formula and its symbols, the file's incident and match angles, and wha
 
 ## Theory
 
-An optical thickness becomes physical with the real part of the layer's index n at the file's wavelength:
+An optical thickness becomes physical with the real part of the layer's index $n$ at the file's wavelength:
 
-```
-Essential Macleod, full waves T at λ₀:      d = T · λ₀ / n(λ₀)
-OptiLayer, quarter waves Q at λc:           d = Q · λc / (4 n cos θ)
-                                            sin θ = n_m sin θ_m / n
-```
+$$
+\begin{aligned}
+& \text{Essential Macleod, full waves } T \text{ at } \lambda_0\text{:} & \quad d &= T \cdot \lambda_0 / n(\lambda_0) \\
+& \text{OptiLayer, quarter waves } Q \text{ at } \lambda_c\text{:} & \quad d &= Q \cdot \lambda_c / (4 n \cos\theta) \\
+& & \quad \sin\theta &= n_m \sin\theta_m / n
+\end{aligned}
+$$
 
-with θ_m the match angle in the match medium of index n_m. Where n_m sin θ_m ≥ n the wave is evanescent and has no real cos θ, so that layer is converted at normal incidence and noted.
+with $\theta_m$ the match angle in the match medium of index $n_m$. Where $n_m \sin\theta_m \ge n$ the wave is evanescent and has no real $\cos\theta$, so that layer is converted at normal incidence and noted.

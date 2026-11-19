@@ -18,7 +18,7 @@ Integral Values condenses a spectrum into the weighted averages spec sheets quot
 | TUV, RUV | flat | 300–380 nm |
 | TNIR, RNIR | flat | 780–2500 nm |
 
-Each row gives the average as a fraction and in percent, and the unweighted minimum and maximum of the channel in the band with the wavelengths they occur at, for worst-case checks such as T ≥ 99 % across the band. The chart shows the selected row's channel with its normalized weighting, so you can see which part of the spectrum carries the average.
+Each row gives the average as a fraction and in percent, and the unweighted minimum and maximum of the channel in the band with the wavelengths they occur at, for worst-case checks such as $T \ge 99\,\%$ across the band. The chart shows the selected row's channel with its normalized weighting, so you can see which part of the spectrum carries the average.
 
 ## Controls and settings
 
@@ -32,17 +32,17 @@ Each row gives the average as a fraction and in percent, and the unweighted mini
 
 ## Photopic rows and the grid
 
-With D65 and the CIE 1931 2° observer, Tvis is the luminance factor: a perfect white reads 100 %. The photopic rows are integrated on the λ grid like every other row, with the CIE tables interpolated onto it, so a feature narrower than the step is missed. For the Tvis of a narrow notch, set a step well below the notch width.
+With D65 and the CIE 1931 2° observer, Tvis is the luminance factor: a perfect white reads 100 %. The photopic rows are integrated on the $\lambda$ grid like every other row, with the CIE tables interpolated onto it, so a feature narrower than the step is missed. For the Tvis of a narrow notch, set a step well below the notch width.
 
 ## Theory
 
-For channel C (T, R or A), source S and detector D over the band λ₁ to λ₂:
+For channel $C$ (T, R or A), source $S$ and detector $D$ over the band $\lambda_1$ to $\lambda_2$:
 
-```
-C̄ = ∫ C(λ) S(λ) D(λ) dλ  /  ∫ S(λ) D(λ) dλ
-```
+$$
+\bar C = \frac{\int C(\lambda)\, S(\lambda)\, D(\lambda)\, d\lambda}{\int S(\lambda)\, D(\lambda)\, d\lambda}
+$$
 
-Both integrals are taken by the trapezoidal rule on the window's λ grid, with S and D interpolated linearly from their tables. The grid always ends on the end wavelength, a step that does not divide the range adding one shorter last interval. With S = D65 and D = ȳ(λ), C̄ is the luminance factor Y/100 of Macleod's Eq. 12.2.
+Both integrals are taken by the trapezoidal rule on the window's $\lambda$ grid, with $S$ and $D$ interpolated linearly from their tables. The grid always ends on the end wavelength, a step that does not divide the range adding one shorter last interval. With $S = \mathrm{D65}$ and $D = \bar y(\lambda)$, $\bar C$ is the luminance factor $Y/100$ of Macleod's Eq. 12.2.
 
 ## References
 

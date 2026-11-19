@@ -19,7 +19,7 @@ The same five as the GD / GDD window, for the slab alone: **Phase** in degrees, 
 
 **Settings**: **Thickness**, the single-pass path in nm, µm or mm, and the **λ** range. The sampling is chosen automatically.
 
-**Notices**: where the λ range leaves the material's data, the curve is drawn over a shaded band naming the range it does cover, and the badge offers to narrow the plot to it. A table holds its end value out there, so the slab is drawn as dispersionless; a formula is extrapolated. Wavelengths with no value at all are gaps, and the badge gives the reason: an absorbing slab too thick for the pulse to survive, with the largest thickness that keeps the range evaluable, or a model that cannot give third derivatives.
+**Notices**: where the $\lambda$ range leaves the material's data, the curve is drawn over a shaded band naming the range it does cover, and the badge offers to narrow the plot to it. A table holds its end value out there, so the slab is drawn as dispersionless; a formula is extrapolated. Wavelengths with no value at all are gaps, and the badge gives the reason: an absorbing slab too thick for the pulse to survive, with the largest thickness that keeps the range evaluable, or a model that cannot give third derivatives.
 
 ## Table knots
 
@@ -27,19 +27,21 @@ A formula is differentiated exactly. A table is interpolated by a shape-preservi
 
 ## Theory
 
-For thickness d, index n(ω) and angular frequency ω:
+For thickness $d$, index $n(\omega)$ and angular frequency $\omega$:
 
-```
-φ   = −(d/c) ω n
-GD  = (d/c) [n + ω dn/dω]
-GDD = (d/c) [2 dn/dω + ω d²n/dω²]
-TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
-CDC = GDD · 2πc / λ²
-```
+$$
+\begin{aligned}
+\varphi &= -\frac{d}{c}\, \omega\, n \\
+\mathrm{GD} &= \frac{d}{c} \left[ n + \omega \frac{dn}{d\omega} \right] \\
+\mathrm{GDD} &= \frac{d}{c} \left[ 2 \frac{dn}{d\omega} + \omega \frac{d^2 n}{d\omega^2} \right] \\
+\mathrm{TOD} &= \frac{d}{c} \left[ 3 \frac{d^2 n}{d\omega^2} + \omega \frac{d^3 n}{d\omega^3} \right] \\
+\mathrm{CDC} &= \mathrm{GDD} \cdot \frac{2\pi c}{\lambda^2}
+\end{aligned}
+$$
 
-These are −dφ/dω and its derivatives, the same signs as the coating terms, so the slab's GDD adds to a coating's as in Macleod's Eq. 11.19. The bracket in GD is the group index.
+These are $-d\varphi/d\omega$ and its derivatives, the same signs as the coating terms, so the slab's GDD adds to a coating's as in Macleod's Eq. 11.19. The bracket in GD is the group index.
 
-The extinction coefficient k does not enter the phase; it sets how much of the pulse survives. A wavelength is masked when the field optical depth `2π·k·d / λ` exceeds 50, an internal transmittance below e⁻¹⁰⁰, since a delay there would describe a pulse that no longer exists.
+The extinction coefficient $k$ does not enter the phase; it sets how much of the pulse survives. A wavelength is masked when the field optical depth $2\pi \cdot k \cdot d / \lambda$ exceeds 50, an internal transmittance below $e^{-100}$, since a delay there would describe a pulse that no longer exists.
 
 ## References
 

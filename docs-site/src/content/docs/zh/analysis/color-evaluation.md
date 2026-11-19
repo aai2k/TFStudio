@@ -22,7 +22,7 @@ ribbonIcon: color-eval
 | u, v | CIE 1960 色度，相关色温在其上测量。 |
 | L\*, a\*, b\* | 明度 0 到 100；a\* 由绿到红，b\* 由蓝到黄，0, 0 为中性色。 |
 | C\*ab, hab | 把 a\*, b\* 写成彩度（色调浓度）和色调角，0° 为红，90° 为黄，180° 为绿，270° 为蓝。 |
-| L\*, u\*, v\*, C\*uv, huv, suv | 建立在 u′, v′ 之上的 CIE L\*u\*v\* 中的同类数值；suv 为每单位明度的彩度。 |
+| L\*, u\*, v\*, C\*uv, huv, suv | 建立在 $u'$, $v'$ 之上的 CIE L\*u\*v\* 中的同类数值；suv 为每单位明度的彩度。 |
 | Hunter L, a, b | 较早的对立色标尺，部分规格中仍在使用。 |
 | λd, λc | 主波长，即与白光混合后能匹配镀膜颜色的光谱色；紫色没有主波长，此时为补色波长。 |
 | 纯度 | 从白点朝光谱轨迹偏离的程度，0 % 到 100 %。 |
@@ -58,26 +58,30 @@ ribbonIcon: color-eval
 
 ## 理论
 
-S 为照明体，R 为镀膜的反射率（或 T），x̄、ȳ、z̄ 为观察者的颜色匹配函数（Macleod，式 12.1–12.5）：
+$S$ 为照明体，$R$ 为镀膜的反射率（或 T），$\bar x, \bar y, \bar z$ 为观察者的颜色匹配函数（Macleod，式 12.1–12.5）：
 
-```
-X = 100 ∫ S R x̄ dλ / ∫ S ȳ dλ
-Y = 100 ∫ S R ȳ dλ / ∫ S ȳ dλ
-Z = 100 ∫ S R z̄ dλ / ∫ S ȳ dλ
-x = X / (X + Y + Z),    y = Y / (X + Y + Z)
-```
+$$
+\begin{aligned}
+X &= \frac{100 \int S\,R\,\bar x\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+Y &= \frac{100 \int S\,R\,\bar y\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+Z &= \frac{100 \int S\,R\,\bar z\,d\lambda}{\int S\,\bar y\,d\lambda} \\
+x &= \frac{X}{X + Y + Z}, \qquad y = \frac{Y}{X + Y + Z}
+\end{aligned}
+$$
 
-在窗口的网格上按梯形法计算。相对照明体白点 X_n、Y_n、Z_n（CIE 15:2004）：
+在窗口的网格上按梯形法计算。相对照明体白点 $X_n, Y_n, Z_n$（CIE 15:2004）：
 
-```
-L* = 116 f(Y/Y_n) − 16
-a* = 500 [ f(X/X_n) − f(Y/Y_n) ]
-b* = 200 [ f(Y/Y_n) − f(Z/Z_n) ]
-f(t) = t^(1/3)  t > (6/29)³ 时，   低于时为 t / (3 (6/29)²) + 4/29
-ΔE*ab = √(ΔL*² + Δa*² + Δb*²)
-```
+$$
+\begin{aligned}
+L^* &= 116\, f(Y/Y_n) - 16 \\
+a^* &= 500\,[\, f(X/X_n) - f(Y/Y_n) \,] \\
+b^* &= 200\,[\, f(Y/Y_n) - f(Z/Z_n) \,] \\
+f(t) &= \begin{cases} t^{1/3} & t > (6/29)^3 \text{ 时} \\ \dfrac{t}{3\,(6/29)^2} + \dfrac{4}{29} & \text{低于时} \end{cases} \\
+\Delta E^*_{ab} &= \sqrt{\Delta L^{*2} + \Delta a^{*2} + \Delta b^{*2}}
+\end{aligned}
+$$
 
-主波长是从白点经镀膜颜色点的直线与光谱轨迹的交点，纯度是镀膜点到白点的距离与轨迹到白点距离之比。相关色温是 CIE 1960 u, v 平面上普朗克轨迹最近点的温度，Duv 是到它的距离。ΔE00 是按 Sharma、Wu 和 Dalal 的实现给出的 CIEDE2000 公式。
+主波长是从白点经镀膜颜色点的直线与光谱轨迹的交点，纯度是镀膜点到白点的距离与轨迹到白点距离之比。相关色温是 CIE 1960 $u$, $v$ 平面上普朗克轨迹最近点的温度，Duv 是到它的距离。ΔE00 是按 Sharma、Wu 和 Dalal 的实现给出的 CIEDE2000 公式。
 
 ## 参考文献
 

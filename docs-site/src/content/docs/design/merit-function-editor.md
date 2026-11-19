@@ -27,7 +27,7 @@ The wizard above the table writes blocks of rows from a few numbers. Its bar car
 - **Angle and target**: the angle or a range of angles with its steps, the polarization (absent where the type sets it, as for a polarizing beamsplitter), and a continuous line or discrete points. On a design with environments, **Env** scores the rows in one environment or **All**; the header row and thickness limits are scored in all.
 - **Thickness limits**: minimum and maximum layer thickness (`MNT`, `MXT`) and a total-thickness cap, each behind a checkbox.
 
-A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#worst-case-over-a-band): T ≥ in dB a `TDBMN`, T ≤ in dB a `TDBMX`, R ≤ in dB an `RDBMX`, T ≥ in OD an `ODMN`, and T = in dB one `TDB` per wavelength step. Only these combinations are offered. Switching the unit keeps the level, so 80 % becomes −0.97 dB.
+A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#worst-case-over-a-band): $T \ge$ in dB a `TDBMN`, $T \le$ in dB a `TDBMX`, $R \le$ in dB an `RDBMX`, $T \ge$ in OD an `ODMN`, and $T =$ in dB one `TDB` per wavelength step. Only these combinations are offered. Switching the unit keeps the level, so 80 % becomes −0.97 dB.
 
 **Start at row** keeps the rows above it and replaces every row from it down with the block; the default, after the last row, appends. **Generate** writes the block, one undo step. The form keeps its values while the window is closed.
 
@@ -76,11 +76,11 @@ One row per operand, edited like a spreadsheet.
 
 ## Theory
 
-```
-MF = √( Σ_i  w_i · (r_i / σ_i)²  /  W )
-```
+$$
+\mathrm{MF} = \sqrt{\frac{\sum_i w_i \, (r_i / \sigma_i)^2}{W}}
+$$
 
-`w_i` is the weight. The residual `r_i` is `value − target` for an equality, a one-sided term for an inequality or constraint that is zero while it holds, or the value itself for a row that is already a deviation (`TGT`, the `*FLAT` rows, curve blocks). `σ_i` puts rows of different units on one footing, so a miss in nanometres does not swamp a miss in reflectance. `W` is the sum of the weights of the rows that have a value, other than `MNT`, `MXT`, `TT` and `STR`. OMF is the same sum over the optical rows alone. The [Operand Reference](/design/operands/#how-rows-add-up) has each term.
+$w_i$ is the weight. The residual $r_i$ is $\text{value} - \text{target}$ for an equality, a one-sided term for an inequality or constraint that is zero while it holds, or the value itself for a row that is already a deviation (`TGT`, the `*FLAT` rows, curve blocks). $\sigma_i$ puts rows of different units on one footing, so a miss in nanometres does not swamp a miss in reflectance. $W$ is the sum of the weights of the rows that have a value, other than `MNT`, `MXT`, `TT` and `STR`. OMF is the same sum over the optical rows alone. The [Operand Reference](/design/operands/#how-rows-add-up) has each term.
 
 ## References
 

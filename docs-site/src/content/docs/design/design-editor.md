@@ -15,10 +15,10 @@ The four thickness columns show the same layer in different units; edit any one 
 
 | Column | Meaning |
 |---|---|
-| **nm** | physical thickness d |
-| **OT** | optical thickness at λ₀ |
-| **QW** | quarter waves at λ₀ |
-| **FW** | full waves at λ₀ |
+| **nm** | physical thickness $d$ |
+| **OT** | optical thickness at $\lambda_0$ |
+| **QW** | quarter waves at $\lambda_0$ |
+| **FW** | full waves at $\lambda_0$ |
 
 **Stack Geometry** under the table draws the incident medium, front coating, substrate, back coating and exit medium in the materials' colors, with the layer count and total physical thickness of each side.
 
@@ -34,13 +34,13 @@ The four thickness columns show the same layer in different units; edit any one 
 
 **Average over illumination cone**, off by default: every R, T and A is averaged over a cone of angles about the angle of incidence, in every window and merit row at once. The half-angle shows its NA, f-number and full aperture. The intensity across the cone is **Uniform**, **Lambertian** or **User-defined** from a table, and **Grid points** is where the angle count starts ([cone of illumination](#cone-of-illumination)).
 
-**Environment**: on a design with more than one [environment](/design/environments/), a droplist with arrows either side picks the environment the Settings show. The media, substrate, cone, **Ignore other side** and **Temperature** are then that environment's; in environment 2 or later a change sets the field for it alone, tagged with its number and a cross that gives it back, or **= env 1** while it follows. λ₀ and **Surface** belong to the design, and the layer table is the same recipe in every environment.
+**Environment**: on a design with more than one [environment](/design/environments/), a droplist with arrows either side picks the environment the Settings show. The media, substrate, cone, **Ignore other side** and **Temperature** are then that environment's; in environment 2 or later a change sets the field for it alone, tagged with its number and a cross that gives it back, or **= env 1** while it follows. $\lambda_0$ and **Surface** belong to the design, and the layer table is the same recipe in every environment.
 
 ### Layer table
 
 Each row is one layer: material, the four thickness columns, a lock, and buttons to move, duplicate or delete it. A locked layer keeps its thickness in every optimizer and synthesis run. The toolbar adds and removes layers, inverts the order, locks or unlocks a whole side, and copies the stack to the other side.
 
-**+ Layer** adds a layer below the selected row, or at the bottom, and selects it. A new layer copies the layer two rows away on the far side of its neighbour, so alternating high and low layers carry on. With no such layer, or one of the neighbour's material, it is a quarter wave at λ₀: SiO2 next to a material of higher index than SiO2, TiO2 next to anything else, SiO2 on an empty side.
+**+ Layer** adds a layer below the selected row, or at the bottom, and selects it. A new layer copies the layer two rows away on the far side of its neighbour, so alternating high and low layers carry on. With no such layer, or one of the neighbour's material, it is a quarter wave at $\lambda_0$: SiO2 next to a material of higher index than SiO2, TiO2 next to anything else, SiO2 on an empty side.
 
 | Input | Does |
 |---|---|
@@ -60,11 +60,11 @@ A whole run of steps or one paste is one Ctrl+Z. A paste leaves locked layers as
 
 **Tools…** above the table holds edits over the whole design or one side; each edit is one undo step.
 
-- **Replace material…**: puts another material in place of any material of the media, substrate or layers. **Keep optical thickness (n·d)** rescales each changed layer to keep n·d at λ₀.
-- **Round / quantize thicknesses…**: rounds every unlocked layer to **Decimal places**, to a **Controller step (nm)**, or to a **QWOT increment** at λ₀, showing **MF before** and **MF after**.
+- **Replace material…**: puts another material in place of any material of the media, substrate or layers. **Keep optical thickness (n·d)** rescales each changed layer to keep $n \cdot d$ at $\lambda_0$.
+- **Round / quantize thicknesses…**: rounds every unlocked layer to **Decimal places**, to a **Controller step (nm)**, or to a **QWOT increment** at $\lambda_0$, showing **MF before** and **MF after**.
 - **Perturb thicknesses…**: one random kick per unlocked layer within **Maximum kick (±%)**; the preview keeps one sample until **Reshuffle**.
 - **Copy stack as table**: the side's materials and thicknesses as tab-separated text.
-- **Collapse selection to Herpin layer…**: replaces a selected symmetric, lossless group with its one equivalent layer at λ₀, keeping the group inside it so **Expand Herpin layer** restores it exactly. The equivalence holds at λ₀ and normal incidence only.
+- **Collapse selection to Herpin layer…**: replaces a selected symmetric, lossless group with its one equivalent layer at $\lambda_0$, keeping the group inside it so **Expand Herpin layer** restores it exactly. The equivalence holds at $\lambda_0$ and normal incidence only.
 - **Save coating to library…**: saves the front or back stack to the [Coating Library](/design/coating-library/).
 
 ## Cone of illumination
@@ -76,41 +76,49 @@ A whole run of steps or one paste is one Ctrl+Z. A paste leaves locked layers as
 
 ## Theory
 
-The thickness columns, with n(λ₀) the real part of the layer's index at λ₀ (Macleod, Section 3.1):
+The thickness columns, with $n(\lambda_0)$ the real part of the layer's index at $\lambda_0$ (Macleod, Section 3.1):
 
-```
-OT = n(λ₀) · d
-QW = 4 · n(λ₀) · d / λ₀
-FW = n(λ₀) · d / λ₀
-```
+$$
+\begin{aligned}
+\mathrm{OT} &= n(\lambda_0)\, d \\
+\mathrm{QW} &= \frac{4\, n(\lambda_0)\, d}{\lambda_0} \\
+\mathrm{FW} &= \frac{n(\lambda_0)\, d}{\lambda_0}
+\end{aligned}
+$$
 
-Under a cone, each result Q is averaged over the rays that reach the surface, α being a ray's angle to the cone axis and θ its angle of incidence:
+Under a cone, each result $Q$ is averaged over the rays that reach the surface, $\alpha$ being a ray's angle to the cone axis and $\theta$ its angle of incidence:
 
-```
-Q̄ = ∫∫ Q(θ) I(α) dΩ / ∫∫ I(α) dΩ
-I(α) = 1 (Uniform),   cos α (Lambertian),   interpolated from the table (User-defined)
-NA = n₀ sin α_max,     f-number = 1 / (2 NA)
-```
+$$
+\begin{aligned}
+\bar Q &= \frac{\iint Q(\theta)\, I(\alpha)\, d\Omega}{\iint I(\alpha)\, d\Omega} \\
+I(\alpha) &= 1\ \text{(Uniform)}, \quad \cos\alpha\ \text{(Lambertian)}, \quad \text{interpolated from the table (User-defined)} \\
+\mathrm{NA} &= n_0 \sin\alpha_{\max}, \qquad f\text{-number} = \frac{1}{2\,\mathrm{NA}}
+\end{aligned}
+$$
 
-The integral over the cone reduces to one over θ and is taken by Clenshaw–Curtis quadrature. A narrow passband moves by about Δλ/λ = sin²θ / (2 n*²) at incidence θ, n* its effective index (Macleod, Eq. 8.39), which is why a narrowband filter needs many angles. Coating layers are coherent and combined by the characteristic matrix; a whole part's substrate is incoherent, as set out in [Surface & Evaluation Modes](/design/evaluation-modes/).
+The integral over the cone reduces to one over $\theta$ and is taken by Clenshaw–Curtis quadrature. A narrow passband moves by about $\Delta\lambda/\lambda = \sin^2\theta / (2 (n^*)^2)$ at incidence $\theta$, $n^*$ its effective index (Macleod, Eq. 8.39), which is why a narrowband filter needs many angles. Coating layers are coherent and combined by the characteristic matrix; a whole part's substrate is incoherent, as set out in [Surface & Evaluation Modes](/design/evaluation-modes/).
 
-The tools change each unlocked layer as follows, s being the controller step, m the QWOT increment and p the kick as a fraction:
+The tools change each unlocked layer as follows, $s$ being the controller step, $m$ the QWOT increment and $p$ the kick as a fraction:
 
-```
-keep n·d:   d′ = d · n_old(λ₀) / n_new(λ₀)
-step:       d′ = s · round(d / s)
-QWOT:       d′ = q · round(d / q),    q = m λ₀ / (4 n(λ₀))
-perturb:    d′ = d · (1 + p u),       u uniform on [−1, 1]
-```
+$$
+\begin{aligned}
+\text{keep } n \cdot d\text{:} \quad & d' = d \cdot \frac{n_\text{old}(\lambda_0)}{n_\text{new}(\lambda_0)} \\
+\text{step:} \quad & d' = s \cdot \operatorname{round}(d / s) \\
+\text{QWOT:} \quad & d' = q \cdot \operatorname{round}(d / q), \qquad q = \frac{m \lambda_0}{4\, n(\lambda_0)} \\
+\text{perturb:} \quad & d' = d\,(1 + p u), \qquad u \text{ uniform on } [-1, 1]
+\end{aligned}
+$$
 
-A symmetrical group of lossless layers has a characteristic matrix at λ₀ of the form of a single layer (Macleod, Section 7.2.2, Eqs. 7.5–7.10):
+A symmetrical group of lossless layers has a characteristic matrix at $\lambda_0$ of the form of a single layer (Macleod, Section 7.2.2, Eqs. 7.5–7.10):
 
-```
-M₁₁ = M₂₂ = cos γ,    M₁₂ = i sin γ / E,    M₂₁ = i E sin γ
-E = √(M₂₁ / M₁₂),     d_eq = γ λ₀ / (2π E)
-```
+$$
+\begin{aligned}
+M_{11} = M_{22} &= \cos\gamma, \quad M_{12} = \frac{i \sin\gamma}{E}, \quad M_{21} = i E \sin\gamma \\
+E &= \sqrt{M_{21} / M_{12}}, \qquad d_\text{eq} = \frac{\gamma \lambda_0}{2\pi E}
+\end{aligned}
+$$
 
-with E the Herpin index and γ the equivalent phase, taken on the branch nearest the group's total phase. A group in a stopband at λ₀, where |M₁₁| > 1, has no real E and is refused.
+with $E$ the Herpin index and $\gamma$ the equivalent phase, taken on the branch nearest the group's total phase. A group in a stopband at $\lambda_0$, where $\lvert M_{11}\rvert > 1$, has no real $E$ and is refused.
 
 ## References
 

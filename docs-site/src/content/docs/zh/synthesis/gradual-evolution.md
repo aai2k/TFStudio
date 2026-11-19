@@ -22,7 +22,7 @@ ribbonIcon: gradual
 
 ## 控件与设置
 
-**运行**、**停止**、**重置**、**最佳**、**清除历史**、**恢复**和**候选材料**：与[针法](/zh/synthesis/needle/#控件与设置)中相同。
+**运行**、**停止**、**重置**、**最佳**、**清除历史**、**恢复**和**材料池**：与[针法](/zh/synthesis/needle/#控件与设置)中相同。
 
 **最大膜层数**：设计最多可以包含的层数。达到它并不会结束运行：只接受放得下的针层，并且腾出一层先于强制步骤。默认 50。
 
@@ -52,22 +52,24 @@ ribbonIcon: gradual
 
 ### 评价函数与 P 函数
 
-P 函数、它对偏振、角度和锥角的平均，以及针层起始厚度的线搜索，与[针法](/zh/synthesis/needle/#p-函数)中相同，探测针层为 0.5 nm。扫描和强制层的选择使用光学评价 OMF；精炼和所有比较使用 MF。
+$P$ 函数、它对偏振、角度和锥角的平均，以及针层起始厚度的线搜索，与[针法](/zh/synthesis/needle/#p-函数)中相同，探测针层为 0.5 nm。扫描和强制层的选择使用光学评价 OMF；精炼和所有比较使用 MF。
 
 ### 步骤与接受
 
-```
-接受针层：     MF_cand < MF_work − 10⁻⁹
-精炼：         针层之后先 N 步，再 ⌊N/2⌋ 步；N = 精炼迭代/代，
-               选择保留厚体时 N = min(精炼迭代/代, 15)
-停在下限的层： d_j = d_min，∂MF/∂d_j > 0，未锁定；当 MF_without < MF_best 时去掉
-强制步骤：     在位置 0 或 N_L 加一层厚 d_min、材料为 a 的层；取 OMF 最低的组合
-腾出一层：     去掉层 j，使其余部分精炼后（N 步）的 MF 最低
-扰动：         d_j → max(d_min, d_j · (1 + s·u))，u 在 [−1, 1] 上均匀分布，s = 0.1, 0.2, 0.4, 0.8
-合并：         去掉使 MF_without 最低的层 j，只要 MF_without ≤ (1 + tol) · MF_lowest
-```
+$$
+\begin{aligned}
+& \text{接受针层：} && \text{MF}_\text{cand} < \text{MF}_\text{work} - 10^{-9} \\
+& \text{精炼：} && \text{针层之后先 } N \text{ 步，再 } \lfloor N/2 \rfloor \text{ 步；}\ N = \text{精炼迭代/代}, \\
+& && \text{选择保留厚体时 } N = \min(\text{精炼迭代/代},\ 15) \\
+& \text{停在下限的层：} && d_j = d_\text{min},\ \partial\text{MF}/\partial d_j > 0,\ \text{未锁定；当 } \text{MF}_\text{without} < \text{MF}_\text{best} \text{ 时去掉} \\
+& \text{强制步骤：} && \text{在位置 } 0 \text{ 或 } N_L \text{ 加一层厚 } d_\text{min} \text{、材料为 } a \text{ 的层；取 OMF 最低的组合} \\
+& \text{腾出一层：} && \text{去掉层 } j \text{，使其余部分精炼后（} N \text{ 步）的 MF 最低} \\
+& \text{扰动：} && d_j \to \max(d_\text{min},\ d_j \cdot (1 + s u)),\quad u \text{ 在 } [-1, 1] \text{ 上均匀分布，}\ s = 0.1, 0.2, 0.4, 0.8 \\
+& \text{合并：} && \text{去掉使 } \text{MF}_\text{without} \text{ 最低的层 } j \text{，只要 } \text{MF}_\text{without} \le (1 + \text{tol}) \cdot \text{MF}_\text{lowest}
+\end{aligned}
+$$
 
-MF_work 是工作设计的 MF，强制步骤可能使它高于迄今最好设计的 MF_best；d_min 为**最小厚度**，N_L 为该面的层数。扰动后以完整的**精炼迭代/代**步数精炼，其随机数来自固定的种子，因此运行会以同样的方式重现。
+$\text{MF}_\text{work}$ 是工作设计的 MF，强制步骤可能使它高于迄今最好设计的 $\text{MF}_\text{best}$；$d_\text{min}$ 为**最小厚度**，$N_L$ 为该面的层数。扰动后以完整的**精炼迭代/代**步数精炼，其随机数来自固定的种子，因此运行会以同样的方式重现。
 
 Tikhonravov 等人在每次针法优化后用他们自己的算法增加总光学厚度，并在层数或厚度超过限值时停止。这里的强制步骤是 Sullivan 和 Dobrowolski 所描述的在入射端或出射端加一层，也就是渐变演化的基本形式（Macleod），而**最大膜层数**会让运行腾出一层而不是结束。他们的薄层去除和设计清理让被去除的层取相邻层的折射率，从而保持总光学厚度；这里腾出一层和合并会连同厚度一起去掉该层，由精炼恢复评价函数需要的厚度。深度搜索就是盆地跳跃（Wales 和 Doye）。
 

@@ -20,7 +20,7 @@ The surface mode set in the [Design Editor](/design/design-editor/) decides whic
 
 **Single / Sweep**, the channel (**T+R+A**, **T**, **R**, **A**) and **baseline** sit on the row; **Settings** holds the **λ** range and step, the **AOI** and the polarization.
 
-**Deviations** strip, in Single mode: **d × scale**, **d + offset** with its unit (**nm**, **OT**, **QW**, **FW**), **Δn** and **Δk**, once under **Global** and again per material under **Per-material**. The global values act on the coating layers only; the incident medium, substrate and exit medium keep their index, since a process running off nominal changes the films it grows. A per-material row lists every place its material appears, media included, so a per-material Δn is the way to shift a substrate glass on purpose; it also shifts any layer of that material. **Reset deviations** returns everything to no change.
+**Deviations** strip, in Single mode: **d × scale**, **d + offset** with its unit (**nm**, **OT**, **QW**, **FW**), **Δn** and **Δk**, once under **Global** and again per material under **Per-material**. The global values act on the coating layers only; the incident medium, substrate and exit medium keep their index, since a process running off nominal changes the films it grows. A per-material row lists every place its material appears, media included, so a per-material $\Delta n$ is the way to shift a substrate glass on purpose; it also shifts any layer of that material. **Reset deviations** returns everything to no change.
 
 In Sweep mode: **Sweep parameter** is any one of those controls, with **from**, **to** and **steps**; the range reseeds itself when you change the kind of parameter. **Run sweep** computes the map, varying only that parameter from the unchanged design. To combine a fixed deviation with a sweep, set the fixed part up in Single mode first.
 
@@ -28,21 +28,23 @@ In Sweep mode: **Sweep parameter** is any one of those controls, with **from**, 
 
 ## Theory
 
-For a layer of thickness d, index n and extinction coefficient k, with a global (g) and a per-material (m) part of each deviation:
+For a layer of thickness $d$, index $n$ and extinction coefficient $k$, with a global (g) and a per-material (m) part of each deviation:
 
-```
-d′ = max(0, d · s_g · s_m + o_g + o_m)
-n′ = n + Δn_g + Δn_m
-k′ = max(0, k + Δk_g + Δk_m)
-```
+$$
+\begin{aligned}
+d' &= \max(0,\ d \cdot s_g \cdot s_m + o_g + o_m) \\
+n' &= n + \Delta n_g + \Delta n_m \\
+k' &= \max(0,\ k + \Delta k_g + \Delta k_m)
+\end{aligned}
+$$
 
-An offset entered in optical units becomes nanometres layer by layer, with n the layer's index at the design's reference wavelength λ₀:
+An offset entered in optical units becomes nanometres layer by layer, with $n$ the layer's index at the design's reference wavelength $\lambda_0$:
 
-```
-o[nm] = OT / n(λ₀) = QW · λ₀ / (4 n(λ₀)) = FW · λ₀ / n(λ₀)
-```
+$$
+o\,[\text{nm}] = \frac{\mathrm{OT}}{n(\lambda_0)} = \frac{\mathrm{QW} \cdot \lambda_0}{4\, n(\lambda_0)} = \frac{\mathrm{FW} \cdot \lambda_0}{n(\lambda_0)}
+$$
 
-so a 0.01 QW offset is a thicker step in a low-index layer than in a high-index one. A medium takes only its per-material Δn and Δk. The deviated stack is then computed as in [Optical Evaluation](/analysis/optical-evaluation/).
+so a 0.01 QW offset is a thicker step in a low-index layer than in a high-index one. A medium takes only its per-material $\Delta n$ and $\Delta k$. The deviated stack is then computed as in [Optical Evaluation](/analysis/optical-evaluation/).
 
 ## References
 

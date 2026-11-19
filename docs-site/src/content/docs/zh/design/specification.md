@@ -4,7 +4,7 @@ description: 以合格/不合格检查表示的设计要求，在设计上实时
 ribbonIcon: specification
 ---
 
-规格保存镀膜必须满足的要求，形式为合格/不合格检查，例如“在 450–650 nm 上平均 T ≥ 99 %”或“不超过 30 层”。它是要求清单，与优化器最小化的[评价函数](/zh/design/merit-function-editor/)分开；**生成评价函数**把清单转为评价函数，使运行恰好瞄准所规定的内容。检查随设计保存。
+规格保存镀膜必须满足的要求，形式为合格/不合格检查，例如“在 450–650 nm 上平均 $T \ge 99\,\%$”或“不超过 30 层”。它是要求清单，与优化器最小化的[评价函数](/zh/design/merit-function-editor/)分开；**生成评价函数**把清单转为评价函数，使运行恰好瞄准所规定的内容。检查随设计保存。
 
 <!-- shot: specification | the 8-layer AR's own spec plus the Photopic AR preset appended and a layer count ≤ 8, every row passing and the banner green -->
 ![规格](/screenshots/specification-zh.png)
@@ -58,22 +58,26 @@ ribbonIcon: specification
 
 ## 理论
 
-C(λ) 为以分数表示的通道值，波段平均与积分为
+$C(\lambda)$ 为以分数表示的通道值，波段平均与积分为
 
-```
-C̄ = ∫ C dλ / (λ₂ − λ₁)
-C_w = ∫ S(λ) D(λ) C(λ) dλ / ∫ S(λ) D(λ) dλ
-```
+$$
+\begin{aligned}
+\bar{C} &= \frac{\int C\,d\lambda}{\lambda_2 - \lambda_1} \\
+C_w &= \frac{\int S(\lambda)\,D(\lambda)\,C(\lambda)\,d\lambda}{\int S(\lambda)\,D(\lambda)\,d\lambda}
+\end{aligned}
+$$
 
-积分在波段上进行，S 为积分的光源，D 为探测器。FWHM 与边缘 λ 从按中心 λ 方式找到的峰 λ_p 出发，其值为 C_p。水平为 L 时，交点值为
+积分在波段上进行，$S$ 为积分的光源，$D$ 为探测器。FWHM 与边缘 λ 从按中心 λ 方式找到的峰 $\lambda_p$ 出发，其值为 $C_p$。水平为 $L$ 时，交点值为
 
-```
-C_x = L · C_p                   峰（最大）
-C_x = C_p + L · (1 − C_p)       陷波（最小）
-FWHM = λ_right − λ_left
-```
+$$
+\begin{aligned}
+C_x &= L\,C_p && \text{峰（最大）} \\
+C_x &= C_p + L\,(1 - C_p) && \text{陷波（最小）} \\
+\text{FWHM} &= \lambda_\text{right} - \lambda_\text{left}
+\end{aligned}
+$$
 
-λ_left 与 λ_right 是 λ_p 两侧 C 首次达到 C_x 的波长，各自在扫描采样点之间用二分法求出。边缘 λ 为 λ_left 或 λ_right。L 限制在 0.001 到 0.999 之间，因为水平为 0 或 1 时没有交点。
+$\lambda_\text{left}$ 与 $\lambda_\text{right}$ 是 $\lambda_p$ 两侧 $C$ 首次达到 $C_x$ 的波长，各自在扫描采样点之间用二分法求出。边缘 λ 为 $\lambda_\text{left}$ 或 $\lambda_\text{right}$。$L$ 限制在 0.001 到 0.999 之间，因为水平为 0 或 1 时没有交点。
 
 ## 参考文献
 

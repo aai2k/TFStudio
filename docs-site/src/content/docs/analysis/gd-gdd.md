@@ -14,7 +14,7 @@ The GD/GDD window computes the spectral phase of a coating in reflection or tran
 - **Phase φ**, in degrees: the phase change on reflection or transmission, unwrapped along wavelength and set to zero at the reference wavelength.
 - **GD**, group delay, in fs: how long the coating holds a pulse.
 - **GDD**, group-delay dispersion, in fs²: how that delay changes across the spectrum, which is what spreads a short pulse.
-- **CDC**, chromatic dispersion coefficient, in fs/nm: GDD per nm of wavelength instead of per rad/fs, with the sign of GDD. The fibre dispersion D = dτ/dλ of a data sheet, per kilometre, has the opposite sign; a coating has no length.
+- **CDC**, chromatic dispersion coefficient, in fs/nm: GDD per nm of wavelength instead of per rad/fs, with the sign of GDD. The fibre dispersion $D = d\tau/d\lambda$ of a data sheet, per kilometre, has the opposite sign; a coating has no length.
 - **TOD**, third-order dispersion, in fs³: the asymmetry GDD leaves, which puts structure on one side of a pulse.
 
 ## Controls and settings
@@ -41,16 +41,18 @@ A GD feature beside a deep reflection minimum is real but carries little energy 
 
 ## Theory
 
-With φ(ω) the phase change on reflection or transmission in Macleod's convention:
+With $\varphi(\omega)$ the phase change on reflection or transmission in Macleod's convention:
 
-```
-GD  = −dφ/dω       [fs]
-GDD = −d²φ/dω²     [fs²]
-TOD = −d³φ/dω³     [fs³]
-CDC = GDD · 2πc / λ²   [fs/nm]
-```
+$$
+\begin{aligned}
+\mathrm{GD} &= -\frac{d\varphi}{d\omega} && [\text{fs}] \\
+\mathrm{GDD} &= -\frac{d^2\varphi}{d\omega^2} && [\text{fs}^2] \\
+\mathrm{TOD} &= -\frac{d^3\varphi}{d\omega^3} && [\text{fs}^3] \\
+\mathrm{CDC} &= \mathrm{GDD} \cdot \frac{2\pi c}{\lambda^2} && [\text{fs/nm}]
+\end{aligned}
+$$
 
-With these signs a coating that holds a pulse longer has a positive GD, and the coating's GDD adds to a medium's `L·d²κ/dω²` as in Macleod's Eq. 11.19. The derivatives are exact, not differences: each layer's index and phase thickness are carried with their first three derivatives in ω through the characteristic matrices of the [Admittance Diagram](/analysis/admittance/), and GD, GDD and TOD come from the logarithmic derivative of r or t. A formula material is differentiated exactly; a table gives the derivative of its interpolating curve. Phase unwrapping is used only to draw the phase curve.
+With these signs a coating that holds a pulse longer has a positive GD, and the coating's GDD adds to a medium's $L\,d^2\kappa/d\omega^2$ as in Macleod's Eq. 11.19. The derivatives are exact, not differences: each layer's index and phase thickness are carried with their first three derivatives in $\omega$ through the characteristic matrices of the [Admittance Diagram](/analysis/admittance/), and GD, GDD and TOD come from the logarithmic derivative of $r$ or $t$. A formula material is differentiated exactly; a table gives the derivative of its interpolating curve. Phase unwrapping is used only to draw the phase curve.
 
 ## References
 

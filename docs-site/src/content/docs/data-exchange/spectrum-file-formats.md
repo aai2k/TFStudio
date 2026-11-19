@@ -85,7 +85,7 @@ TFStudio curve loadable in any spectroscopy package.
 
 ## Ellipsometry files
 
-A Ψ and Δ pair is imported in
+A $\Psi$ and $\Delta$ pair is imported in
 [Measured Ellipsometry](/data-exchange/measured-ellipsometry/), not in Measured
 Spectra, and everything above about delimiters, decimal separators and headers
 applies to it. A few things are specific to these files.
@@ -95,26 +95,26 @@ An axis is read as eV only when the header says so, never from the numbers: an
 eV axis and a micrometre axis span the same range, so a guess would convert
 silently and be invisible afterwards.
 
-**Which column is Ψ and which is Δ** is decided from the values rather than the
-order, because vendors disagree about the order. Ψ is the arctangent of a
+**Which column is $\Psi$ and which is $\Delta$** is decided from the values rather than the
+order, because vendors disagree about the order. $\Psi$ is the arctangent of a
 magnitude ratio and cannot leave 0 to 90 degrees, so a column that goes above 90
-or below zero is Δ. Either can be overridden in one click.
+or below zero is $\Delta$. Either can be overridden in one click.
 
 **The angle of incidence** is read from a header line that names it (`AOI 70`,
 `Angle of incidence 70`), from a data column named the same way, from a column
 heading that lists the angles, as `Psi (45.00, 50.00°)` does, or from a column's
 own name where it is written `@55°`. A file that repeats its wavelengths once
-per angle is split into one Ψ/Δ pair per angle. A measurement at several angles
+per angle is split into one $\Psi/\Delta$ pair per angle. A measurement at several angles
 has no single angle for its header to state, so each curve carries its own in
 its name and an export of those curves reads back with every angle intact. A
 file that states its angle in none of those places imports at the angle set in
 the panel, so check it.
 
 **Several regions of interest** in one file, as an imaging ellipsometer writes
-them under a `ROIidx` column, are split the same way: one Ψ/Δ pair per region,
+them under a `ROIidx` column, are split the same way: one $\Psi/\Delta$ pair per region,
 named after it.
 
-**Δ in any range.** Software may write Δ between -180 and 180, or -90 and 270.
+**$\Delta$ in any range.** Software may write $\Delta$ between -180 and 180, or -90 and 270.
 It is the same angle, and it is drawn and fitted on the 0 to 360 axis as such.
 A curve that steps off the end of its own range is read as carrying on round
 the circle, so nothing is interpolated through the middle of the turn, and a
@@ -124,14 +124,14 @@ residual against the design is always taken the short way round.
 
 | Instrument and layout | Result |
 | --- | --- |
-| **SENTECH SpectraRay.** `; WAVELENGTH <angle> <angle>` header, then λ, Ψ, Δ | Imports. Columns typed from the values. The angle appears only as a column heading, so set it in the panel. |
-| **ADAP.** `SE PSI DELTA` header with a separate `AOI` line | Imports, angle read from the header. This exporter writes tan Ψ and cos Δ under headings that say `PSI` and `DELTA`; the Δ column is detected and the window says so. Convert to degrees before fitting. |
-| **J.A. Woollam WVASE, spectroscopic.** Unit line, then λ, angle, Ψ, Δ | λ, Ψ and Δ import. In this export the angle column carries no name, so it is offered as a curve instead of splitting the file by angle: set the angle by hand, or name that column `AOI` first. |
+| **SENTECH SpectraRay.** `; WAVELENGTH <angle> <angle>` header, then $\lambda$, $\Psi$, $\Delta$ | Imports. Columns typed from the values. The angle appears only as a column heading, so set it in the panel. |
+| **ADAP.** `SE PSI DELTA` header with a separate `AOI` line | Imports, angle read from the header. This exporter writes $\tan\Psi$ and $\cos\Delta$ under headings that say `PSI` and `DELTA`; the $\Delta$ column is detected and the window says so. Convert to degrees before fitting. |
+| **J.A. Woollam WVASE, spectroscopic.** Unit line, then $\lambda$, angle, $\Psi$, $\Delta$ | $\lambda$, $\Psi$ and $\Delta$ import. In this export the angle column carries no name, so it is offered as a curve instead of splitting the file by angle: set the angle by hand, or name that column `AOI` first. |
 | **J.A. Woollam WVASE, single wavelength.** `Angle of Incidence, Psi, Delta` | Not read. This is an angle sweep at one wavelength; the window's curves are functions of wavelength. |
-| **J.A. Woollam CompleteEASE, variable angle.** `Wavelength (nm)  Psi (45.00, 50.00, … °)  Delta (45.00, 50.00, … °)` over one Ψ, Δ column pair per angle | Imports as one Ψ/Δ pair per angle, each named and angled from the heading. Δ is written between -90 and 270 and lands on the 0 to 360 axis. |
-| **Accurion, Park Systems EP4Control.** `#ROIidx  Lambda  Bandwidth  AOI  …  Delta  Psi` with a `#` unit row, one row per region of interest per wavelength | Imports. The wavelength is found by name in the third column, Δ before Ψ is read by name, the angle comes from its column, and each region of interest becomes its own Ψ/Δ pair. |
+| **J.A. Woollam CompleteEASE, variable angle.** `Wavelength (nm)  Psi (45.00, 50.00, … °)  Delta (45.00, 50.00, … °)` over one $\Psi$, $\Delta$ column pair per angle | Imports as one $\Psi/\Delta$ pair per angle, each named and angled from the heading. $\Delta$ is written between -90 and 270 and lands on the 0 to 360 axis. |
+| **Accurion, Park Systems EP4Control.** `#ROIidx  Lambda  Bandwidth  AOI  …  Delta  Psi` with a `#` unit row, one row per region of interest per wavelength | Imports. The wavelength is found by name in the third column, $\Delta$ before $\Psi$ is read by name, the angle comes from its column, and each region of interest becomes its own $\Psi/\Delta$ pair. |
 
-Any other delimited file holding a wavelength, a Ψ and a Δ should import: those
+Any other delimited file holding a wavelength, a $\Psi$ and a $\Delta$ should import: those
 are what could be obtained to check against, not the limit of what works.
 A file that does not import is worth
 [reporting](https://github.com/aai2k/TFStudio/issues) with the file attached.

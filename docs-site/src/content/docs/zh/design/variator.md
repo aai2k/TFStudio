@@ -4,7 +4,7 @@ description: 每层厚度、基底厚度以及每种材料 n 和 k 的滑块，�
 ribbonIcon: variator
 ---
 
-参数变化器显示设计中哪个参数起作用。拖动滑块，光谱会立即叠加在未改动的设计上重绘。厚度滑块移动的是设计本身，因此所有打开的窗口都随之变化；n 和 k 滑块只作用于参数变化器自身的预览。
+参数变化器显示设计中哪个参数起作用。拖动滑块，光谱会立即叠加在未改动的设计上重绘。厚度滑块移动的是设计本身，因此所有打开的窗口都随之变化；$n$ 和 $k$ 滑块只作用于参数变化器自身的预览。
 
 <!-- shot: variator | the 550 nm bandpass with its spacer 2 nm thicker and TiO2 0.01 higher in index, solid curves over the dotted unmoved design and the bandpass target, preview narrowed to 450-660 nm -->
 ![参数变化器](/screenshots/variator-zh.png)
@@ -32,17 +32,19 @@ ribbonIcon: variator
 
 - 第一次移动厚度时记下一个撤销步骤，因此一次 Ctrl+Z 就能撤回整个调整过程。
 - 切换到其他窗口再切换回来时，滑块保持原位。
-- 如果设计以其他方式发生变化，例如 Ctrl+Z 或在其他窗口中编辑，参数变化器会以设计的当前状态作为基线，并把厚度滑块归零。n 和 k 滑块保留其数值，因为它们不属于设计。
+- 如果设计以其他方式发生变化，例如 Ctrl+Z 或在其他窗口中编辑，参数变化器会以设计的当前状态作为基线，并把厚度滑块归零。$n$ 和 $k$ 滑块保留其数值，因为它们不属于设计。
 
 ## 理论
 
 每个滑块都加在本次调整开始时的数值上：
 
-```
-d′ = max(0, d + Δd)
-n′(λ) = n(λ) + Δn
-k′(λ) = max(0, k(λ) + Δk)
-```
+$$
+\begin{aligned}
+d' &= \max(0,\ d + \Delta d) \\
+n'(\lambda) &= n(\lambda) + \Delta n \\
+k'(\lambda) &= \max(0,\ k(\lambda) + \Delta k)
+\end{aligned}
+$$
 
 偏移在所有波长上相同，因此材料色散的形状保持不变。两条曲线都由膜堆的特征矩阵算出（Macleod，第 2.6 节），与[光学评价](/zh/analysis/optical-evaluation/)相同。滑块小幅移动时曲线移动多少，表明该膜层或材料在镀膜机中需要控制得多严格（Macleod，第 13.7 节）。
 

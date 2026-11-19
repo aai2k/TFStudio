@@ -37,16 +37,16 @@ The table in the middle is the merit function, the same rows as the [Merit Funct
 
 When **Run** is pressed, each band row gets the number of sample wavelengths the design's fringe spacing needs, and more where the band hides a narrow feature (see [Operand Reference](/design/operands/#sampling-a-band)). A run does not start when no row is enabled or a row cannot be evaluated. It then minimizes:
 
-```
-MF = √( Σ_i  w_i · (m_i / σ_i)²  /  W )        m_i: row i's miss, w_i its weight, σ_i its scale, W = Σ w_i
-
-d_k ≥ 1 nm         for every method; no upper limit without an MXT row
-MNT, MXT           hard limits with SQP, penalty rows with every other method
-
-target reached           MF < 10⁻⁶
-max iter                 Max iter stopped the method
-no further improvement   the method stopped on its own test (Optimization Methods)
-```
+$$
+\begin{aligned}
+\text{MF} &= \sqrt{\frac{\sum_i w_i \, (m_i / \sigma_i)^2}{W}} \qquad m_i\text{: row } i\text{'s miss, } w_i \text{ its weight, } \sigma_i \text{ its scale, } W = \textstyle\sum w_i \\
+d_k &\ge 1\ \text{nm} \qquad \text{for every method; no upper limit without an MXT row} \\
+\text{MNT, MXT} &\quad \text{hard limits with SQP, penalty rows with every other method} \\
+\text{target reached} &\quad \text{MF} < 10^{-6} \\
+\text{max iter} &\quad \text{Max iter stopped the method} \\
+\text{no further improvement} &\quad \text{the method stopped on its own test (Optimization Methods)}
+\end{aligned}
+$$
 
 Try all runs CG, DLS, Newton, Newton-CG, SQP, Trust-region Newton, DE, SA and DLS multi-start one after another, each from the same start and not from the one before, and keeps the lowest MF. DLS multi-start runs several restarts at once, one per thread the app uses; Differential Evolution scores each generation on several threads when four or more layers are free. Neither changes the result.
 
