@@ -19,7 +19,11 @@ function withLayerOverrides(baseCtx, byLayer) {
         if (!ov || ov.thk == null) return l;
         return { material: l.material, thickness: ov.thk };
     });
-    return { ...baseCtx, [key]: layers };
+    // A symmetric design's back is its front reversed, so a swept front layer
+    // moves its twin on the back as well.
+    return baseCtx.symmetric
+        ? { ...baseCtx, [key]: layers, backLayers: [...layers].reverse() }
+        : { ...baseCtx, [key]: layers };
 }
 
 /**
@@ -91,6 +95,7 @@ export function buildOpticalBaseCtx(design, resolveMat) {
         frontLayers: resolved(design.frontLayers),
         backLayers: resolved(design.backLayers),
         sweptKey: sweptLayersKey(design),
+        symmetric: design.surfaceMode === 'symmetric',
         subThickness_mm: design.substrate?.thickness ?? 1.0,
         cone: makeConeSpec(design.cone || {}),
     };

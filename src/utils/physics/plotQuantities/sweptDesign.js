@@ -6,6 +6,7 @@
  */
 
 import { parseAxisVar, sweptLayersKey } from './axisVars.js';
+import { mirrorLayers } from '../optimizer/layerOps.js';
 
 /**
  * `{ design, resolveMat }` with the layer `sweep` ('thk:i') names at
@@ -19,5 +20,7 @@ export function sweptDesign({ design, resolveMat }, sweep, value) {
     if (!current) return { design, resolveMat };
     const layers = design[key].slice();
     layers[layer] = { ...current, thickness: value };
-    return { design: { ...design, [key]: layers }, resolveMat };
+    // A symmetric design's back is its front reversed, so the twin moves too.
+    const swept = design.surfaceMode === 'symmetric' ? { ...design, [key]: layers, backLayers: mirrorLayers(layers) } : { ...design, [key]: layers };
+    return { design: swept, resolveMat };
 }
