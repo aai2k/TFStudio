@@ -65,7 +65,7 @@ function sweepHere(spec, design) {
  * pool rather than in the renderer, because the step sizes are the user's and
  * a fine grid over a hundred-layer stack is not quick.
  */
-function useMapSweep(spec, design) {
+export function useMapSweep(spec, design) {
     const [result, setResult] = useState(null);
     const [computing, setComputing] = useState(false);
     const [progress, setProgress] = useState(null);
@@ -84,6 +84,7 @@ function useMapSweep(spec, design) {
             // Small enough to run here finishes before a pool would have
             // started, and the timer above is what supersedes it.
             if (sweepWork(spec, design) <= MAIN_THREAD_BUDGET) {
+                setComputing(false);
                 setResult(sweepHere(spec, design));
                 return;
             }
