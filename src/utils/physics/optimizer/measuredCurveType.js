@@ -21,6 +21,10 @@ export const GENERATED_ONLY_OPERAND_TYPES = [...MEASURED_CURVE_OPERAND_TYPES];
 
 export function isMeasuredCurve(type) { return type === 'MCURVE'; }
 
+// The row type whose unit a row's value is in: a curve block's channel (R when
+// none is recorded), any other row's own type.
+export function unitType(op) { return isMeasuredCurve(op?.type) ? (op.quantity || 'R') : op?.type; }
+
 // The channel a block is scored on, or null for a channel this build does not
 // know, which a newer TFStudio may have written. A block with no channel
 // recorded is R.

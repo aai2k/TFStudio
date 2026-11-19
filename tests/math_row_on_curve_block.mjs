@@ -11,6 +11,9 @@
  *   2. The optimizer's merit equals the editor's, its residuals give the same
  *      merit, and a refinement step runs.
  *
+ *   3. The unit a math row's target is shown in is its block's: a percent for
+ *      T, R and A, the block's own unit for Psi, Delta and a dB curve.
+ *
  * Run: node tests/math_row_on_curve_block.mjs
  */
 import './_kernel.mjs';
@@ -18,7 +21,7 @@ import assert from 'node:assert/strict';
 
 const {
     makeOperand, makeMeasuredCurveOperand, expandMeasuredCurveOperands, evaluateOperands,
-    buildEvalContext, calcMF, DLSOptimizer,
+    buildEvalContext, calcMF, DLSOptimizer, mathTargetInPercent,
 } = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 
@@ -61,6 +64,17 @@ const rows = [block, bound];
     const sumW = optimizer.operands.reduce((sum, op) => sum + (op.enabled ? op.weight : 0), 0);
     near(Math.sqrt(residuals.reduce((sum, r) => sum + r * r, 0) / sumW), editorMerit, 'and its residuals give it');
     assert.doesNotThrow(() => optimizer.step(), 'a refinement step runs');
+}
+
+// ── 3. Unit ──────────────────────────────────────────────────────────────────
+{
+    const percentOf = quantity => {
+        const curve = makeMeasuredCurveOperand({ quantity, sampleLambdas: lambdas, sampleTargets: [1, 1, 1, 1, 1], weight: 1 });
+        const math = makeOperand({ type: 'OPLT', refId: curve.id, target: 0.2, weight: 1 });
+        return mathTargetInPercent(math, new Map([[curve.id, curve], [math.id, math]]));
+    };
+    for (const quantity of ['T', 'R', 'A']) assert.equal(percentOf(quantity), true, `a ${quantity} block reads in percent`);
+    for (const quantity of ['PSI', 'DEL', 'TDB']) assert.equal(percentOf(quantity), false, `a ${quantity} block does not`);
 }
 
 console.log('math_row_on_curve_block: passed');

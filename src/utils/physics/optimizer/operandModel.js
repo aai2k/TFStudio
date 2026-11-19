@@ -1,18 +1,17 @@
 /**
  * Operand data model — type lists, type predicates, and operand factories.
  *
- * This module is a
- * dependency-free leaf: no imports, no coupling to the numerical core
- * (evaluation / DLS / scanners). `optimizer.js` re-exports the whole surface so
- * every existing importer is unchanged.
+ * This module has no coupling to the numerical core
+ * (evaluation / DLS / scanners): it imports only other data-model modules.
  *
- * Reference: H.A. Macleod, Thin-Film Optical Filters, 5th ed., Ch.13
+ * Reference: H.A. Macleod, Thin-Film Optical Filters, 5th ed., Ch.3 (the merit
+ * function, Eq. 3.31)
  */
 
 import {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
     hasFreeLevel, isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve,
-    measuredCurveChannel, seedMeasuredCurve,
+    measuredCurveChannel, seedMeasuredCurve, unitType,
 } from './measuredCurveType.js';
 
 import {
@@ -40,9 +39,9 @@ export {
 
 // Polarization is chosen via the Pol column (op.pol = avg/s/p), NOT baked into
 // the type code — so only base T/R/A (single-λ) + TAV/RAV/AAV (band average)
-// remain. (The old s/p-suffixed variants TS/TP/RS/RP/AS/AP were removed; they
-// still EVALUATE for backward compatibility with saved designs — polFromType
-// reads their suffix — but they are no longer offered in the type dropdown.)
+// remain. The s/p-suffixed types TS/TP/RS/RP/AS/AP still EVALUATE for
+// backward compatibility with saved designs — polFromType reads their suffix —
+// but are not offered in the type dropdown.
 export const OPTICAL_OPERAND_TYPES    = ['T', 'TAV', 'R', 'RAV', 'A', 'AAV'];
 // Continuous spectral-target operands: a per-wavelength target (flat or a
 // linear ramp from `target` at λStart to `targetEnd` at λEnd) enforced as the
@@ -52,7 +51,7 @@ export const OPTICAL_OPERAND_TYPES    = ['T', 'TAV', 'R', 'RAV', 'A', 'AAV'];
 // BAND AVERAGES (one target = the average over the band). Code: {T|R|A}GT.
 export const RANGE_TARGET_OPERAND_TYPES = ['TGT', 'RGT', 'AGT'];
 // Total-thickness operand: value = Σ layer thicknesses (nm) over the active
-// stack(s). Target is in nm; residual is two-sided (value − target).
+// stack(s). Target is in nm; residual is two-sided (value − target) by default, one-sided under cmp le / ge.
 export const TOTAL_THICKNESS_OPERAND_TYPES = ['TT'];
 // Film-stress operand: value = Σ σ_l d_l over the coatings the evaluation mode
 // holds, in N/m (= MPa·µm); with both faces coated the back one subtracts, and
@@ -93,8 +92,8 @@ export function isPPEF(type) { return type === 'PPEF'; }
 // Quantities derived from the complex amplitude coefficients or the internal
 // field values are not fractions in [0,1]. They get a per-type residual scale
 // (operandResidualScale) rather than σ=1. Phase, GD, GDD, and TOD have exact
-// thickness derivatives; ellipsometry and EFMX retain the finite-difference
-// fallback.
+// thickness derivatives; ellipsometry rows have analytic slopes too, and
+// only EFMX retains the finite-difference fallback.
 // Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch.11 (ultrafast /
 // GD/GDD) and Ch.16 (ellipsometry Ψ, Δ).
 //   PSI/DEL     — ellipsometric Ψ, Δ (degrees), from ρ = r_p/r_s = tanΨ·e^{iΔ}.
@@ -118,8 +117,7 @@ export const PHASE_OPERAND_TYPES = [
 ];
 export const CONSTRAINT_OPERAND_TYPES = ['MNT', 'MXT'];
 // ── Zemax-style math operands ────────────────────────────────────────────────
-// Reference: Zemax OpticStudio merit-function operand catalog (see
-// `reference/zemax math operands.txt`).  Each math operand REFERENCES other
+// Reference: the Zemax OpticStudio merit-function operand catalog.  Each math operand REFERENCES other
 // rows in the MF table by their stable `id` (not by row number) so insert /
 // delete preserves the link.  Targets are in the units of the *referenced*
 // operand (T/R/A in [0,1] for optical, nm for argwave/constraint, etc.).
@@ -150,13 +148,12 @@ export const MATH_OPERAND_TYPES       = ['OPVA', 'ABSO', 'ABGT', 'ABLT', 'DIFF',
 export const CONSTANT_OPERAND_TYPES   = ['CONS'];
 // Argmax/argmin-wavelength operands. Sample C(λ) ∈ {T,R,A} over [λStart, λEnd]
 // and return the λ (in nm) at which the band-max (MXW*) or band-min (MNW*)
-// occurs, refined by a 3-point parabolic interpolation around the discrete
-// extremum for sub-sample accuracy. Code layout: M{X|N}W{T|R|A}[S|P].
+// occurs, refined between samples (a vertex probe, then a Brent search,
+// evalCore/bandExtremum.js) for sub-sample accuracy. Code layout: M{X|N}W{T|R|A}[S|P].
 // Pol-suffix S/P is the existing s/p convention; no suffix = avg.
 // Polarization is chosen via the operand's `pol` field (avg/s/p) using the MF
-// table's Pol dropdown — NOT baked into the type code. (The old S/P-suffixed
-// variants MXWTS/MXWTP/… were removed: one base type per channel + the Pol
-// column covers every case without tripling the type list.)
+// table's Pol dropdown — NOT baked into the type code: one base type per channel
+// plus the Pol column covers every case without tripling the type list.
 export const ARGWAVE_OPERAND_TYPES    = [
     'MXWT', 'MXWR', 'MXWA',
     'MNWT', 'MNWR', 'MNWA',
@@ -300,15 +297,14 @@ export function isFractionalUnit(type) {
 // no unit, so a row reading one takes the unit of its other reference:
 // PROD(TAV, CONS 2) reads in percent, and a row reading constants alone reads
 // a plain number. operandsById is a Map from id → operand. Falls back to false
-// (raw) when refs can't be resolved or are themselves math (avoids deep
-// chasing for a v1 fix).
+// (raw) when refs can't be resolved or are themselves math.
 export function mathTargetInPercent(op, operandsById) {
     if (!op || !isMath(op.type) || !operandsById) return false;
     const refIds = isMathPairRef(op.type) ? [op.refId1, op.refId2] : [op.refId];
     const withUnit = refIds
         .map(refId => operandsById.get?.(refId) ?? operandsById[refId])
         .filter(ref => !isConstant(ref?.type));
-    return withUnit.length > 0 && withUnit.every(ref => isFractionalUnit(ref?.type));
+    return withUnit.length > 0 && withUnit.every(ref => isFractionalUnit(unitType(ref)));
 }
 // Optical character (T|R|A) from an argwave type code.  Position 3 (zero-based)
 // is the optical char by construction (M{X|N}W{T|R|A}[S|P]).
