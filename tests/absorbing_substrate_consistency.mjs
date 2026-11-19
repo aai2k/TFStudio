@@ -73,4 +73,6 @@ ok(worstAll < 1e-5,
    'the families agree to under 1e-5 everywhere (divergence is P-suppressed)');
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
-process.exit(fail === 0 ? 0 : 1);
+// Ending on its own rather than through process.exit: process.exit soon after
+// the WASM kernel is instantiated can hang Node's shutdown under load.
+process.exitCode = fail === 0 ? 0 : 1;
