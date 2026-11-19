@@ -73,6 +73,103 @@ function releaseGhost(visual) {
     visual.sourceRow.ownerDocument.documentElement.classList.remove('tf-layer-dragging');
 }
 
+// The row under the pointer that a drag of `ids` may drop on, and the side of
+// it the pointer is on; null over no row, or over a row being dragged.
+function dropTargetAt(doc, x, y, ids) {
+    const row = doc.elementFromPoint(x, y)?.closest?.('[data-layer-id]');
+    const id = row?.dataset?.layerId;
+    if (!id || ids.includes(id)) return null;
+    const bounds = row.getBoundingClientRect();
+    return { id, position: y < bounds.top + bounds.height / 2 ? 'before' : 'after' };
+}
+
+// Scrolls `container` a step toward the edge the pointer is held near; true
+// when it moved.
+function scrollTowardEdge(container, pointerY) {
+    const step = edgeScrollStep(container, pointerY);
+    if (!step) return false;
+    const before = container.scrollTop;
+    container.scrollTop += step;
+    return container.scrollTop !== before;
+}
+
+const sameTarget = (a, b) => a?.id === b.id && a.position === b.position;
+
+// One drag of the rows `ids` that began on `sourceRow` with `event`: its ghost,
+// its listeners on the row's own window, and the drop on release. `drag` holds
+// the drag in progress (a ref), and `reorder(target, ids)` carries out a drop,
+// selecting the rows when the reorder moved them.
+function beginRowDrag({ sourceRow, ids, event, c, scrollRef, drag, setDropIndicator, reorder }) {
+    // The row's own window and document: in a Design Editor torn off into its
+    // own window the pointer events and the hit test belong to it, not to the
+    // main window.
+    const doc = sourceRow.ownerDocument;
+    const view = doc.defaultView;
+    const visual = createRowGhost(sourceRow, c, ids.length, event.clientX, event.clientY);
+    moveGhost(visual, event.clientX, event.clientY);
+    const state = {
+        ids, visual, startX: event.clientX, startY: event.clientY,
+        lastX: event.clientX, lastY: event.clientY,
+        active: false, target: null, cleanup: null, scrollFrame: 0,
+    };
+    drag.current = state;
+
+    const refreshDropTarget = () => {
+        const target = dropTargetAt(doc, state.lastX, state.lastY, ids);
+        state.target = target;
+        setDropIndicator(current => (target && !sameTarget(current, target) ? target : (target ? current : null)));
+    };
+
+    // Runs while the pointer is held near an edge, so the list keeps
+    // scrolling without needing further pointer movement to drive it.
+    const scrollStep = () => {
+        state.scrollFrame = 0;
+        if (!state.active) return;
+        if (scrollTowardEdge(scrollRef?.current, state.lastY)) refreshDropTarget();
+        state.scrollFrame = view.requestAnimationFrame(scrollStep);
+    };
+
+    const activate = () => {
+        state.active = true;
+        activateGhost(visual);
+        state.scrollFrame = view.requestAnimationFrame(scrollStep);
+    };
+
+    const handleMove = moveEvent => {
+        const moved = Math.hypot(moveEvent.clientX - state.startX, moveEvent.clientY - state.startY) >= DRAG_THRESHOLD_PX;
+        if (!state.active && !moved) return;
+        if (!state.active) activate();
+        moveEvent.preventDefault();
+        state.lastX = moveEvent.clientX;
+        state.lastY = moveEvent.clientY;
+        moveGhost(visual, moveEvent.clientX, moveEvent.clientY);
+        refreshDropTarget();
+    };
+
+    const cleanup = () => {
+        view.removeEventListener('pointermove', handleMove);
+        view.removeEventListener('pointerup', handleUp);
+        view.removeEventListener('pointercancel', handleCancel);
+        if (state.scrollFrame) view.cancelAnimationFrame(state.scrollFrame);
+        state.scrollFrame = 0;
+        releaseGhost(visual);
+        if (drag.current === state) drag.current = null;
+        setDropIndicator(null);
+    };
+
+    const handleUp = () => {
+        const target = state.target;
+        cleanup();
+        if (state.active && target) reorder(target, ids);
+    };
+    const handleCancel = () => cleanup();
+    state.cleanup = cleanup;
+
+    view.addEventListener('pointermove', handleMove, { passive: false });
+    view.addEventListener('pointerup', handleUp, { once: true });
+    view.addEventListener('pointercancel', handleCancel, { once: true });
+}
+
 /**
  * Pointer-driven sortable rows with a full-row drag ghost and one commit on
  * drop. The handle sits on the row number, so a drag selects the rows it moves
@@ -100,94 +197,10 @@ export function useLayerDrag({
 
         const sourceRow = event.currentTarget.closest('[data-layer-id]');
         if (!sourceRow) return;
-        // The row's own window and document: in a Design Editor torn off into
-        // its own window the pointer events and the hit test belong to it, not
-        // to the main window.
-        const doc = sourceRow.ownerDocument;
-        const view = doc.defaultView;
-        const visual = createRowGhost(sourceRow, c, ids.length, event.clientX, event.clientY);
-        moveGhost(visual, event.clientX, event.clientY);
-        const state = {
-            ids, visual, startX: event.clientX, startY: event.clientY,
-            lastX: event.clientX, lastY: event.clientY,
-            active: false, target: null, cleanup: null, scrollFrame: 0,
+        const reorder = (target, moved) => {
+            if (reorderLayers(side, moved, target.id, target.position, reversed)) selectRows(moved, moved[moved.length - 1]);
         };
-        dragRef.current = state;
-
-        const refreshDropTarget = () => {
-            const row = doc.elementFromPoint(state.lastX, state.lastY)
-                ?.closest?.('[data-layer-id]');
-            const targetId = row?.dataset?.layerId;
-            if (!targetId || ids.includes(targetId)) {
-                state.target = null;
-                setDropIndicator(null);
-                return;
-            }
-            const bounds = row.getBoundingClientRect();
-            const position = state.lastY < bounds.top + bounds.height / 2 ? 'before' : 'after';
-            state.target = { id: targetId, position };
-            setDropIndicator(current => current?.id === targetId && current.position === position
-                ? current : { id: targetId, position });
-        };
-
-        // Runs while the pointer is held near an edge, so the list keeps
-        // scrolling without needing further pointer movement to drive it.
-        const scrollStep = () => {
-            state.scrollFrame = 0;
-            if (!state.active) return;
-            const container = scrollRef?.current;
-            const step = edgeScrollStep(container, state.lastY);
-            if (step) {
-                const before = container.scrollTop;
-                container.scrollTop += step;
-                if (container.scrollTop !== before) refreshDropTarget();
-            }
-            state.scrollFrame = view.requestAnimationFrame(scrollStep);
-        };
-
-        const handleMove = moveEvent => {
-            const distance = Math.hypot(
-                moveEvent.clientX - state.startX,
-                moveEvent.clientY - state.startY,
-            );
-            if (!state.active && distance < DRAG_THRESHOLD_PX) return;
-            if (!state.active) {
-                state.active = true;
-                activateGhost(visual);
-                state.scrollFrame = view.requestAnimationFrame(scrollStep);
-            }
-            moveEvent.preventDefault();
-            state.lastX = moveEvent.clientX;
-            state.lastY = moveEvent.clientY;
-            moveGhost(visual, moveEvent.clientX, moveEvent.clientY);
-            refreshDropTarget();
-        };
-
-        const cleanup = () => {
-            view.removeEventListener('pointermove', handleMove);
-            view.removeEventListener('pointerup', handleUp);
-            view.removeEventListener('pointercancel', handleCancel);
-            if (state.scrollFrame) view.cancelAnimationFrame(state.scrollFrame);
-            state.scrollFrame = 0;
-            releaseGhost(visual);
-            if (dragRef.current === state) dragRef.current = null;
-            setDropIndicator(null);
-        };
-
-        const handleUp = () => {
-            const target = state.target;
-            cleanup();
-            if (state.active && target
-                && reorderLayers(side, ids, target.id, target.position, reversed)) {
-                selectRows(ids, ids[ids.length - 1]);
-            }
-        };
-        const handleCancel = () => cleanup();
-        state.cleanup = cleanup;
-
-        view.addEventListener('pointermove', handleMove, { passive: false });
-        view.addEventListener('pointerup', handleUp, { once: true });
-        view.addEventListener('pointercancel', handleCancel, { once: true });
+        beginRowDrag({ sourceRow, ids, event, c, scrollRef, drag: dragRef, setDropIndicator, reorder });
     }, [c, displayedLayers, reorderLayers, reversed, scrollRef, selectRows, selectedIds, side]);
 
     return { dropIndicator, onPointerDownDrag };
