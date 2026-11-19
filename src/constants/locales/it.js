@@ -5376,6 +5376,7 @@ export default {
     noGens: "Avvia l'Evoluzione graduale per vedere i cicli.",
     smartSeed: 'Design di partenza intelligente',
     smartSeedHelp: "Prima di ottimizzare, genera i design di partenza antiriflesso canonici a partire dall'insieme dei materiali, li affina tutti sul pool di worker (fuori dal thread dell'interfaccia, in parallelo) e riparte dal migliore. Il tuo design attuale è sempre uno dei candidati, quindi il punto di partenza può solo restare uguale o migliorare, e l'interfaccia non si blocca mai.",
+    smartSeedRefineOnly: (setting, option) => `Vale solo con «${setting}» impostato su «${option}».`,
     smartSeeding: (n) => `Partenza intelligente: affinamento di ${n} design iniziali…`,
     deepSearch: 'Ricerca profonda',
     deepSearchHelp: "Quando non resta nulla da provare, invece di terminare riparte dal design migliore con gli spessori perturbati. L'esecuzione continua finché non premi Ferma o non raggiunge la MF target; Cicli GE max non si applica. Il design migliore trovato viene conservato.",

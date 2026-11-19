@@ -107,6 +107,9 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
                        running, c, t }) {
     const tg = t.gradualEvolution;
     const { numRow, selRow, chkRow } = makeRowHelpers({ c, running });
+    // The smart starting design replaces the seed, which Preserve bulk keeps.
+    const [seedMode, setSeedMode] = React.useState(getSynthesisSeedMode);
+    const smartSeedUnavailable = seedMode === 'preserve-bulk';
 
     const everyday = [
         h(PpefNote, { operands, c, t }),
@@ -122,7 +125,9 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
             : null,
         // Smart starting design: generate + refine canonical AR seeds on the
         // worker pool at run start, begin from the best (incl. current design).
-        chkRow(tg.smartSeed, () => getSynthesisSmartSeed('ge'), (v) => setSynthesisSmartSeed(v, 'ge'), tg.smartSeedHelp),
+        chkRow(tg.smartSeed, () => getSynthesisSmartSeed('ge'), (v) => setSynthesisSmartSeed(v, 'ge'),
+            smartSeedUnavailable ? tg.smartSeedRefineOnly(t.settings.synthSeedMode, t.settings.synthSeedRefine) : tg.smartSeedHelp,
+            smartSeedUnavailable),
         chkRow(tg.deepSearch, () => !!deepSearch, (v) => onDeepSearch(v ? 1 : 0), tg.deepSearchHelp),
     ];
 
@@ -138,7 +143,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         selRow(t.settings.needleSens, getNeedleSensMode, setNeedleSensMode,
             [['off', t.settings.needleSensOff], ['light', t.settings.needleSensLight], ['medium', t.settings.needleSensMedium], ['aggressive', t.settings.needleSensAggressive]]),
         selRow(t.settings.threads, () => String(getThreadCount()), (v) => setThreadCount(parseInt(v, 10)), threadSelectOptions(t)),
-        selRow(t.settings.synthSeedMode, getSynthesisSeedMode, setSynthesisSeedMode,
+        selRow(t.settings.synthSeedMode, getSynthesisSeedMode, (v) => { setSynthesisSeedMode(v); setSeedMode(v); },
             [['refine', t.settings.synthSeedRefine], ['preserve-bulk', t.settings.synthSeedPreserveBulk]]),
         selRow(tg.consolidate, () => getSynthesisConsolidate() ? '1' : '0', v => setSynthesisConsolidate(v === '1'),
             [['1', tg.consolidateOn], ['0', tg.consolidateOff]]),

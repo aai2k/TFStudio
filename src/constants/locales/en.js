@@ -4735,6 +4735,7 @@ export default {
     noGens:        'Run Gradual Evolution to see cycles.',
     smartSeed:     'Smart starting design',
     smartSeedHelp: 'Before optimizing, generate the canonical antireflection starting designs from the material pool, refine them all on the worker pool (off the UI thread, in parallel), and begin from the best. Your current design is always one of the candidates, so this can only match or improve the starting point, and it never blocks the interface.',
+    smartSeedRefineOnly: (setting, option) => `Applies only with ${setting} set to ${option}.`,
     smartSeeding:  (n) => `Smart seed: refining ${n} starting designs…`,
     deepSearch:    'Deep search',
     deepSearchHelp: 'When nothing is left to try, start again from the best design with its thicknesses perturbed instead of ending the run. The run then goes on until you press Stop or it reaches the Target MF; Max GE cycles does not apply. The best design found is kept.',

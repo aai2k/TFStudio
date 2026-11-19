@@ -202,17 +202,19 @@ export function makeRowHelpers({ c, running, numWidth = 58 }) {
             }, options.map(([v, lbl]) => h('option', { key: v, value: v }, lbl)))
         );
 
-    // Uncontrolled checkbox row (defaultChecked).
-    const chkRow = (label, getVal, setVal, title) =>
+    // Uncontrolled checkbox row (defaultChecked). `unavailable` greys the row
+    // out the way a run in progress does; it keeps the stored value.
+    const chkRow = (label, getVal, setVal, title, unavailable = false) =>
         h('label', {
             title,
             style: {
                 display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
+                cursor: running || unavailable ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
+                opacity: unavailable ? 0.5 : 1,
             }
         },
             h(Checkbox, {
-                c, defaultChecked: getVal(), disabled: running,
+                c, defaultChecked: getVal(), disabled: running || unavailable,
                 onChange: e => setVal(e.target.checked),
             }),
             h('span', null, label));

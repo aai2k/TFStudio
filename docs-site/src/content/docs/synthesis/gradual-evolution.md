@@ -30,7 +30,7 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 **Min thickness (nm)**: the floor every layer is held at, the thickness of a forced layer, the thinnest a needle starts, and the smallest part a split layer may leave. It follows the strictest `MNT` row, or 15 nm without one, until you type a value for the design.
 
-**Smart starting design**: start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first. It acts only with **Thick-seed handling** at **Refine seed**.
+**Smart starting design**: start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first. It acts only with **Thick-seed handling** at **Refine seed**, and the box is greyed out while **Preserve bulk** is chosen.
 
 **Deep search**: when nothing is left to try, restart from the best design with every unlocked thickness perturbed, within 10 % after a new best and twice as far each time nothing better comes, up to 80 %. **Max GE cycles** then does not apply: the run ends at the **Target MF** or on **Stop**.
 

@@ -5317,6 +5317,7 @@ export default {
     noGens: '运行渐变演化以查看循环。',
     smartSeed: '智能起始设计',
     smartSeedHelp: '优化前，从材料池生成规范的减反起始设计，在工作池上全部精炼（脱离 UI 线程、并行），并从最佳开始。您当前的设计始终是候选之一，因此这只会匹配或改善起点 — 绝不会阻塞界面。',
+    smartSeedRefineOnly: (setting, option) => `仅当“${setting}”设为“${option}”时生效。`,
     smartSeeding: (n) => `智能种子：正在精炼 ${n} 个起始设计…`,
     deepSearch: '深度搜索',
     deepSearchHelp: '当没有可尝试的步骤时，不结束运行，而是从最佳设计出发，扰动其厚度后重新开始。运行持续到您点击“停止”或达到“目标评价函数”；“最大渐变演化循环数”不再适用。始终保留找到的最佳设计。',
