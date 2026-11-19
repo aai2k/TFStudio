@@ -14,7 +14,7 @@ import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
  * The settings a Needle run starts from, and the Needle window's fields too.
  *
  * dMin is the synthesis floor: the lower bound of a needle's thickness search
- * and the thickness below which a refined layer is pruned. It stays at 1 nm
+ * and the floor the refiner holds every layer to. It stays at 1 nm
  * whatever the merit function's MNT row says. Needles go in thin and grow, so
  * a floor at MNT would force-feed every needle at MNT thickness and the
  * synthesis collapses. Gradual Evolution can couple its floor to MNT because
@@ -55,7 +55,7 @@ export const CHECKS = [
         'The merit at which the run stops; Infinity stops it at its first accepted generation.'],
     ['deltaNm', isPositive, 'a thickness in nm above 0', 'The thickness step that probes each candidate position.'],
     ['dMin', isPositive, 'a thickness in nm above 0',
-        'The thinnest a needle goes in, and the thickness below which a refined layer is dropped.'],
+        'The thinnest a needle goes in, and the thinnest the refiner lets any layer get.'],
     ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`,
         'The method that refines the stack after each insertion.'],
     ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`,

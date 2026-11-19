@@ -2643,7 +2643,7 @@ Why it ended. On its own: `'target'` (with `stopMF`, the merit that reached it);
 | `maxLayers` | `max_layers` | `60` | The most layers the design may grow to. A whole number of 1 or more. |
 | `targetMF` | `target_mf` | `0.0005` | The merit at which the run stops; Infinity stops it at its first accepted generation. A merit of 0 or more, or Infinity. |
 | `deltaNm` | `delta_nm` | `0.5` | The thickness step that probes each candidate position. A thickness in nm above 0. |
-| `dMin` | `d_min` | `1` | The thinnest a needle goes in, and the thickness below which a refined layer is dropped. A thickness in nm above 0. |
+| `dMin` | `d_min` | `1` | The thinnest a needle goes in, and the thinnest the refiner lets any layer get. A thickness in nm above 0. |
 | `refineIter` | `refine_iter` | `60` | The refinement steps after each insertion. A whole number of 1 or more. |
 | `innerEngine` | `inner_engine` | `'trust-region'` | The method that refines the stack after each insertion. One of cg, dls, newton, newton-cg, sqp, trust-region. |
 | `candidateSearch` | `candidate_search` | `'balanced'` | How many of the improving candidates each step tries before it moves on, trading speed for quality. One of fast, balanced, thorough. |
@@ -2676,7 +2676,7 @@ Why it ended. On its own: `'target'` (with `stopMF`, the merit that reached it);
 | ---------- | ------ | ------- | ------- |
 | `maxIter` | `max_iter` | `80` | The most generations the search runs. A whole number of 1 or more. |
 | `targetMF` | `target_mf` | `0.0005` | The merit at which the search stops. A merit of 0 or more. |
-| `T0` | `t0` | `0.3` | The starting temperature, in merit units; a higher one accepts more uphill moves early on. A temperature of 0 or more. |
+| `T0` | `t0` | `0.3` | The starting temperature, as a relative rise in merit; a higher one accepts more uphill moves early on. A temperature of 0 or more. |
 | `jitterPct` | `jitter_pct` | `0.15` | How far the perturb mutation moves a thickness, as a fraction of it. A fraction of 0 or more. |
 | `refineIter` | `refine_iter` | `60` | The refinement steps each proposal gets; 0 scores each proposal as it is. A whole number of 0 or more. |
 | `dMin` | `d_min` | `1` or the strictest `MNT` row | The thinnest a layer may be. A thickness in nm above 0. |

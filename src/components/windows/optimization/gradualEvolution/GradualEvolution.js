@@ -16,8 +16,8 @@
  *      perturbed and the run goes on (utils/gradualEvolution/deepSearch.js).
  *
  * References:
- *   - H.A. Macleod, Thin-Film Optical Filters 5th ed., §"Automatic Design" (Ch.13,
- *     p.91): "gradual evolution (Dobrowolski) … adds layers to either end of an
+ *   - H.A. Macleod, Thin-Film Optical Filters 5th ed., §"Automatic Design" (Ch. 3,
+ *     p. 91): "gradual evolution (Dobrowolski) … adds layers to either end of an
  *     existing layer sequence."
  */
 

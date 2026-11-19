@@ -12,7 +12,7 @@ import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 /**
  * The settings a Structural run starts from, and the Structural Optimizer
  * window's fields too. Thicknesses in nm; jitterPct is a fraction of a layer's
- * thickness; T0 is the starting temperature, in merit units.
+ * thickness; T0 is the starting temperature, a relative rise in merit.
  */
 export const STRUCTURAL_DEFAULTS = Object.freeze({
     maxIter: 80, targetMF: 5e-4, T0: 0.3, jitterPct: 0.15, refineIter: 60,
@@ -44,7 +44,7 @@ export const CHECKS = [
         'How many proposals each generation refines; the answer depends on it. Without it, the thread count the app recommends for this computer.'],
     ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more', 'The merit at which the search stops.'],
     ['T0', isAtLeast0, 'a temperature of 0 or more',
-        'The starting temperature, in merit units; a higher one accepts more uphill moves early on.'],
+        'The starting temperature, as a relative rise in merit; a higher one accepts more uphill moves early on.'],
     ['jitterPct', isAtLeast0, 'a fraction of 0 or more', 'How far the perturb mutation moves a thickness, as a fraction of it.'],
     ['dMin', isAbove0, 'a thickness in nm above 0', 'The thinnest a layer may be.'],
     ['addMaxNm', isAbove0, 'a thickness in nm above 0', 'The thickest a randomly added layer starts at.'],

@@ -14,7 +14,7 @@
  * and monotone needle growth cannot.
  *
  * References:
- *   - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §9 (synthesis vs.
+ *   - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 3, Automatic Design (pp. 88-97; synthesis vs.
  *     refinement; cites simulated annealing & random structural search as global
  *     methods that reduce starting-design dependence).
  *   - S. Kirkpatrick, C. D. Gelatt, M. P. Vecchi, "Optimization by Simulated
