@@ -445,8 +445,16 @@ const specified = api.setSpecification(start, CHECKS);
 
     // onProgress reports only the values that changed, and the wire merges
     // the reports it holds back: together they still hold every value the run
-    // reported, each at its last.
-    const fold = patches => Object.assign({}, ...patches);
+    // reported, each at its last. The DLS worker reports progress at most
+    // every 80 ms of the clock, and each of those reports adds a point to
+    // `mfHistory` and carries the live `design`, so under load two runs differ
+    // in both: the comparison leaves them out.
+    const fold = patches => {
+        const folded = Object.assign({}, ...patches);
+        delete folded.mfHistory;
+        delete folded.design;
+        return folded;
+    };
     const patches = [];
     await quietly(() => api.refine(start, { method: 'dls', maxIter: 20 }, { onProgress: patch => patches.push(structuredClone(patch)) }));
     const refined = await server.call('refine', [start, { method: 'dls', maxIter: 20 }], { hooks: ['onProgress'] });
