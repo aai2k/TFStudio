@@ -97,6 +97,11 @@ const SHOWN = [
     ['mf', 'setMf'], ['mfBest', 'setMfBest'], ['omf', 'setOmf'], ['omfBest', 'setOmfBest'], ['layerCount', 'setLayerCount'],
 ];
 
+// The best merit the window shows: the run's own best, or a better one the
+// history holds from an earlier run. The table highlights and Best applies the
+// history's.
+const historyBest = (ctx, mf) => ctx.gensRef.current.reduce((best, row) => Math.min(best, row.mf), mf);
+
 // A refine's in-flight merit, at most every LIVE_EVERY_MS.
 function showLive(ctx, live, clock) {
     const now = Date.now();
@@ -119,7 +124,7 @@ function showProgress(ctx, patch, clock) {
         ctx.updateDesignRef.current(patch.design, { transient: true });
         ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch.design };
     }
-    for (const [key, setter] of SHOWN) if (key in patch) ctx[setter]?.(patch[key]);
+    for (const [key, setter] of SHOWN) if (key in patch) ctx[setter]?.(key === 'mfBest' ? historyBest(ctx, patch[key]) : patch[key]);
     if (patch.trend) showTrend(ctx, patch.trend, patch.redraw);
     if (patch.live) showLive(ctx, patch.live, clock);
 }
@@ -130,7 +135,7 @@ function recordRow(ctx, row) {
     ctx.genCountRef.current = row.genNum;
     ctx.setGenerations(ctx.gensRef.current.slice());
     ctx.setTopDesigns(computePareto(ctx.gensRef.current));
-    ctx.setMfBest(row.mf);
+    ctx.setMfBest(historyBest(ctx, row.mf));
     ctx.setOmfBest(minOmfOf(ctx.gensRef.current));
     ctx.saveCache();
 }
@@ -145,7 +150,7 @@ function showBest(ctx, result, curDes) {
     ctx.updateDesignRef.current(patch, { transient: true });
     ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch };
     ctx.setMf(result.mf);
-    ctx.setMfBest(result.mf);
+    ctx.setMfBest(historyBest(ctx, result.mf));
     ctx.setLayerCount((result[activeSide(curDes) === 'back' ? 'backLayers' : 'frontLayers'] || []).length);
     if (result.omf != null) {
         ctx.setOmf(result.omf);
@@ -176,7 +181,7 @@ function endRun(ctx, result, run, curDes) {
 
 /**
  * Starts a run on the design on screen, or, after a Stop with nothing edited
- * since, on the design the open run block started from. Returns a promise that
+ * since, on the best design the stopped run reached. Returns a promise that
  * settles once the run's end is shown. A run the window has let go of (ctx.activeRunRef no
  * longer holds it, after Stop, Reset, Best, Restore, a design switch or closing
  * the window) shows nothing more.
