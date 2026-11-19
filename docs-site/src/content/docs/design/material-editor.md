@@ -4,213 +4,119 @@ description: "Browse, import and create optical materials: the n(λ), k(λ) data
 ribbonIcon: material-editor
 ---
 
-The **Material Editor** is where you manage every refractive-index source
-TFStudio knows about. Each material provides a refractive index `n(λ)` and an
-extinction coefficient `k(λ)`; absorbing materials have `k > 0`. Every dropdown
-in the app that asks you to pick a material reads from here.
+The Material Editor holds every source of refractive index TFStudio knows. Each material gives n(λ) and k(λ), k > 0 for an absorbing one, and every material picker in the app reads from here. Materials sit in catalogs by source:
 
-Materials are grouped into catalogs by source:
+| Catalog | Source | Editable |
+|---|---|---|
+| **Built-in** | 22 common optical materials. | Read-only |
+| **AGF** | Zemax `.agf` files in the data folder's `Materials\agf` subfolder. | Through the file |
+| **User** | Materials and catalogs you create. | Yes |
+| **RefractiveIndex** | Materials imported from refractiveindex.info. | Yes |
+| **This design** | The open design's materials; one that came inside a design file and that no catalog here holds is listed only here. | Read-only, **Copy to my catalog…** |
 
-| Catalog          | Source                                                                  | Editable          |
-| ---------------- | ----------------------------------------------------------------------- | ----------------- |
-| **Built-in**     | A curated set of 22 common optical materials.                           | Read-only         |
-| **AGF**          | Zemax `.agf` files placed in your TFStudio data folder's `Materials` subfolder. | Via the file      |
-| **User**         | Materials and catalogs you create inside TFStudio.                      | Yes               |
-| **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |
-| **This design**  | The materials the open design uses. One that came inside a design file and that no catalog here holds is listed only here. | Read-only; **Copy to my catalog…** |
+<!-- shot: material-editor | silver on its n & k page: the n and k chart over the data table -->
 
-The left panel holds a catalog selector, a search box, and the material list;
-the right panel shows the selected material on two pages, **n & k** and
-**Mechanical**. Built-in and AGF materials show read-only details (properties,
-dispersion formula, tabulated data, and an n/k chart); user and imported
-materials open in an editable form. The name, id, colour and wavelength range
-stay above the two pages, since they identify the material whichever page is
-open.
+## Computed quantities
+
+The chart shows n on the left axis and k dashed on the right. Under it, a wavelength you type gives n and k there, and a sampled table lists the curve. The properties panel gives the d-line index, Abbe number, density and range where the source states them, and a formula material's formula and coefficients. A smooth fit shows RMS and maximum residuals of n and k with a residual plot, and a Cauchy or Urbach fit each coefficient with its standard error.
+
+## Controls and settings
+
+**Catalog selector**: one catalog with its count, or **All catalogs**. **⋯** beside it: **Rename**, **Duplicate** and **Delete** for the selected catalog, **New empty catalog** and **New catalog from Zemax AGF**. **Search** filters by name within the selected catalog.
+
+**Add** puts a material into one of your catalogs: **Blank material**, **From refractiveindex.info**, or **From TFCalc, Macleod or OptiLayer files**. A blank material goes into the selected catalog when it is yours, otherwise into your only catalog, one you pick, or a new **My catalog**. Its ID is made from the name at the first save and never changes, since designs refer to it. **Copy to my catalog** makes an editable copy of any material.
+
+A material has two pages. **n & k** takes a data type:
+
+1. **Tabular**: a λ, n, k table, typed or pasted from a spreadsheet, with a rule for the wavelengths between points ([below](#between-the-table-points)).
+2. **Formula**: a dispersion formula with its coefficients and an optional λ, k table. The formulas are grouped by source under the source's own numbers: Zemax (Schott, Sellmeier, Herzberger, Conrady and the rest), the general series and OptiLayer forms, and the nine refractiveindex.info formulas. Cauchy, general Sellmeier and the series take as many terms as you add; a zero term is dropped on save.
+
+The validity range at the top bounds where the material holds and what the chart spans.
+
+**Mechanical** holds the constants used by [Stress](/analysis/stress/) and the temperature model of [Environments](/design/environments/):
+
+| Constant | Unit | What it is |
+|---|---|---|
+| Young's modulus | GPa | Stiffness under tension. |
+| Poisson's ratio | | Sideways contraction while it stretches. |
+| Linear expansion | ppm/K | Growth per kelvin. |
+| dn/dT | ppm/K | Change of index with temperature. |
+| Intrinsic stress | MPa | The stress a film is deposited with, tensile positive. |
+| Reference temperature | °C | The deposition temperature that stress refers to. |
+| Surface energy | J/m² | What a fresh surface costs: what a crack or delamination pays. |
+
+Both temperature coefficients are typed in ppm/K, as catalogs print them: 0.00000055 per kelvin is 0.55. An empty box means unknown, and each calculation says what it does without it. The constants travel with the material into a copy, a user catalog and a design file. An AGF glass arrives with its expansion, Young's modulus and Poisson's ratio.
+
+Catalogs are saved in the data folder's `Materials` subfolder. **Refresh all**, the round arrows at the left of the title bar, reads catalog files and AGF files copied in while the app runs, and the project folders for design files changed outside TFStudio. Open windows compute again from what was read; optimizer, synthesis and fit runs are not repeated. Unsaved edits stay, unless their file was saved again since; then the file loads and Ctrl+Z brings the edits back.
 
 ## Materials inside a design
 
-A design refers to each material by its catalog and ID, and its file also keeps a copy of every non-built-in material it uses. A catalog you create gets an ID of its own, so a catalog of the same name on another computer is a different catalog. While a catalog on this computer holds a material under that catalog and ID, the design computes with it: an edit here changes every design that uses the material, and the design's copy is updated when the design is saved. The copy is used only where no catalog here holds the material: in a design from another computer, after the material or its catalog was deleted, or when a catalog here has a different material under the same ID. Such a material is listed under **This design**, read-only. **Copy to my catalog…** makes an editable material of it under a new ID; the design keeps its copy until you pick the new material for its layers. Where a catalog here has a different material under the same ID, that catalog's material is not offered for the design's layers, since a layer given that ID would compute with the design's copy; to use it, copy it to your catalog and pick the copy. A deleted material's ID is never given to a new material in its catalog, so a design that kept the deleted one keeps computing with it.
+- A design refers to each material by catalog and ID, and its file keeps a copy of every material that is not built in. A catalog you create gets an ID of its own, so a same-named catalog on another computer is a different catalog.
+- While a catalog here holds the material, the design computes with the catalog: an edit here changes every design using it, and the copy is updated when the design is saved.
+- The copy is used only where no catalog here holds the material: a design from another computer, a deleted material or catalog, or a catalog here with a different material under the same ID. It is listed under **This design**; **Copy to my catalog…** makes an editable material of it under a new ID, and the design keeps its copy until you pick the new material for its layers.
+- Where a catalog here has a different material under the same ID, that catalog's material is not offered for the design's layers. A deleted material's ID is never given to a new material in its catalog.
+- A material TFStudio cannot compute, a formula with no evaluator or a table with no row holding both a wavelength and an n, is never given a stand-in index: the design lists it as unavailable and calculations stop until it is replaced. Saving keeps its definition as written.
+- A formula is evaluated as written, with no floor under n. Where it gives no real, positive n, at a pole or where n² turns negative, the material has no index and a design gets no result at those wavelengths.
 
-## Settings
+## Importing
 
-**Catalog selector**: choose a single catalog or **All catalogs**. The selector shows each catalog's material count. The **⋯** button beside it opens the actions for the selected catalog, under its name: **Rename**, **Duplicate** and **Delete**, then **New empty catalog** and **New catalog from Zemax AGF**.
+**New catalog from Zemax AGF**: the internal transmittance an AGF file stores becomes k(λ) ([Theory](#theory)). A glass whose formula number TFStudio does not evaluate is left out and the import message names it; files picked up at startup have no window to report in, so import one by hand to see what was left out.
 
-**Search**: filter the list by name (case-insensitive). The filter respects
-the catalog you have selected.
+**From TFCalc, Macleod or OptiLayer files**, any mix in one pick:
 
-**Add**: the button above the material list holds every way of getting a material in: **Blank material**, **From refractiveindex.info** and **From TFCalc, Macleod or OptiLayer files**. It is there whichever catalog is selected, and each of them adds to one of your own catalogs.
+| Program | Files |
+|---|---|
+| TFCalc | `.mat` from the `MATERIAL` and `SUBSTRAT` folders |
+| Essential Macleod | `.tfx` from a materials database folder, or `.mtx` from File → Export → Material |
+| OptiLayer | `.lm` and `.sub` |
 
-**New catalog from Zemax AGF** (under **⋯**): load a Zemax `.agf` glass file as a new catalog. AGF files store internal transmittance versus wavelength; TFStudio converts that to `k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials\agf` subfolder are also picked up automatically when the app starts, or while it runs with **Refresh all**, the round-arrows button at the left of the title bar. A glass whose dispersion formula number is not one TFStudio evaluates is left out of the catalog, and the import message names it. A file picked up this way has no window to report in, so import it with **New catalog from Zemax AGF** to see which glasses were left out.
+- The dialog lists each material with its program and data type and previews the highlighted one; untick what you do not want and pick the catalog.
+- TFCalc and Essential Macleod files do not record their wavelength unit. Nanometres are assumed, an Essential Macleod database's own setting is read when the `.tfx` sits in its folder, and a switch sets micrometres when the preview is in the wrong place.
+- A formula keeps its form where TFStudio has it. The TFCalc forms it lacks (Hartmann, Drude and every k formula) are sampled to a table over the file's range. An Essential Macleod internal-transmittance table is left out and its k column used as it is; the compressed files of its materials library cannot be read.
+- A table point with k below zero, the residue of the fit behind some tables, is imported as written and marked; every calculation reads k = 0 there, since negative k would be gain.
 
-**From TFCalc, Macleod or OptiLayer files** (under **Add**): load materials written by other coating programs, any mix of them in one pick:
+**From refractiveindex.info**: the online database, needing a connection the first time. A table page arrives with every row; a formula page arrives as that formula with its stated range and the page's k table, and is evaluated as the formula gives it outside that range. The browser plots or tables a page, reads n and k at a wavelength, and says where a formula page has no real n inside its range.
 
-| Program          | Files                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| TFCalc           | `.mat` from the `MATERIAL` and `SUBSTRAT` folders                                        |
-| Essential Macleod | `.tfx` from a materials database folder, or `.mtx` written by File → Export → Material |
-| OptiLayer        | `.lm` and `.sub`                                                                        |
+## Between the table points
 
-The import dialog lists every material it read with its program and data type
-(table with its point count, or the formula in the program's own name), and
-previews the highlighted one: formula and coefficients or the table rows, and
-an n/k chart. Untick what you do not want, choose the catalog to add to, or
-create a new one.
+Each tabulated n and k column carries its own rule for the wavelengths between points, set under the grid. The rule belongs to the material, so it reaches every calculation and travels with an embedded material. Outside the table both rules hold the nearest end value.
 
-TFCalc and Essential Macleod files do not record their wavelength unit. The
-dialog assumes nanometres, reads the unit from an Essential Macleod database's
-own settings when the `.tfx` file sits in its database folder, and has a
-switch to micrometres for when the preview shows the curve in the wrong place.
+- **Shape-preserving cubic** (PCHIP), the default: passes through every point and stays inside the values of each bracketing pair, so a non-negative k table gains no overshoot, and it has a slope everywhere, which phase and dispersion need.
+- **Linear**: straight lines between points. A material imported from TFCalc or Essential Macleod files keeps it, so an imported design gives the numbers it gave there. Its slope jumps at each point, and the GD/GDD window breaks its curves there.
 
-Formula materials keep their formula where TFStudio has the same form. The
-TFCalc forms it lacks (Hartmann, Drude, and every k formula) are sampled onto
-a table over the range the file states. An Essential Macleod
-internal-transmittance table has no equivalent here and is left out; the `k`
-column is imported as it is. The compressed files of the Essential Macleod
-materials library cannot be read: open such a material in Essential Macleod
-and save it into your database first.
+Neither rule adds information the table lacks. Where the answer depends on the curvature of n(λ) between measurements, a smooth fit is the honest model.
 
-A table point with `k` below zero is imported as written and marked in the
-dialog, with the count in the preview. Essential Macleod's own materials hold
-a few such points, and so do some refractiveindex.info tables; they are the
-residue of the fit that produced the table. A negative extinction coefficient
-would be gain, so every calculation reads `k = 0` at such a point, and the
-n,k grid of the Material Editor marks the row.
+## Smooth dispersion fit
 
-**From refractiveindex.info** (under **Add**): open the refractiveindex.info browser to pick from the online database (an internet connection is needed the first time you fetch a material). The material is added to your chosen user catalog and then lives locally. A page given as a table arrives with every row it has. A page given as a dispersion formula arrives as that formula, with the coefficients and the wavelength range the page states and the page's `k` table beside it; outside that range it is evaluated as the formula gives it, like any formula material. The browser shows a page as a plot or as a table, a formula page sampled with each wavelength 1% past the one before, reads `n` and `k` at a wavelength you type, and writes out the formula a formula page uses, with its coefficients. When a formula page has no real `n` somewhere inside the range it states, the browser says where.
+An editable table can carry a smooth fit for calculations that need higher derivatives: Cauchy or a one- to three-term Sellmeier for n, with a non-negative Urbach k when the table has enough positive values and k = 0 otherwise, or for a metal a Drude or Drude-Lorentz model fitting n and k together.
 
-**New empty catalog** (under **⋯**): create an empty user catalog to organize your own materials.
+- **Fit from** and **Fit to** set its range, apart from the validity range. It starts at the design's evaluation range where the table reaches; outside it the table is read. Where the fit ends inside the table, n and k step by the fit's residual there: the panel names the step, and the GD/GDD and Material Dispersion windows break their curves at it.
+- A range over more than a decade of photon energy is reported, since no one model holds free electrons, an interband edge and the transparent region at once, and the design's range is offered with the residual it reaches.
+- **Fit** or **Refit** calculates it. For a metal model the panel also reports a parameter left on one of its limits and an oscillator that moves n by less than the residual: neither measures the material.
+- The fit is stored on the material, travels with it, and is removed when its table changes. Copy a built-in material to a user catalog to fit it.
 
-**Duplicate**: copy the selected catalog (from any source) into a new, editable user catalog. **Copy to my catalog** copies a single material into a user catalog, which is the way to make an editable variant of a read-only material.
+## Theory
 
-## Creating a material
+The fit models, λ in µm and E = 1.239841984 / λ in eV:
 
-Choose **Add → Blank material**, then type its name at the top of the form. The material goes into the selected catalog when that catalog is one of yours. Otherwise it goes into one of your catalogs: the only one you have, the one you pick when you have several, or a new one named **My catalog** when you have none. The ID under the name is made from it when the material is first saved and stays the same after that, because designs refer to a material by its ID. The **n & k** page holds the optical data; pick a data type there:
+```
+Cauchy:          n = A₀ + A₁/λ² + A₂/λ⁴ + …
+Sellmeier:       n² = A + Σ_j B_j λ² / (λ² − C_j)
+Urbach:          k = k₀ exp(k_b/λ + k_c λ)
+Drude-Lorentz:   ε = ε∞ − E_p² / (E² + iΓE) + Σ_j f_j / (E_j² − E² − iγ_j E)
+                 n + ik = √ε
+```
 
-1. **Tabular**: paste or type a `λ, n, k` table. You can paste directly from a
-   spreadsheet (Ctrl+V), and the grid supports keyboard navigation, sorting and
-   per-cell editing. A long table scrolls in a box of its own, so the chart and
-   the fit stay a short scroll down the page; drag the bar under the box to
-   make it taller or shorter.
-2. **Formula**: choose a dispersion formula, enter its coefficients, and optionally add a `λ, k` table for absorption. The list is grouped by source: the Zemax formulas (Schott, Sellmeier, Herzberger, Conrady and the other standard forms), the general series and OptiLayer forms, and the nine formulas of the refractiveindex.info database, each group under its source's own numbers. The formula is rendered in full so you can confirm the convention. The Cauchy and general Sellmeier forms, and the series among the refractiveindex.info formulas, take as many terms as you add; a term left at zero is dropped when the material is saved. Every formula is evaluated as written, with no floor under `n`: where it gives no real, positive `n`, at a pole or where `n²` turns negative, the material has no index, and a design using it gets no result at those wavelengths. A monitoring wavelength or a reference wavelength where a layer's material has no index is reported by the window that needs it.
+The metal model is Rakić's Lorentz-Drude function with its signs conjugated for TFStudio's n + ik convention; Drude alone has no oscillator terms. A term is added only while it cuts the residual by a clear margin, so the fit follows the dispersion rather than the rounding of the table.
 
-A live n/k chart updates as you edit, and the wavelength range you set bounds
-where the material is valid and the span the chart shows. Under the chart,
-type a wavelength to read `n` and `k` there, and a sampled table lists the
-curve's numbers. The same probe and table sit under the chart of a read-only
-material. Where a formula has no finite value, the preview gives no `n`.
+An AGF glass's internal transmittance τ over thickness d becomes, at each tabulated wavelength (Beer–Lambert):
 
-A material TFStudio cannot compute is never given a stand-in index. A formula
-it has no evaluator for, or a table with no row that holds both a wavelength
-and an `n`, makes the material unavailable: a design that uses it lists it
-among its unavailable materials, and calculations are blocked until you replace
-it. Saving the design keeps such a definition as it was written, so nothing in
-it is lost.
-
-### Between the table points
-
-A table says nothing about the wavelengths between its points, so every
-tabulated `n` and `k` column carries a rule for reading it there. The control
-under the grid offers two:
-
-- **Shape-preserving cubic** (PCHIP), the default for a new material. The
-  curve passes through every supplied point and stays inside the values of
-  each bracketing pair, so a non-negative `k` table cannot acquire optical
-  gain from interpolation overshoot, and it has a slope everywhere, which is
-  what phase and dispersion calculations need.
-- **Linear**, straight lines between the points. This is how Essential
-  Macleod and TFCalc evaluate a table, and a material imported from either
-  keeps it, so a design imported with such materials reproduces the numbers
-  it produced there. The slope changes abruptly at each point; the GD/GDD
-  window breaks its curves there rather than draw through the jump.
-
-The rule belongs to the material, not to a window, so it reaches every
-calculation made with it, travels with a material embedded in a design, and
-is what the two programs disagree on between measured points. Neither rule
-adds information the table does not hold: where the answer depends on the
-curvature of `n(λ)` between measurements, a smooth dispersion fit is the
-honest model. Outside the tabulated range both rules hold the nearest
-endpoint value constant.
-
-### Smooth dispersion fit
-
-An editable tabular material can store an explicit smooth fit for calculations
-that need higher derivatives. Transparent materials can use Cauchy or a one-
-to three-term Sellmeier model for `n`; `k` uses a non-negative Urbach form when
-the table contains enough positive values, otherwise it remains zero. Metals
-can use a coupled Drude or Drude-Lorentz dielectric model, which fits `n` and
-`k` together.
-
-The fit covers its own wavelength range, set in **Fit from** and **Fit to** and
-separate from the validity range at the top of the form. It starts at the range
-the design is evaluated over, where the table reaches that far, because that is
-where the fit has to be right; outside the fit range the table itself is read.
-Where the fit ends inside the table, `n` and `k` step from the fit to the table
-by the fit's own residual there. The fit panel names that step at each end, and
-the GD/GDD and Material Dispersion windows break their curves at it rather than
-draw through it. A fit that ends at the table's first or last row has no step.
-The range is stored with the fit and comes back the next time the material is
-opened.
-
-A range covering more than a decade of photon energy is reported as such. No
-single model holds free-electron behaviour, an interband edge and the
-transparent region at once, so a fit over all of it is poor everywhere, and the
-range the design is evaluated over is offered in its place with the residual it
-reaches.
-
-Choose **Fit** or **Refit** to calculate it. TFStudio shows RMS and maximum
-residuals for both `n` and `k`, plus a residual plot. Inspect those errors before
-using the model. A Cauchy or Urbach fit to the table also shows each
-coefficient with its standard error. For the metal models it also reports a
-parameter left on one of
-the model's own limits, and an oscillator that changes `n` across the range by
-less than the residual: neither is a measurement of the material, and the
-residual alone does not say so. The fit is not created silently. It is stored
-on the material, travels with an embedded user material, and is removed
-automatically when its source table changes. Built-in materials remain read-only; copy one to a user
-catalog before fitting a different representation.
-
-### Mechanical constants
-
-The **Mechanical** page holds what a material is besides its dispersion.
-
-| Constant | Unit | What it is |
-| --- | --- | --- |
-| Young's modulus | GPa | Stiffness under tension. |
-| Poisson's ratio | | Sideways contraction while it stretches. |
-| Linear expansion | ppm/K | How much it grows per kelvin. |
-| dn/dT | ppm/K | How the refractive index moves with temperature. |
-| Intrinsic stress | MPa | The stress a film of it is deposited with, tensile positive. |
-| Reference temperature | °C | The deposition temperature that intrinsic stress refers to. |
-| Surface energy | J/m² | The energy a fresh surface costs, which is what a crack or a delamination pays for. |
-
-Both temperature coefficients are entered in ppm/K, the way catalogs print
-them: an expansion coefficient of 0.00000055 per kelvin is typed as 0.55.
-
-Every box stands on its own and any of them may be left empty, which means
-unknown: a material whose stress you measured but whose modulus you never
-looked up carries the stress alone. What each stress calculation does with an
-empty box is on the [Stress](/analysis/stress/) page. The constants are part
-of the material, so they follow it into a user catalog, into a copy, and into
-a design file that embeds it. A glass imported from an AGF catalog arrives
-with its expansion coefficient, Young's modulus and Poisson's ratio already
-filled in, which is what those files carry.
-
-## How to read it
-
-For a built-in or imported material, the n/k chart shows the real index `n`
-(left axis) and, when present, the extinction coefficient `k` (right axis,
-dashed). The properties panel lists the d-line index, Abbe number, density and
-wavelength range when the source provides them, and the dispersion formula and
-coefficients when the material is formula-based. A material with a flat,
-zero `k` is non-absorbing across the plotted range. Its **Mechanical** page
-lists the constants the catalog stated and nothing else; a material that
-states none says so.
-
-Catalogs are saved to your TFStudio data folder's `Materials` subfolder and persist between sessions, so an imported or hand-built material is available the next time you open the app. A catalog file copied into the subfolder of its kind there (`user`, `agf` or `refractiveindex`) while the app is open shows after **Refresh all** in the title bar, which also reads the project folders again for design files added, changed or deleted outside TFStudio. Open windows stay open and compute again from what was read, including a Monte Carlo run, a Systematic Deviations result, a 3D surface or an export text already on screen; optimizer, synthesis and n,k fit runs are not repeated. Unsaved edits stay, unless their file was saved again since; then the file is loaded and Ctrl+Z brings the edits back.
+```
+k(λ) = −λ / (4π d) · ln τ(λ)
+```
 
 ## References
 
 - M. N. Polyanskiy, refractiveindex.info (public-domain dispersion data).
 - F. N. Fritsch and J. Butland, "A Method for Constructing Local Monotone Piecewise Cubic Interpolants," *SIAM Journal on Scientific and Statistical Computing* **5**, 300-304 (1984).
 - A. D. Rakić et al., "Optical properties of metallic films for vertical-cavity optoelectronic devices," *Applied Optics* **37**, 5271-5283 (1998), [doi:10.1364/AO.37.005271](https://doi.org/10.1364/AO.37.005271).
-- Beer–Lambert relation for extinction from internal transmittance: `k(λ) = −λ / (4π d) · ln τ_int(λ)`.

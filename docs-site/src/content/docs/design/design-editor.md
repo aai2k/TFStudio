@@ -4,124 +4,115 @@ description: "Build and edit the coating: layer stack, substrate, media, and the
 ribbonIcon: design-editor
 ---
 
-The **Design Editor** is the window where you build a coating. You add and
-order layers, choose each layer's material and thickness, set the substrate
-and the surrounding media, and pick which surface you are designing. Every
-other window (Optical Evaluation, Admittance, Refinement, the tolerance
-tools) reads from this same shared design, so anything you change here is
-reflected everywhere at once.
+The Design Editor is where a coating is built: its layers, their materials and thicknesses, the substrate and media, and the surface being designed. Every other window reads this one design, so a change here shows everywhere at once. A design carries a **Front coating** on the incident side and a **Back coating** on the exit side; in both tabs the layer touching the substrate is listed first.
 
-A design carries two coatings: a **front** coating on the incident side and a
-**back** coating on the exit side. The **Front** and **Back** tabs at the top
-switch which one you are editing. In both tabs the layer touching the
-substrate is listed first, so the two coatings read consistently.
+<!-- shot: design-editor | the 27-layer chirped mirror: its layer table with the four thickness columns, and the stack geometry strip under it -->
 
-## Settings
+## Computed quantities
 
-**Reference wavelength λ₀**: the wavelength that drives the QW and FW
-thickness columns. A typical value for visible coatings is 550 nm. When you
-change λ₀, layers keep their quarter-wave counts: a quarter-wave layer stays
-a quarter-wave, and only its physical thickness rescales.
+The four thickness columns show the same layer in different units; edit any one and the others follow. The physical thickness in nm is the stored value.
 
-**Substrate**: the substrate material and its physical thickness in
-millimetres. When you evaluate the whole part (both sides), the substrate is
-treated as optically thick, so reflections inside it combine as intensities
-rather than amplitudes.
+| Column | Meaning |
+|---|---|
+| **nm** | physical thickness d |
+| **OT** | optical thickness at λ₀ |
+| **QW** | quarter waves at λ₀ |
+| **FW** | full waves at λ₀ |
 
-**Incident / Exit media**: the media on either side of the part, usually air
-on both. Pick any catalog material for immersed or cemented designs.
+**Stack Geometry** under the table draws the incident medium, front coating, substrate, back coating and exit medium in the materials' colors, with the layer count and total physical thickness of each side.
 
-**Environment**: on a design scored in more than one [environment](/design/environments/), a droplist above the media picks the environment the Settings show, with an arrow on either side to step to the previous or the next one. The media, the substrate and its thickness are then that environment's. In environment 2 or later a change sets the field for that environment alone, and the field's name carries a tag: the environment's number with a cross when the environment sets the field, the cross giving it back to environment 1, or **= env 1** when it follows environment 1. The cone, **Ignore other side** and **Temperature**, a field the Settings show on a design with environments, are the current environment's in the same way. The reference wavelength and **Surface** are the design's own in every environment. The layer table is the recipe and reads the same in every environment; the substrate and medium lines around it and the stack diagram show the current environment's.
+## Controls and settings
 
-**Surface** and **Ignore other side**: the controls that decide which
-coating the optimizer moves and what every window evaluates. See
-[Surface & Evaluation Modes](/design/evaluation-modes/) for the full behavior.
+### Settings
 
-**Average over illumination cone**: optional convergent- or divergent-beam
-averaging, off by default. When on, every reflectance, transmittance and
-absorptance result is averaged over a cone of incidence angles instead of a
-single collimated ray, and a live readout shows the numerical aperture,
-f-number and full aperture for the half-angle you enter. You choose the
-intensity distribution across the cone (uniform, Lambertian, or a table you
-enter) and the number of grid points. Because the averaging happens in one
-place, every operand and every window that evaluates the design is
-cone-averaged automatically while it is on. With a cone active, s and p
-polarization are still computed but are formal: a cone is physically rigorous
-only for averaged polarization, since each ray has its own plane of incidence.
+**Reference λ₀ (nm)**: the wavelength of the OT, QW and FW columns. Changing it keeps each layer's quarter-wave count and rescales its physical thickness.
 
-**Grid points** is where the averaging starts, not a fixed count. TFStudio
-averages with that many angles and keeps doubling until two doublings in a
-row each change the result by less than 0.01 % in R, T or A, then uses the
-count before the last doubling. One agreement is not enough: two coarse counts
-can miss a sharp peak alike and agree by chance. The doubling stops before it
-would pass 480. A smooth coating such as a broadband AR settles at your grid
-points or twice them. A narrowband
-filter needs more near its passband, because the passband moves across the
-cone and a sharp peak has to be caught by enough angles. In the merit function
-the count is settled at each wavelength a row samples, so only the wavelengths
-near a sharp resonance get the extra angles; the plot windows use one count for
-the whole curve. A higher value starts finer and takes longer.
+**Substrate**: material and thickness in mm. **Incident medium** and **Exit medium**: usually air; any catalog material for an immersed or cemented part.
 
-Rays past 90° never reach the coating. When a row's angle of incidence plus
-the half-angle is more than 90°, the part of the cone beyond grazing is left
-out and the average covers only the rays that meet the surface. The cone
-settings show a warning when a merit function row is at such an angle.
+**Surface** and **Ignore other side**, in the bar at the top: which coating the optimizers move and what every window evaluates, as set out in [Surface & Evaluation Modes](/design/evaluation-modes/).
 
-## The layer table
+**Average over illumination cone**, off by default: every R, T and A is averaged over a cone of angles about the angle of incidence, in every window and merit row at once. The half-angle shows its NA, f-number and full aperture. The intensity across the cone is **Uniform**, **Lambertian** or **User-defined** from a table, and **Grid points** is where the angle count starts ([cone of illumination](#cone-of-illumination)).
 
-Each row is one layer: its material, four thickness columns, a lock toggle,
-and buttons to move, duplicate or delete it. The four thickness columns show
-the **same** physical layer in different units, and all four are editable:
-edit any one and the other three update from it. **Physical nm is the stored
-value.**
+**Environment**: on a design with more than one [environment](/design/environments/), a droplist with arrows either side picks the environment the Settings show. The media, substrate, cone, **Ignore other side** and **Temperature** are then that environment's; in environment 2 or later a change sets the field for it alone, tagged with its number and a cross that gives it back, or **= env 1** while it follows. λ₀ and **Surface** belong to the design, and the layer table is the same recipe in every environment.
 
-| Column | Unit                  | Definition          |
-| ------ | --------------------- | ------------------- |
-| nm     | physical thickness    | d                   |
-| OT     | optical thickness     | n(λ₀) · d           |
-| QW     | quarter-waves at λ₀   | 4 · n(λ₀) · d / λ₀  |
-| FW     | full-waves at λ₀      | n(λ₀) · d / λ₀      |
+### Layer table
 
-To nudge a layer and watch the other windows follow, hover a thickness cell: up and down arrows appear at its right edge. Each click on an arrow steps the value by 1 nm in the nm and OT columns, 0.1 in QW and 0.025 in FW, so the QW and FW arrows move a layer by the same optical thickness. The mouse wheel steps only the outlined cell, the selected row's cell in the column you last used, while the pointer is over it; over any other cell it scrolls the table, and a scroll that carries the outlined cell under the pointer keeps scrolling. Hold Shift for ten times the step and Ctrl for a tenth. Holding an arrow down keeps stepping until you let go. With several rows selected, stepping one of them steps them all, and in OT, QW and FW each moves by the step in its own optical thickness. One Ctrl+Z takes back a whole run of steps.
+Each row is one layer: material, the four thickness columns, a lock, and buttons to move, duplicate or delete it. A locked layer keeps its thickness in every optimizer and synthesis run. The toolbar adds and removes layers, inverts the order, locks or unlocks a whole side, and copies the stack to the other side.
 
-The lock toggle freezes a layer's thickness: locked layers are excluded from
-optimization and synthesis, which is useful for protecting an adhesion or
-substrate-adjacent layer. The toolbar above the table adds and removes layers,
-inverts the layer order, locks or unlocks the whole side at once, and copies
-the current side's stack onto the other surface. You can also insert, delete
-and duplicate rows from the keyboard.
+**+ Layer** adds a layer below the selected row, or at the bottom, and selects it. A new layer copies the layer two rows away on the far side of its neighbour, so alternating high and low layers carry on. With no such layer, or one of the neighbour's material, it is a quarter wave at λ₀: SiO2 next to a material of higher index than SiO2, TiO2 next to anything else, SiO2 on an empty side.
 
-The **+ Layer** button adds a layer below the selected row, or at the bottom of the table when no row is selected, and selects it, so each click adds the next layer out from the substrate. Insert and Shift+Insert add one above or below the focused row, and Delete removes every selected row except locked ones. A layer added below a row copies the material and thickness of the layer two rows above it, and one added above a row copies the layer two rows below it, so a stack of alternating high and low layers carries on, and a run of new layers alternates whichever way you add them. At either end of the table it copies from the side that has rows. When there is no such layer, or it is the same material as the row next to the new one, the new layer is a quarter wave at λ₀: SiO2 next to a material of higher index than SiO2, TiO2 next to anything else. On an empty side the first layer is a SiO2 quarter wave.
+| Input | Does |
+|---|---|
+| Arrow on a thickness cell, wheel over the outlined cell | Steps 1 nm in nm and OT, 0.1 in QW, 0.025 in FW; Shift ×10, Ctrl ×0.1. Held, it repeats. With several rows selected, all step, each in its own optical thickness. |
+| Arrow keys | Move between cells, from the row number through Material to FW. |
+| Typed number, Enter or F2 on a thickness | Edits the cell. |
+| Double-click, chevron, typed letter or Enter on Material | Opens the material picker, searching for a typed letter. |
+| Shift+arrows, Shift-click, drag | Selects a rectangle of cells; Escape drops it. Delete and stepping act on every row it spans. |
+| Click, Shift-click, Ctrl-click on the row number | Selects one layer, a run, or adds a row. |
+| Insert, Shift+Insert, Delete | Adds a layer above or below the focused row; deletes the selected rows except locked ones. |
+| Ctrl+C, Ctrl+V on cells | Copies as tab-separated text; pastes down and to the right, a number in the column's unit and a name on Material looked up in the design's materials, then the catalogs. Over a rectangle the values repeat to fill it. |
+| Ctrl+C, Ctrl+V on the row number | Copies and pastes whole layers with materials and locks; pasted on a cell they go in below its row. |
 
-The arrow keys move between the cells of the table, from the row number through Material to FW. A click selects a Material cell, as it does any cell; a double-click or a click on its chevron opens the material picker, a typed letter opens it searching for that letter, and Enter opens it on the current material. On a thickness cell, a typed number starts editing it, and Enter or F2 edits the value it holds. Shift with the arrows, a Shift-click, or a drag across the cells selects a rectangle of cells, and Escape drops it; Delete and the thickness steps act on every row the rectangle spans. Whole layers are selected from the row number: a click selects one, Shift a run, and a Ctrl-click anywhere on a row adds it; Left from a Material cell also moves to the row number.
+A whole run of steps or one paste is one Ctrl+Z. A paste leaves locked layers as they are, drops values past the last row, and ignores text that is neither a number nor a material name.
 
-Ctrl+C copies the selected cells as tab-separated text, so a column of thicknesses copies as one number a line and a material as its name. Ctrl+V lays pasted values down and to the right from the focused cell: a number is read in the unit of the column it lands in, and a name on Material picks the material of that name, looked for among the design's own materials first and then in the catalogs. Over a rectangle the values repeat to fill it, so one value fills every cell. A locked layer keeps its thickness, values past the last row are dropped, and text that is neither a number nor a material name changes nothing. One Ctrl+Z takes a whole paste back. On the row number, Ctrl+C and Ctrl+V copy and paste whole layers with their materials and locks, and layers copied that way and pasted on a cell go in below its row.
+### Tools
 
-## Stack geometry
+**Tools…** above the table holds edits over the whole design or one side; each edit is one undo step.
 
-Below the table, a cross-section diagram shows the incident medium, the front
-coating, the substrate, the back coating and the exit medium, colored by
-material. Beneath it, a summary reports the layer count and total physical
-thickness for each side. The substrate, media and reference-wavelength
-settings collapse into this panel so the layer list keeps its vertical space.
+- **Replace material…**: puts another material in place of any material of the media, substrate or layers. **Keep optical thickness (n·d)** rescales each changed layer to keep n·d at λ₀.
+- **Round / quantize thicknesses…**: rounds every unlocked layer to **Decimal places**, to a **Controller step (nm)**, or to a **QWOT increment** at λ₀, showing **MF before** and **MF after**.
+- **Perturb thicknesses…**: one random kick per unlocked layer within **Maximum kick (±%)**; the preview keeps one sample until **Reshuffle**.
+- **Copy stack as table**: the side's materials and thicknesses as tab-separated text.
+- **Collapse selection to Herpin layer…**: replaces a selected symmetric, lossless group with its one equivalent layer at λ₀, keeping the group inside it so **Expand Herpin layer** restores it exactly. The equivalence holds at λ₀ and normal incidence only.
+- **Save coating to library…**: saves the front or back stack to the [Coating Library](/design/coating-library/).
 
-## How to read it
+## Cone of illumination
 
-The cross-section is the quickest sanity check that the stack you built is the
-stack you meant: the right number of layers in the right order, the substrate
-in the middle, the media at the edges. The per-side totals tell you how much
-material the coating will take to deposit. The **Optimize** and **Eval**
-badges at the top show which side the optimizer is moving and which surface is
-being scored, so you always know what the numbers in the analysis windows
-refer to.
+- **Grid points** is a starting count. TFStudio doubles the count of angles until two doublings in a row each change R, T or A by less than 0.01 %, uses the count before the last doubling, and stops doubling before 480. One agreement is not enough: two coarse counts can miss a sharp peak alike. A broadband AR settles at the grid points or twice them; a narrowband filter needs more, since its passband moves across the cone.
+- The merit function settles the count at each wavelength a row samples, so only wavelengths near a sharp resonance get extra angles; plot windows use one count for the whole curve.
+- Rays past grazing never reach the coating. When the angle of incidence plus the half-angle passes 90°, the average covers only the rays that meet the surface, and the cone settings warn when a merit row is at such an angle.
+- s and p are still computed under a cone but are formal: each ray has its own plane of incidence, so only the polarization average is rigorous.
 
-Coating layers are coherent, so the transfer-matrix method combines their
-amplitudes. When you evaluate the whole part, the substrate is treated as
-incoherent: it is optically thick, so interference inside it averages out and
-the front, substrate and back contributions combine as intensities. In a
-single-surface evaluation the substrate is simply a semi-infinite exit medium.
+## Theory
+
+The thickness columns, with n(λ₀) the real part of the layer's index at λ₀ (Macleod, Section 3.1):
+
+```
+OT = n(λ₀) · d
+QW = 4 · n(λ₀) · d / λ₀
+FW = n(λ₀) · d / λ₀
+```
+
+Under a cone, each result Q is averaged over the rays that reach the surface, α being a ray's angle to the cone axis and θ its angle of incidence:
+
+```
+Q̄ = ∫∫ Q(θ) I(α) dΩ / ∫∫ I(α) dΩ
+I(α) = 1 (Uniform),   cos α (Lambertian),   interpolated from the table (User-defined)
+NA = n₀ sin α_max,     f-number = 1 / (2 NA)
+```
+
+The integral over the cone reduces to one over θ and is taken by Clenshaw–Curtis quadrature. A narrow passband moves by about Δλ/λ = sin²θ / (2 n*²) at incidence θ, n* its effective index (Macleod, Eq. 8.39), which is why a narrowband filter needs many angles. Coating layers are coherent and combined by the characteristic matrix; a whole part's substrate is incoherent, as set out in [Surface & Evaluation Modes](/design/evaluation-modes/).
+
+The tools change each unlocked layer as follows, s being the controller step, m the QWOT increment and p the kick as a fraction:
+
+```
+keep n·d:   d′ = d · n_old(λ₀) / n_new(λ₀)
+step:       d′ = s · round(d / s)
+QWOT:       d′ = q · round(d / q),    q = m λ₀ / (4 n(λ₀))
+perturb:    d′ = d · (1 + p u),       u uniform on [−1, 1]
+```
+
+A symmetrical group of lossless layers has a characteristic matrix at λ₀ of the form of a single layer (Macleod, Section 7.2.2, Eqs. 7.5–7.10):
+
+```
+M₁₁ = M₂₂ = cos γ,    M₁₂ = i sin γ / E,    M₂₁ = i E sin γ
+E = √(M₂₁ / M₁₂),     d_eq = γ λ₀ / (2π E)
+```
+
+with E the Herpin index and γ the equivalent phase, taken on the branch nearest the group's total phase. A group in a stopband at λ₀, where |M₁₁| > 1, has no real E and is refused.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 2 (transfer matrix), §2.6.4 (two-sided combination).
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §3.1 (optical thickness units), §8.2.5.4 (a filter in an incident cone of light), §16 (cone response at oblique incidence).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 3.1, pp. 65–66: quarter- and half-wave optical thicknesses. Section 7.2.2, pp. 216–219 (Eqs. 7.5–7.10): symmetrical multilayers and the Herpin index.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 8.2.5.4, p. 314 (Eqs. 8.39–8.46): a filter in a cone of illumination; Chapter 16, pp. 607–614: cones of illumination and cone response at oblique incidence.
+- C. W. Clenshaw and A. R. Curtis, "A method for numerical integration on an automatic computer," *Numer. Math.* **2**, 197-205 (1960).

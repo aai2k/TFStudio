@@ -1,75 +1,57 @@
 ---
 title: Stack Formula
-description: Generate a whole layer stack from a compact symbolic formula like Air | (HL)^4 H | Glass.
+description: Build a layer stack from quarter-wave shorthand such as (H L)^8 H, with its layers and spectrum shown as you type.
 ribbonIcon: stack-formula
 ---
 
-**Stack Formula** generates a complete layer stack from a compact symbolic
-expression, the shorthand a coating engineer already thinks in. You type a
-formula, watch the parsed stack and its spectrum preview update live, then apply
-it to the design.
+Stack Formula builds a coating from the quarter-wave shorthand coating engineers write by hand. It opens with the design's front coating written in that shorthand; type a formula, check the layers and the spectrum it gives, then write it into the design.
 
 ```
-Air | (HL)^4 H | Glass             9-layer quarter-wave HR mirror
-Glass | 2H 1.5L H L (HL)^3 | Air   matching layers + quarter-wave stack
-Air | 0.5H L H 0.5L | Sub          fractional quarter-waves
-Air | Hi Lo Hi Lo Med | Glass      custom symbols
+(H L)^8 H          17-layer quarter-wave mirror
+0.5H L H 0.5L      fractional quarter waves
+LHLHL6HLHLH        a run of single letters with a 6H spacer
+Hi Lo Hi Lo Med    your own symbols
 ```
 
-## The formula language
+<!-- shot: stack-formula | (H L)^8 H typed over the open quarter-wave mirror, the 17 layers listed with QWOT and thickness, T and R drawn, before Replace -->
 
-A formula reads `incident-medium | layers | exit-medium`, with the coating
-written between the two bars.
+## Computed quantities
 
-- **Symbols** `H`, `L` and `M` default to the high-, low- and medium-index
-  materials at the active reference wavelength. You can map your own symbols to
-  any material (for example `Hi → TiO2`, `Lo → SiO2`, `Med → Al2O3`).
-- **Coefficients** are quarter-wave multipliers at the reference wavelength:
-  `2H` is a half-wave of the high material, `0.5L` an eighth-wave of the low.
-  A bare symbol is one quarter-wave.
-- **Runs** of single-letter symbols need no spaces, and a whole-number
-  coefficient can sit inside the run: `LHLHL6HLHLH` reads as
-  `L H L H L 6H L H L H`. Multi-letter symbols and material names such as `Hi`
-  or `SiO2` stay separated by spaces.
-- **Repeat groups** `(...)^n` expand the enclosed layers n times.
+- The layers in [Design Editor](/design/design-editor/) numbering, each with its material, QWOT at λ₀ and physical thickness d (nm), plus the layer count and the total thickness.
+- T and R in percent at normal incidence, averaged over s and p, from 0.5 λ₀ to 1.75 λ₀ with λ₀ marked. The coating sits on the substrate taken as semi-infinite, so the back surface is left out. For the back coating it is seen from the exit medium.
 
-## Settings
+A formula that does not parse shows its error and the character position where it was found, and the preview stays blank until it is fixed.
 
-**Reference wavelength**: the wavelength at which the quarter-wave
-coefficients are converted to physical thickness.
+## Controls and settings
 
-**Symbol assignments**: a list mapping each symbol used in the formula to a
-material. `H`/`L`/`M` are pre-filled; any unknown symbol you type is surfaced
-automatically with a material picker, and you can add, rename or remove rows.
+**Reference λ₀ (nm)**: the wavelength at which a coefficient turns into a thickness.
 
-**Incident / Substrate / Exit media**: the media that bound the coating. The
-front coating is bounded by the incident medium and the substrate; the back
-coating by the substrate and the exit medium.
+**Symbol → material**: assigns a material to each symbol. The rows come filled in from the design's materials ranked by index at λ₀, H the highest and L the lowest, or as H, L, M for TiO2, SiO2 and Al2O3 on an empty design. A symbol the formula uses but nobody assigned gets a new row with a material picker. A material name such as SiO2 or BK7 works without a symbol.
 
-**Start from substrate**: reads the formula from the substrate outward instead
-of from the incident medium inward. On by default.
+**Start from substrate**, on by default: the first layer written is the one on the substrate. Off, the first layer written faces the incident medium.
 
-**Apply to side**: choose whether the formula populates the front coating, the
-back coating, or both. (A symmetric design always writes the front and mirrors
-it to the back.)
+**Incident medium**, **Substrate** and **Exit medium** set the media; **Apply to** picks **Front**, **Back** or **Both**. On a symmetric design the formula goes on the front and the back mirrors it.
 
-## How to read it
+**Append** puts the layers on the outside of the existing coating, **Replace** writes them over the coating and sets the media and λ₀, and **New design** makes a design from the formula in the selected project folder. Append and Replace are one undo step, and the formula is kept with the design.
 
-As you type, the right-hand panel lists the parsed layers with their material,
-quarter-wave value and physical thickness, along with the layer count and total
-thickness, and plots the resulting T and R spectrum with the reference
-wavelength marked. A parse error is flagged at the character where it occurs and
-the preview blanks until you fix it.
+## Formula syntax
 
-When the formula is valid, apply it with **Append** (add the layers to the end
-of the current stack), **Replace** (overwrite the active design's stack), or
-**New design** (create a fresh design from the formula). A classic mirror or
-anti-reflection coating built this way is a clean quarter-wave starting point
-to hand to [Refinement](/synthesis/refinement/) or
-[Needle](/synthesis/needle/). The stack that the formula generates lands in the
-[Design Editor](/design/design-editor/), and the formula is kept with the
-design so any design can be written back to a formula later.
+- A **coefficient** before a symbol is the layer's optical thickness in quarter waves at λ₀: `2H` is a half wave of H, `0.5L` an eighth wave of L. A bare symbol is one quarter wave.
+- `(...)^n` repeats the group n times. Groups can nest.
+- Single-letter symbols can run together, with whole-number coefficients inside the run: `LHLHL6HLHLH` reads `L H L H L 6H L H L H`. Multi-letter symbols and material names stay separated by spaces.
+- A formula holds the layers alone. The incident medium, substrate and exit medium are set in the media fields, and a formula written with `|` media is refused.
+
+## Theory
+
+A layer of coefficient c and index n(λ₀) has (Macleod, Section 3.1):
+
+```
+d = c · λ₀ / (4 · n(λ₀))
+QWOT = 4 · n(λ₀) · d / λ₀ = c
+```
+
+with n the real part of the material's index at λ₀. A material with no index at λ₀, past a pole of its dispersion formula, has no quarter wave there, and the formula is refused rather than built 0 nm thick. At λ₀ a quarter-wave layer of admittance η turns an admittance Y into η²/Y and a half-wave layer leaves it unchanged, which is why stacks written this way are easy to reason about.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §3.1 (quarter-wave optical thickness notation), Ch. 5 (quarter-wave stacks).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 3.1, pp. 65–66: quarter- and half-wave optical thicknesses and the H, M, L notation.

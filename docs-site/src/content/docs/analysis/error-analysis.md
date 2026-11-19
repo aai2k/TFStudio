@@ -4,122 +4,63 @@ description: See how random manufacturing errors blur your spectrum and what yie
 ribbonIcon: error-analysis
 ---
 
-Monte Carlo answers a practical question: if your coater deposits every layer
-with a realistic random error, how much does the spectrum move, and how often
-does the result still pass your Specification? You set the size and shape of the
-per-layer thickness and index errors, choose how many trials to run, and the
-tool builds a fresh randomly-perturbed version of your design for each trial. It
-evaluates T, R or A for every trial, keeps a running mean and standard deviation
-across them, and tracks the realized extremes. If your design has a
-Specification, every trial is re-checked against it so you get a yield figure.
+Monte Carlo answers a practical question: if your coater deposits every layer with a realistic random error, how much does the spectrum move, and how often does the result still pass your Specification? Each trial is a copy of the design with fresh random errors in every layer; the window draws the spread of the trials and, against a specification, the yield.
 
-The trials run off the window's own thread, so the window stays free while they run, however long a Specification check takes. **Stop** ends the run at once and keeps the result of the trials counted so far.
+<!-- shot: error-analysis | 200 trials of 1 % thickness error on the 8-layer 400-1000 nm AR, seed 1, the corridor and the yield against its specification, Errors strip folded -->
 
-The analysis runs for the surface mode set in the
-[Design Editor](/design/design-editor/) (front, back, or total), shown as a
-badge on the window.
+## Computed quantities
 
-## Settings
+- **Theoretical** spectrum of the unchanged design (solid), **mean** over the trials (dotted), and the corridor **mean ± k·σ** (shaded), in percent; optionally the **min/max** envelope of all trials.
+- **Yield**, on a design with a [specification](/design/specification/): the share of trials that pass every requirement, with its 95 % interval, and a red chip with the fail rate of each requirement that fails.
+- **View trials…**: per-environment yields, the requirements and the layers most often behind a failure, and every trial with its Δd, Δn and Δk. **Load thicknesses into design** copies one trial onto the design, as one undo step.
 
-**T / R / A**: the spectral characteristic to study.
+A wide corridor means the design is sensitive to manufacturing error. The mean can sit off the theoretical curve where the spectrum is curved: the mean reflectance at an antireflection minimum drifts upward, because every error raises R there.
 
-**λ range / step**: the wavelength grid, in nanometres.
+## Controls and settings
 
-**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
+**T / R / A**, and in **Settings** the **λ** range and step, **AOI** and polarization. The trials run off the window's thread; **Stop** ends a run and keeps the trials counted so far. The surface mode set in the [Design Editor](/design/design-editor/) decides which coatings get errors.
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the spread is drawn in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. A trial draws one set of errors for the coating, and in each environment it is that environment's coating with the same errors: each layer f·(d + Δd) thick, f the thickness factor of its material there times the change the environment's temperature makes, made of the material the environment deposits for it at that temperature, moved by the same Δn and Δk, and computed on what that environment is scored on, its own **Other side**. A run computes every environment that is on and the one shown, so switching the droplist shows another environment's spread from the same trials at once. Picking one the run left out, one that is off, runs again with the same seed, which draws the same trials. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+**Errors** strip:
 
-## Errors
+- **#trials**, 200 by default. The corridor's noise falls as 1/√N.
+- **seed**: empty draws afresh and **Run** fills it in, so the same seed and settings repeat the same trials. Not saved with the design.
+- **Distribution**: **Gaussian** (the value is σ), **Uniform** (a hard bound ±B) or **Truncated** (a bell clipped at ±B). The two bounded ones relabel the fields ± and turn on the envelope.
+- **σ abs / σ rel**: thickness error in nm and in % of each layer's thickness. They add.
+- **σ Re(n) / σ Im(n)**: index errors. k cannot go below zero, so on a layer with k = 0 the Im(n) error only adds absorption.
+- **per-material**: one index error per material instead of per layer, a material drift rather than monitoring scatter.
+- **keep n·d**: ties the thickness error to the index error so the optical thickness at the reference wavelength stays constant. With thickness errors alone it cancels them.
+- **corridor**: k in mean ± k·σ, the corridor's width, display only.
 
-What a trial is drawn from lives in the **Errors** strip below the plot, beside
-the trial count it was drawn with.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. A trial draws one set of errors, and each environment sees its own coating with the same errors, so switching shows another environment's spread from the same trials. A trial passes when it passes in every environment it is judged in. The choice is not saved with the design.
 
-**N trials**: how many randomly-perturbed designs to simulate. More trials give
-a smoother corridor and a steadier yield estimate; the corridor noise shrinks
-roughly as 1/√N. Default is 200.
+## Theory
 
-**seed**: the number the random draws start from. Leave it empty and **Run**
-fills it with a new seed and keeps it there, so running again with the same seed
-and settings gives exactly the same trials. Clear the field to draw afresh. The
-seed belongs to the open session and is not saved with the design; the trials
-dialog shows the seed each result was drawn from.
+For layer j of thickness d_j, each trial draws (Macleod, Section 13.7):
 
-**Distribution**: how each layer's error is drawn. This controls the *shape* of
-the random draw, not its size:
+```
+Δd_j ~ D(σ_d,j),     σ_d,j = σ_abs + (σ_rel / 100) · d_j
+Δn_j ~ D(σ_n),       Δk_j ~ D(σ_k),       k + Δk ≥ 0
+keep n·d:            d_j′ = d_j · n_j / (n_j + Δn_j)      n_j at λ₀
+```
 
-- **Gaussian**: the value you enter is one standard deviation σ. About 68 % of
-  layers stay within ±σ and the rest exceed it; the tails are unbounded, so σ is
-  not a hard maximum.
-- **Uniform**: the value you enter is a hard ± bound B. Errors are spread
-  evenly over [−B, +B], so none exceeds B, and the realized RMS works out to
-  B/√3 ≈ 0.58·B.
-- **Truncated**: a Gaussian bell clipped so no error exceeds the entered bound
-  B (taken as 3σ). The realized RMS is about B/3.
+D is the distribution: normal with standard deviation σ; uniform on [−B, B], whose RMS is B/√3; or normal with σ = B/3 clipped at ±B, whose RMS is 0.987·B/3. Over N trials C_i(λ):
 
-Choosing Uniform or Truncated relabels the error fields from σ to ± and turns on
-the min/max envelope automatically, since those distributions have a true hard
-bound worth seeing.
+```
+C̄(λ)  = (1/N) Σ C_i(λ)
+σ²(λ) = 1/(N − 1) Σ (C_i(λ) − C̄(λ))²
+```
 
-**σ abs / σ rel** (nm / %): the per-layer thickness error. The absolute part is
-a fixed amount in nanometres; the relative part scales with each layer's own
-thickness. They add together.
+The mean moves off the theoretical value by about `½ C″ σ²` where C has curvature C″ against the error, which is the upward drift at a minimum.
 
-**σ Re(n) / σ Im(n)**: the per-layer error on the real part of the refractive
-index (n) and on the extinction (k). k cannot go below zero, so on a layer with
-k = 0 the Im(n) error only ever adds absorption and its mean effect is not zero.
+The yield p̂ = passes / N comes with the Wilson score interval, z = 1.96 for 95 %:
 
-**Per-material errors**: draw one shared index error (Δn and Δk) per material
-instead of an independent one for every layer, modelling a material-chemistry
-drift rather than monitoring scatter. Thickness errors are still drawn for
-every layer.
+```
+( p̂ + z²/2N  ±  z √( p̂(1 − p̂)/N + z²/4N² ) ) / (1 + z²/N)
+```
 
-**keep n·d**: links the thickness error to the index error so that the optical
-thickness n·d at the design reference wavelength stays constant. The plotted
-wavelength range does not enter it, so widening the plot does not change the
-draws. Only meaningful when an index error is set; with thickness errors alone
-it would cancel the perturbation.
-
-**k σ corridor**: the width of the shaded band, in standard deviations. This is
-display-only: changing k redraws the band instantly without re-running the
-trials and never affects the yield.
-
-**min/max envelope**: overlays the extreme spectra realized across all trials.
-For Uniform and Truncated this is the true hard bound; for Gaussian it has no
-fixed limit and widens as you add trials.
-
-## How to read it
-
-The chart is in **percent**. The solid line is the theoretical (unperturbed)
-spectrum, the dotted line is the mean across all trials, and the shaded band is
-mean ± k·σ. A wide band means the design is sensitive to manufacturing error; a
-tight band means it is robust. Note that the mean can sit slightly off the
-theoretical curve where the spectrum is curved (for example, the mean reflectance
-of an antireflection minimum drifts upward). That is real physics, not noise.
-
-If the design carries a Specification, the Results strip shows the **yield** (the
-fraction of trials that pass every requirement) with its **95 % interval** in
-brackets, and a red chip for any requirement that fails, with its fail rate.
-The interval is the range the true yield lies in with 95 % confidence for the
-number of trials run (the Wilson score interval). Two runs whose intervals
-overlap may differ only by chance; more trials narrow it. On a design with
-environments a trial passes when every requirement passes in every environment it
-is judged in, so the yield counts every environment that is on, whichever one the
-plot shows. Open **View trials…**
-for a deeper look: a statistics tab shows the interval and the seed, on a design
-with environments each environment's own yield (the share of trials whose
-requirements judged there all pass there), ranks the
-worst requirements by fail rate and the worst
-layers (those whose thickness deviates more in failing trials than passing ones,
-or, when nothing fails, those with the largest typical deviation). The trials tab
-lists every trial with a pass/fail mark and shows the exact per-layer Δd, Δn and
-Δk applied. **Load thicknesses into design** copies a chosen trial's perturbed
-thicknesses onto the active design so you can inspect it directly; the change is
-undoable.
-
-A quick sanity check: set every error to zero and every trial collapses onto the
-theoretical curve with zero corridor width.
+Two runs whose intervals overlap may differ only by chance; more trials narrow the interval.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.7.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 13.7, pp. 514–524: tolerances and random errors in layer thickness.
 - E. B. Wilson, "Probable inference, the law of succession, and statistical inference," *Journal of the American Statistical Association* **22**, 209-212 (1927).

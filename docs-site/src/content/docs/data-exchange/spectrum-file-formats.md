@@ -79,8 +79,9 @@ its own units and quantity, so it imports without configuration. Compound
 `LINK` files import every block as a separate curve. Both the fixed-format
 `XYDATA` compressions and the `XYPOINTS` pair list are supported.
 
-Export writes JCAMP-DX in the same wavelength unit and Y scale you choose for
-CSV, which makes a TFStudio curve loadable in any spectroscopy package.
+Export writes measured curves to JCAMP-DX in the wavelength unit and Y scale
+you choose for CSV, and a design spectrum in nm and percent, which makes a
+TFStudio curve loadable in any spectroscopy package.
 
 ## Ellipsometry files
 

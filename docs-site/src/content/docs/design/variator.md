@@ -1,48 +1,51 @@
 ---
 title: Variator
-description: "Live sliders for what-if exploration: per-layer thickness, substrate, and per-material n/k."
+description: Sliders for each layer thickness, the substrate thickness and each material's n and k, with the spectrum redrawn as you drag.
 ribbonIcon: variator
 ---
 
-The **Variator** is a panel of sliders for exploring how sensitive a design is.
-Drag any slider and the spectrum responds instantly: layer-thickness and
-substrate sliders nudge the shared design, so every open window (Optical
-Evaluation, Admittance, the electric-field and color tools) re-renders live,
-while the Variator's own plot overlays the perturbed curve on a dotted baseline.
-It is a fast, reversible way to see which parameter matters before you commit to
-anything.
+The Variator shows which parameter of a design matters. Drag a slider and the spectrum redraws at once over the unmoved design. The thickness sliders move the design itself, so every open window follows them; the n and k sliders act on the Variator's preview alone.
 
-## Settings
+<!-- shot: variator | the 550 nm bandpass with its spacer 2 nm thicker and TiO2 0.01 higher in index, solid curves over the dotted unmoved design and the bandpass target, preview narrowed to 450-660 nm -->
 
-**Per-layer thickness**: one slider per front and back layer, running from zero to twice the layer's baseline thickness, with at least 20 nm of room upward on a thin layer. In Symmetric mode the back coating mirrors the front and has no sliders of its own. The slider label shows the layer's material and baseline thickness.
+## Computed quantities
 
-**Substrate thickness**: nudges the substrate thickness in millimetres around
-its baseline.
+T and R in percent of the moved design (solid) and of the design before any slider moved (dotted), on the evaluation surface set in the [Design Editor](/design/design-editor/), averaged over s and p and over the design's cone of incidence when it has one. The gap between the two is the effect of the sliders. The header says **modified** while any slider is off zero.
 
-**Δn and Δk per material**: one pair of sliders per unique material in the
-stack, applied as constant offsets to the dispersive `n(λ)` and `k(λ)`. These
-stay **local to the Variator preview** (other windows keep showing the
-unperturbed materials), and `k` is held at or above zero.
+## Controls and settings
 
-**Preview controls**: set the wavelength range and angle of incidence for the
-plot, toggle the dotted baseline overlay, and show the merit-function targets
-(when the design has any). The evaluation target (Front / Back / Total) is shown
-as a read-only badge and follows the [Design Editor](/design/design-editor/).
+| Slider | Range | Step |
+|---|---|---|
+| Layer thickness, one per front and back layer | down to 0, up by the layer's thickness or 20 nm, whichever is more | 0.1 nm |
+| Substrate thickness | ± half the thickness, at least ± 0.5 mm | 0.01 mm |
+| Δn per material | ± 0.5 | 0.001 |
+| Δk per material | ± 0.1 | 0.0005 |
 
-**Revert**: zeros every slider and restores the original design. Each slider
-row also has its own reset, and double-clicking a slider snaps it back to
-baseline.
+Layer sliders carry the Design Editor's layer number, the material and the thickness they start from. On a symmetric design the back mirrors the front and has no sliders of its own. The material sliders cover every material in the design, the incident medium, substrate and exit medium included.
 
-## How to read it
+**×** on a row or a double-click on its slider sets it back to zero; **Revert** sets every slider back and restores the design.
 
-The solid R and T curves are the perturbed design; the dotted curves are the
-untouched baseline, so the gap between them is exactly the effect of the
-sliders you moved. The quickest use is a tolerance gut-check: jiggle one layer
-and watch a stopband edge walk. If a small move shifts the spectrum a lot,
-that layer needs tight process control.
+**λ** range and **AOI** set the preview, **Targets** draws the merit function's targets, and **Show baseline overlay** the dotted curves.
 
-Because the thickness and substrate sliders feed the shared design, the change is live everywhere, but it is non-destructive: the first thickness move sets one undo checkpoint, so a single Ctrl+Z (or **Revert**) returns the design to where it started. The sliders stay where you left them when you switch to another window and back. If the design changes some other way, by Ctrl+Z or an edit in another window, the Variator takes the design as it now is for its baseline and sets the thickness sliders back to zero.
+## Undo and the baseline
+
+- The first thickness move puts down one undo step, so one Ctrl+Z takes back the whole session.
+- The sliders stay where they were when you switch to another window and back.
+- If the design changes some other way, by Ctrl+Z or an edit in another window, the Variator takes the design as it now is for its baseline and sets the thickness sliders to zero. The n and k sliders keep their values, since they are not part of the design.
+
+## Theory
+
+Each slider adds to the value the session started from:
+
+```
+d′ = max(0, d + Δd)
+n′(λ) = n(λ) + Δn
+k′(λ) = max(0, k(λ) + Δk)
+```
+
+The offsets are the same at every wavelength, so the shape of the material's dispersion is kept. Both curves come from the characteristic matrix of the stack (Macleod, Section 2.6), as in [Optical Evaluation](/analysis/optical-evaluation/). How far a curve moves for a small slider move shows how tightly that layer or material has to be held in the coater (Macleod, Section 13.7).
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.7 (sensitivity of multilayer performance to thickness errors).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 2.6, pp. 42–44: the characteristic matrix of an assembly of thin films.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 13.7, pp. 514–524: tolerances and errors in layer thickness.

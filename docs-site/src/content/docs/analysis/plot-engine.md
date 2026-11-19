@@ -4,18 +4,13 @@ description: Plot any quantity the analysis windows compute against any other as
 ribbonIcon: plot-engine
 ---
 
-The Plot Engine draws the numbers the other analysis windows compute against
-whatever you change. In **2D** it overlays as many curves as you like, each with
-its own settings: T at 0° in s beside T at 45° in p, the GDD of a chirped mirror
-against the thickness of one layer, or Ψ against Δ as a layer grows.
-**Heatmap** and **3D** map one quantity over two variables at once, the merit
-function over two layer thicknesses among them. Each design keeps its own plots
-while you move between windows.
+The Plot Engine draws the numbers the other analysis windows compute against whatever you change. **2D** overlays any number of curves, each with its own settings: T at 0° in s beside T at 45° in p, the GDD of a chirped mirror against one layer's thickness, or Ψ against Δ as a layer grows. **Heatmap** and **3D** map one quantity over two variables, the merit function over two layer thicknesses among them. Each design keeps its own plots.
 
-Each quantity is computed by the same code as the window it comes from, so a
-point on the plot is the number that window shows for the same settings. Δ is
-always in the Azzam–Bashara convention, so it matches the Ellipsometry window
-while that window's **Δ convention** is Azzam–Bashara, its default.
+<!-- shot: plot-engine | merit function of the 4-layer visible AR over the thicknesses of layers 1 and 3, as a heatmap with its minimum in the middle -->
+
+## Computed quantities
+
+Each quantity is computed exactly as in its own window, so a point here is the number that window shows for the same settings.
 
 | Quantity | Computed as in | Unit |
 | --- | --- | --- |
@@ -24,137 +19,44 @@ while that window's **Δ convention** is Azzam–Bashara, its default.
 | Ψ, Δ | [Ellipsometry Evaluation](/analysis/ellipsometry/) | ° |
 | MF | [Merit Function Editor](/design/merit-function-editor/) | none |
 
-T, R and A are averaged over the design's cone of incidence when it has one,
-and in another environment over that environment's cone. The phase, the
-delays, Ψ and Δ are computed at a single angle, as their own windows compute
-them.
+T, R and A are averaged over the design's cone of incidence when it has one; the phase, the delays, Ψ and Δ are computed at a single angle, as their windows compute them. Δ is in the Azzam–Bashara convention. A map leaves out the phase itself, which is unwrapped along a line and has no single unwrapping over a grid.
 
-## The control row
+## Controls and settings
 
-**2D**, **Heatmap** and **3D** choose what the window draws. In 2D the row holds
-**Curves**, the list of curves with **Add curve** at its top. In Heatmap and 3D
-it holds **Settings**, the quantity and the two axes of the map.
+**2D / Heatmap / 3D**: in 2D the row holds **Curves**, the list with **Add curve** at its top; in Heatmap and 3D it holds **Settings** for the one map.
 
-Curves compute again by themselves when the design or a curve changes. On a
-design without a cone of incidence, curves of T, R, A, Ψ and Δ come back at
-once. The phase, the delays and MF take longer, as does any curve under a cone,
-and are computed in the background: **Stop** shows on the row while they run,
-and **Compute** starts them again after a stop. A curve keeps its old line
-until the new one is ready, and renaming, recolouring or hiding a curve
-computes nothing.
+Each 2D curve has:
 
-A map is computed when you press **Compute**. A bar under the row and a counter
-on the plot show how far it has got, and **Stop** ends it. Changing a setting
-clears the map until you compute it again.
+- **Sweep**: what changes along the curve, **Wavelength (nm)**, **AOI (°)** or the thickness of one layer (L1 on the substrate; the back layers, B1 on the substrate, on a design coated on its back alone), with a **Range** and **Step**.
+- **Fixed**: the λ and AOI the curve is read at, greyed where the curve does not read them.
+- **X** and **Y**: the swept value or any quantity in the table, with its polarization and side (**Front**, **Back** or **Total**). A quantity on both axes traces one against the other: Ψ on X and Δ on Y, with the outer layer growing, is the path an in-situ ellipsometer follows. Ψ, Δ and a reflected phase belong to one surface and offer Front and Back only; **Total** on a transmitted phase or delay is the whole part, as in [Pulse Analysis](/analysis/pulse-analysis/).
+- **Dash** and **Width**.
 
-## 2D curves
+Curves compute again by themselves when the design or a curve changes. T, R, A, Ψ and Δ come back at once without a cone; the rest are computed in the background, with **Stop** on the row while they run and **Compute** to restart. A map is computed only when you press **Compute**, and a changed setting clears it.
 
-Each curve starts with a box that shows or hides it, its colour, its name and a
-button that deletes it, followed by these settings:
+**Settings** for a map: **Quantity (Z)**, its polarization and surface, an **X axis** and **Y axis** (wavelength, AOI or a layer thickness, each with a range and a number of **steps**), the fixed λ or AOI not on an axis, and **Colors**. The grid size is shown at the foot; start coarse.
 
-**Sweep**: what changes along the curve: **Wavelength (nm)**, **AOI (°)**, or
-the thickness of one front layer, listed by its number and material with L1
-on the substrate. On a design coated on its back alone the layers listed are
-the back ones, B1 on the substrate, and every quantity reads the back layer
-named.
+**Environment**: on a design with [environments](/design/environments/), each curve and the map has its own **Environment** field. **Current** computes in the environment the Design Editor shows; a numbered one computes in that one, on or off, so T at the centre of a dome can sit beside T at its edge. A map is kept with the environment it was computed in and is cleared when its settings would compute in another.
 
-**Range**: from, to and **Step**. A new **Sweep** starts on a range that suits
-it, such as 0 to 60° for AOI or a band around the layer's own thickness.
+## Reading curves and maps
 
-**Fixed**: the λ and AOI the curve is read at. The one the curve changes is
-greyed, and so are both when nothing on the curve reads them, as with MF, which
-takes each operand's own.
+In 2D each kind of quantity gets its own Y axis: T, R and A share one, Ψ and Δ share one, and the phase, GD, GDD and TOD get one each. A curve with a quantity on X can double back on itself, as a Ψ–Δ path does, and is read point by point.
 
-**X** and **Y**: what each axis shows. Either the value the curve changes,
-listed under its own name (λ, AOI, or the layer's d), or any quantity in the
-table above. Pick a quantity for both and the curve traces one against the
-other: Ψ on X and Δ on Y, with the outermost layer's thickness changing, is the
-path an in situ ellipsometer follows while that layer is deposited. Beside the
-quantity sit its polarization (**avg**, **s** or **p**) and its side (**Front**,
-**Back** or **Total**). Ψ and Δ take s and p together, so their polarization is
-greyed. Ψ, Δ and a reflected phase or delay belong to one surface and offer
-Front and Back only. **Total** on a transmitted phase or delay is the whole
-part, the back coating and one pass through the substrate included, as in
-[Pulse Analysis](/analysis/pulse-analysis/).
+MF along one thickness shows whether the design sits at the bottom of its valley; MF over two thicknesses is the landscape the optimizer searches, and shows whether a refined design sits in a real basin or has a better one nearby. A map of T or R over wavelength and AOI is the picture [Wavelength vs Angle](/analysis/wavelength-angle-map/) draws.
 
-**Dash** and **Width**: how the line is drawn.
+## Theory
 
-MF is one number for the whole design, so on a curve it only changes along a
-layer's thickness. Picking MF for an axis moves a curve on wavelength or AOI
-onto a layer's thickness. It needs at least one enabled operand in the Merit
-Function Editor and, on a design with environments, a row scored in an
-environment that is on, or in the environment the curve names.
+MF is one number for the whole design, the merit of the [Merit Function Editor](/design/merit-function-editor/):
 
-## Heatmap and 3D
+```
+MF   = √( Σ w_i Δ_i² / Σ w_i )
+MF²  = (1/N) Σ_k MF_k²          Current, over the N environments that are on
+```
 
-**Settings** holds one map:
+so on a curve it changes only along a layer's thickness, and a map of it needs a layer on both axes. Under one environment it is that environment's own MF_k. Band rows are sampled on environment 1's grid in every environment.
 
-**Quantity (Z)**: T, R, A, GD, GDD and TOD of R or T, Ψ, Δ, or the **Merit
-Function**. The phase itself is left out: it is unwrapped along a line, and over
-a grid there is no single way to unwrap it. **Polarization** and **Surface**
-follow the quantity as they do on a curve.
-
-**X axis** and **Y axis**: **Wavelength (nm)**, **AOI (°)**, or the thickness
-of one layer, listed as on a curve, each with a range and a number of
-**steps**. The Merit Function needs a layer thickness on both axes, so it maps
-a design of two layers or more.
-
-**λ fixed** and **AOI fixed**: shown for whichever of the two is on neither
-axis, and not for the Merit Function, which takes each operand's own.
-
-**Colors**: the colorscale.
-
-The number of grid points is shown at the foot of the panel. A fine grid over a
-thick stack takes a while, so start coarse.
-
-## Environments
-
-On a design with [environments](/design/environments/), each curve has an
-**Environment** field under its name, and **Settings** has one for the map.
-**Current** computes in the environment the Design Editor and the ribbon show;
-an environment picked by its number and name computes in that one, whether it
-is on or off. Curves of several environments are drawn together, so T at the
-centre of a dome can sit beside T at its edge. A curve or a map that names an
-environment the design no longer has computes in the current one. A map is
-kept with the environment it was computed in: once its settings compute in
-another, because the current environment moved or the one it named was
-deleted, the plot stays empty until you compute it again, and going back
-shows the map again.
-
-A layer's thickness on an axis is the one the Design Editor shows. Each
-environment deposits that layer f times as thick, f the thickness factor of
-its material there times the change its temperature makes, as a run and the
-other windows read it, so every curve crosses its environment's own value at
-the design's thickness.
-
-MF under **Current** is the merit over every environment that is on,
-MF² = (1/N) Σ MF_k², the number the Merit Function Editor shows and
-[Refinement](/synthesis/refinement/) minimizes. Under one environment it is
-that environment's own MF_k, the merit of the rows scored in it. Band rows are
-sampled on environment 1's grid in every environment, as the merit tables
-sample them.
-
-## How to read it
-
-In 2D each kind of quantity gets its own Y axis: T, R and A share one from 0 to
-100%, Ψ and Δ share one in degrees, and the phase, GD, GDD and TOD get one each.
-The first is on the left and the others on the right. While every curve has the
-value it changes on X, hovering reads all of them at the pointer; a curve with a
-quantity on X can double back on itself, as a Ψ-Δ path does, and is read point
-by point.
-
-A GDD curve against one layer's thickness shows how far an error in that layer
-moves the dispersion, and a cut of MF along one thickness shows whether the
-design sits at the bottom of its valley. A map of T or R over wavelength and AOI
-is the picture [Wavelength vs Angle](/analysis/wavelength-angle-map/) draws; a
-map of GD over the same two shows where the delay ripple moves as the light
-tilts; MF over two thicknesses is the landscape the optimizer searches, and
-shows whether a refined design sits in a real basin or has a better one nearby.
-
-The **Results** strip below the plot holds every point as numbers, and
-**Export** writes them to CSV. The chart's own toolbar saves the picture as
-PNG, in light colours whatever the theme.
+A layer thickness on an axis is the one the Design Editor shows. Each environment deposits that layer `f·d` thick, f the thickness factor of its material there times the change its temperature makes, so every curve crosses its environment's own value at the design's thickness.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 2.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 2.9, pp. 47–51: the quantities computed from the characteristic matrix.

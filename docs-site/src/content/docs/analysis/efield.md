@@ -1,60 +1,76 @@
 ---
 title: Electric Field Evaluation
-description: The standing-wave field through the stack at a chosen wavelength, showing where the field concentrates and which layer is most at risk of laser damage.
+description: The standing-wave field through the stack at one wavelength, showing where the field concentrates and which layer is most at risk of laser damage.
 ribbonIcon: efield
 ---
 
-The Electric Field window plots the field inside the coating against depth at a chosen wavelength. It shows **where the field concentrates inside the stack**, the key piece of information for laser-damage work, since the layer carrying the highest field is usually the one that fails first under a high-power beam. It also makes it clear why a particular layer's thickness matters so much to performance.
+The Electric Field window plots the field inside the coating against depth at one wavelength and angle. It shows **where the field concentrates in the stack**, which is what laser-damage work needs: the layer carrying the highest field is usually the one that fails first under a high-power beam.
 
-At every depth the window combines the forward- and backward-travelling waves, matched across each layer boundary. In a high-reflectance mirror the field just outside the first surface reaches twice the incident amplitude, because the incident and reflected waves add nearly in phase.
+<!-- shot: efield | quarter-wave mirror at its reference wavelength, depth axis in QWOT, avg polarization -->
 
-## Settings
+## Computed quantities
 
-**Wavelength**: the single wavelength at which the standing-wave profile is computed, in nm. It defaults to the design's reference wavelength.
+- **Amplitude for 1 W/m²**, in V/m: the field for an incident beam of 1 W/m². Scaling it to a real beam is one multiplication, which is what a damage threshold is compared against. This is the default.
+- **Squared, % of incident**: `|E|²` as a percentage of the incident `|E|²`, a pure ratio for comparing designs.
+- **Squared, absolute**, in (V/m)² for 1 W/m²: the form an absorption estimate needs, since absorbed power follows the square of the field.
 
-**AOI**: the angle of incidence in degrees.
+The absolute forms depend on the incident medium: a beam of given irradiance carries a weaker field in a denser medium. The dotted horizontal line is the incident beam's own level, so a field above it is being concentrated by the coating.
 
-**Polarization**: s, p, or their average. At oblique incidence s and p give different profiles, so compare them when working at an angle.
+## Controls and settings
 
-**Quantity**: what the vertical axis reads.
+**Pol**: **avg**, **s** or **p**. **avg** draws the mean of s and p, with the two behind it.
 
-- *Amplitude for 1 W/m² incident*, in V/m. An absolute field strength, for an incident beam carrying one watt per square metre. Scaling it to a real beam is one multiplication, which is what you want when the question is whether a layer will survive a pulse. This is the default.
-- *Squared field, fraction of incident*, as a percentage of the incident `|E|²`. A pure ratio, useful for comparing designs rather than beams.
-- *Squared field, absolute*, in (V/m)², again for 1 W/m² incident. The form that goes into an absorption estimate, since absorbed power follows the square of the field.
+**Side**: the **Front** or the **Back** coating, each seen from its own outer medium. On switching designs it moves to the side that carries a coating.
 
-The absolute forms depend on the incident medium, because a beam of a given irradiance carries a weaker field in a denser medium: for irradiance `I` in a medium of index `n`, `|E| = sqrt(2I / (ε₀cn))`. A 1 W/m² beam has an amplitude of 27.4492 V/m in air and that divided by the square root of the index in anything else.
+**Settings**: **Wavelength (nm)** follows the design's reference wavelength and resets to it when you switch designs, 550 nm on a design without one. **AOI (°)** runs from 0 to 89. **Quantity** is one of the three above. **Component** is the **Total field**, the part **Along the layers** or the part **Normal to the layers**; the last is zero for s and at normal incidence. **Depth axis** is physical depth from the outer surface, or optical distance `Σ n·d` in nm, in quarter waves (QWOT) or in full waves (FWOT). **λ₀** is the wavelength optical distance is measured at; **From design** takes the design's reference wavelength, so the axis matches the Design Editor's thickness column. λ₀ moves only the depth axis, never the field.
 
-**Component**: which part of the field is drawn.
+**Range warning**: a ⚠ badge appears when the wavelength lies outside a material's data range, with a button that moves λ to the nearest wavelength every material covers.
 
-- *Total field*, the resultant. This is the curve to read unless you specifically want a component.
-- *Along the layers*, the component parallel to the layer boundaries.
-- *Normal to the layers*, the component perpendicular to them.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows, a numbered one holds the window on it even while it is switched off, and **All** draws every environment that is on in its own color, with the table rows led by their environment. The layer bands are the first environment's. The choice is not saved with the design.
 
-At normal incidence, and for s-polarization at any angle, the field lies entirely along the layers, so the normal component is zero and the total equals it. Only p-polarization at an angle splits into two, and there the two components together are what the material sees.
+**Results**: the field against the depth coordinate of the plot, the unit in each column heading.
 
-**Depth axis**: what the horizontal axis measures.
+## Standing waves
 
-- *Physical depth*, in nm, measured from the outer surface. This is the default.
-- *Optical distance (nm)*, the running sum of `n·d` through the stack.
-- *Optical distance (QWOT)* and *(FWOT)*, that same optical distance divided by the reference wavelength, in quarter waves or full waves.
+Peaks are antinodes of the standing wave and troughs are nodes. Right at the outer surface the field at normal incidence is the incident field times `|1 + r|`, r the amplitude reflection coefficient: 0 for a mirror whose outer layer is high index (r close to −1), up to twice the incident field when r is close to +1.
 
-**λ₀**: the wavelength the optical units are measured at. It does not enter the field calculation, only where the curve's depths land, so it is inert while the axis reads physical depth. **From design** takes the design's own reference wavelength, which is what the Design Editor's thickness column uses, so the axis and the layer table carry the same numbers: a layer that reads 0.25 FWOT in the table spans 0.25 on the axis, and a peak can be traced back to a row. Clear the box to type another λ₀, for reading a stack against a wavelength it was not written in. Either way the axis title says which wavelength is in force, and the axis describes the stack: changing the wavelength the field is computed at moves the curves, not the boundaries.
+In a quarter-wave mirror at its own wavelength the peaks and nodes fall on the layer boundaries, and they shrink layer by layer into the stack, so the outer few layers carry nearly all the field. On an optical axis the nodes sit half a full wave apart, which is easier to check by eye than on a physical axis.
 
-**Side**: profile the **front** coating or the **back** coating. Each side shows that coating's standing wave on the substrate, evaluated from its own incident medium; the substrate is the exit medium.
+The square of the field is what sets the intrinsic damage level, and high-index materials are usually the weaker ones. Thinning the outer high-index layers and thickening the low-index ones, keeping each pair a half wave, moves the peaks into the low-index material.
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the field is computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on, each in its own color from the window's Palette in Preferences > Analysis, each polarization keeping its line style, with a legend above the plot naming them and each environment's incident level in its color. The layer bands and boundaries are the first environment's, since a thickness factor moves them in the others, and the depth axis runs on to the thickest stack. The readout names each curve's environment, and the table and the CSV start each row with its environment and list each environment's rows in turn. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+At oblique incidence read the total field, not one component: a p-polarized node in the tangential component can sit where the normal component carries a large field.
 
-## How to read it
+## Theory
 
-The horizontal axis runs from the incident medium into the substrate; vertical dotted lines and the coloured bands mark the layer boundaries and materials. A horizontal dotted line marks the incident beam's own level, so a field above it is being concentrated by the coating rather than merely passed through. Peaks are field anti-nodes and troughs are nodes.
+The field is carried back from the substrate. With `[E, H] = [1, η_s]` at the substrate, multiplying by each layer's characteristic matrix, for the whole layer or for the part of it left below a given depth, gives the tangential `[E, H]` at that depth, the admittances and phase thicknesses being those of the [Admittance Diagram](/analysis/admittance/). The incident tangential field on the same scale is `(η₀B + C)/(2η₀)`, with `[B, C]` the product through the whole stack, so
 
-On an optical axis the nodes of a quarter-wave stack fall half a full wave apart at the wavelength the stack is tuned to, which is easier to check by eye than the uneven spacing a physical axis gives when the layers have different indices.
+```
+|E(z)|² / |E_inc|² = |E(z)|² · |2η₀ / (η₀B + C)|² · c_p
+c_p = |cos θ₀|²   for p,   1 for s
+```
 
-For laser-damage work the layer containing the highest field is the bottleneck, and lowering the field there raises the damage threshold. In a well-designed mirror the anti-nodes sit preferentially in the more robust material, which is part of why mirrors tolerate high power. Read the total field for this, not one component: at oblique incidence the p-polarized field can have a node in its tangential component at a depth where the resultant field is not small at all, because the normal component carries the field there instead.
+c_p turns the tangential incident field of p-polarized light into its whole field, so every curve is a fraction of the whole incident `|E|²`.
 
-The data table lists the field against the same depth coordinate as the plot, with the unit in each column heading, and exports to CSV. Reading the field against the [Refractive Index Profile](/analysis/refractive-index-profile/) shows which layer the standing-wave peak lands in.
+For p-polarization the field has a normal component too, from the tangential magnetic field H in free-space units:
+
+```
+Eₙ = (n₀ sin θ₀ / N²) · H
+|E_total|² = ½ ( |Eₜ|² + |Eₙ|² + |Eₜ² + Eₙ²| )
+```
+
+Eₜ and Eₙ oscillate with a phase difference, so the field vector traces an ellipse over each cycle. The total field is the square of its semi-major axis, the largest field the material sees; for s and at normal incidence it equals `|Eₜ|²`. **avg** is `(|E_s|² + |E_p|²) / 2`, since unpolarized light carries half its irradiance in each, and its amplitude is the square root of that.
+
+The absolute scale comes from the incident irradiance I in a medium of index n₀:
+
+```
+|E_inc| = √( 2I / (ε₀ c n₀) ) = 27.4492 / √n₀  V/m   for I = 1 W/m²
+```
+
+In a stack without absorption the net irradiance T·I is the same at every depth, so the field follows from the admittance Y there, `|E|² = 2T·I / Re(Y)` with Y in siemens (Macleod, Eq. 3.6): a low admittance means a high field. That is why the peaks of a quarter-wave mirror sit on the boundaries where the admittance is lowest.
+
+Optical distance uses the real index at λ₀: `OT = Σ n(λ₀)·d`, `QWOT = 4·OT/λ₀`, `FWOT = OT/λ₀`.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 3 (Eqs. 3.5–3.6), fields in thin films.
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Admittance Loci, for the absolute field from the incident irradiance, and Laser Damage, for why the square of the field is what counts.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 3.2.1, pp. 70–75 (Eqs. 3.6–3.7): the electric field through a multilayer and its absolute value from the incident irradiance.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 16, Laser Damage, pp. 630–632: the square of the field as the measure of damage, and moving the field peaks into the low-index layers.

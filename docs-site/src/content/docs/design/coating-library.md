@@ -4,115 +4,34 @@ description: Keep coatings as reusable stacks, browse the built-in starting desi
 ribbonIcon: coating-library
 ---
 
-The **Coating Library** window holds coatings as objects of their own, separate
-from designs. A coating here is a layer stack together with the substrate and
-incident medium it was designed on, the wavelength band, angle and polarization
-it is specified for, and the specification it meets. Any coating in the library
-can be put onto the front or the back of the active design.
+The Coating Library keeps coatings apart from designs. A coating is a layer stack with the substrate and incident medium it was designed on, the band, angle and polarization it is meant for, and the specification it meets; any of them can go onto the front or back of the open design. **Built-in** holds the starting designs that ship with TFStudio, **My coatings** the ones you saved.
 
-The window has two shelves. **Built-in** is the set of starting designs that
-ships with TFStudio. **My coatings** is what you have saved yourself.
+<!-- shot: coating-library | the 150-layer flat-top DWDM filter picked from the built-in band-pass shelf, the detail pane scrolled to its spectrum with the properties and specification under it -->
 
-## Built-in coatings
+## Computed quantities
 
-Every built-in coating uses materials from the built-in library, or carries its
-own material definitions, so it computes the same on every installation. The
-source of each design is recorded in the entry, and the shipped thicknesses are
-the ones that meet the entry's specification with TFStudio's own material data.
-A design taken from a book in idealized indices has been mapped to real
-materials and re-optimized before shipping.
+Selecting a coating shows:
 
-The built-in shelf is meant to be small and trustworthy rather than long. Use
-an entry as a starting point: apply it, then refine or synthesize from there.
+- **Spectrum**: the coating alone on its substrate, seen from its incident medium, at the entry's own angle and polarization, which the plot states. At normal incidence T, R and A; at an angle s solid and p dashed, as a beamsplitter or polarizer is specified. The design bands are shaded.
+- **Stack**: layers from the substrate up, numbered as in the Design Editor, thicknesses in nm.
+- **Properties in the design band**, at the entry's angle, chosen for its family: average and maximum R for an antireflection coating; minimum R and A for a mirror; pass and stop T and the edge λ at T = 50 % for an edge filter; peak, centre λ and FWHM for a band-pass; notch centre and width at T = 50 % for a notch; Ts, Tp and extinction Tp / Ts for a polarizer. At an angle R and T are given for s, p and their average, with one column per band; layer count and total thickness close the list.
+- **Specification**: each claim the entry makes, at its angle and polarization, with its value and a pass or fail mark, judged as the [Specification](/design/specification/) window judges it, each at its own step.
+- **Use this when**, **Limitations** and **Source**.
 
-## Reading an entry
+Every built-in coating uses built-in materials or carries its own, so it computes the same on every installation; a design taken from a book in idealized indices has been moved to real materials and re-optimized to meet its specification. Use an entry as a starting point and refine from there.
 
-Select a coating in the list to see:
+## Controls and settings
 
-- **Use this when** and **Limitations**: what the coating is for and where it
-  stops being a good answer.
-- **Spectrum**: the coating alone on its substrate, seen from its incident
-  medium, computed at the entry's own angle of incidence and polarization,
-  which the plot states above the curves. At normal incidence it shows T, R
-  and A; at an angle it shows the s and p components separately (solid s,
-  dashed p), since that is what a beamsplitter or polarizer is specified by.
-  The range is somewhat wider than the design bands, which are shaded.
-- **Stack**: the layers from the substrate up, numbered the same way as in the
-  Design Editor, with thicknesses in nm.
-- **Properties in the design band**: the numbers that matter for that family,
-  computed at the entry's angle. An antireflection coating shows its average
-  and maximum R; a mirror its minimum R and its absorptance; an edge filter its
-  pass and stop transmittance and the wavelength where T crosses 50 %; a
-  band-pass its peak, centre wavelength and FWHM; a notch the same for its dip;
-  a polarizer Ts, Tp and their ratio. At an angle, R and T are given for s, p
-  and their average. A coating specified over several bands gets one column
-  per band; layer count and total thickness close the list. These are the same
-  numbers the merit function operands and the qualifiers would report.
-- **Specification**: each claim the entry makes, with the angle and
-  polarization it is stated at, its computed value and a pass or fail mark.
-  The claims are evaluated with the same qualifiers the
-  [Specification](/design/specification/) window uses, each at its own Step.
-- **Source**: where the design came from.
+The list keeps one folder per family, each with a count; a strip on every row shows the stack in the materials' colors, substrate on the left. Narrow it by type, substrate, a **λ in band** that must lie inside a design band, **Max layers**, and text over the name, use, tags, substrate and materials. **Tags** unfolds the tags of the entries left, one line per kind, each chip with the count it would keep; chosen tags must all be on an entry and stay in the bar when the panel folds. Hover a tag for what it means.
 
-## Finding a coating
+**Apply to the active design**: **Front** or **Back**, then **Replace the stack** or **Add on top of the stack**, where the coating's layers become the outermost ones. One undo step. The design's substrate and media do not change, so compare them with the entry's before relying on its numbers.
 
-Every entry has a type and a set of tags. The type is the family: antireflection,
-mirror, edge filter, band-pass, notch filter, beamsplitter, cold and hot mirror,
-polarizer, low-E, chirped mirror, neutral density. The tags say the rest: the
-spectral region (visible, NIR, MWIR and so on), how many bands it covers, what it
-is for (laser, telecom, CWDM and DWDM grids, imaging, solar), what it does
-(short-pass, long-pass, high-reflector, non-polarizing), how it is built
-(quarter-wave stack, V-coat, metal-dielectric, the material pair), the geometry
-and the substrate. Hover a tag to read what it means.
+**Save current coating…** here, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack into My coatings with a name, type, use note, band, angle and polarization. The [Zemax Coatings](/data-exchange/zemax-coatings/) and [CODE V Coatings](/data-exchange/codev-coatings/) windows save a coating read from a file through the same dialog. Saved coatings are `.tfsc` JSON files in the Coatings folder (Preferences, Data folder); a name already there is replaced. **Delete** removes the selected saved coating.
 
-The list keeps one folder per family, each with its own color and a count of
-what it holds. Folders start folded; click a header to unfold or fold it. Every
-row carries a strip of its stack in the
-materials' own colors, the same colors the Design Editor uses, substrate side
-on the left.
+**Share a coating…** sends one of your coatings for the built-in library: a GitHub discussion or an email prefilled with the layer table and conditions, and **Save file for sending…** writes the coating with its material data as one file to attach. A contributed coating ships in the next release with a credit in its source line.
 
-The list can be narrowed by type, by substrate, by any number of tags (an entry
-must carry all of them), by a wavelength that must lie inside one of its design
-bands, by a maximum layer count, and by a text search over the name, the use
-text, the tags, the substrate and the layer materials. The **Tags** button
-unfolds the tags of the entries the other filters leave, one line per kind of
-tag, each chip colored by its kind and showing how many entries choosing it
-would keep. The tags you have chosen stay in the bar when the panel is folded
-again.
+## Materials in a coating
 
-## Applying a coating
-
-Pick **Front** or **Back**, then **Replace the stack** or **Add on top of the
-stack**, and press **Apply**. Replace swaps the chosen side's stack for the
-coating. Add on top deposits the coating over what is already there, so the new
-layers are the outermost ones. The design's substrate and media are not changed;
-compare them with the substrate the entry was designed on before you rely on
-the numbers.
-
-Applying is one undoable edit: **Undo** brings the previous stack back. With no design selected there is nothing to apply the coating to, so **Apply** is off.
-
-A material that a catalog on this computer holds is computed from that catalog, here and in the design. A coating can instead carry a copy from another computer's catalog of the same ID with other n,k: the library computes with that copy, and so does a design that does not use the ID yet. Whenever the coating brings a definition under an ID the design already computes with other data, the design keeps what it has and the window says so; the coating may then compute differently than it does in the library.
-
-## Saving a coating
-
-**Save current coating…** in this window, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack of the active design into My coatings. Give it a name, a type and a short use note, and set the band, angle and polarization it is meant for. Non-built-in materials are embedded in the saved entry, so it stays usable when the catalog it came from is renamed or removed. While that catalog holds the material, the coating computes with the catalog's current data. With no design selected there is no stack to save, so **Save current coating…** is off.
-
-The [Zemax Coatings](/data-exchange/zemax-coatings/) and [CODE V Coatings](/data-exchange/codev-coatings/) windows save a coating read from a file through the same dialog, with the layers of the file instead of those of the design.
-
-Saved coatings are plain JSON files with the `.tfsc` extension in the Coatings
-folder (Settings, Data folder). Saving under an existing name replaces that
-coating. **Delete** removes the selected saved coating.
-
-## Sharing a coating
-
-**Share a coating…** sends one of your coatings to the project for the
-built-in library. With one of My coatings selected, the dialog opens a new
-GitHub discussion prefilled with the layer table and the design conditions, or an email
-with the same text, and **Save file for sending…** writes the coating with its
-embedded material data as one file to attach to either. With nothing selected
-it only points at the two ways to send a design.
-
-Anything with a layer table and a stated purpose is welcome, in whatever form
-you have it: a `.tfs` or `.tfsc` file, a table typed by hand, or a design
-exported from another program, with or without a description. A contributed
-coating ships in the next release with a credit in its source line.
+- A saved coating embeds every material that is not built in, so it stays usable when its catalog is renamed or removed. While the catalog it came from is on this computer, the coating computes with that catalog's current data, in the library and in the design.
+- A coating from another computer can carry its own copy under an ID that a catalog here holds with other n, k. The library computes with that copy, and so does a design that does not use the ID yet.
+- When a coating brings a definition under an ID the design already computes with other data, the design keeps its own and the window says so; the coating may then compute differently than it does in the library.

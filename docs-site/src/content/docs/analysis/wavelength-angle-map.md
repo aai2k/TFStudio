@@ -4,69 +4,44 @@ description: Map T, R or A over wavelength and angle of incidence at once, as a 
 ribbonIcon: wavelength-angle-map
 ---
 
-Wavelength vs Angle answers **how far the coating drifts when the light stops
-arriving straight on**. It computes one quantity over a wavelength range and an
-angle range together and draws the result as a colour map, so a passband edge
-that walks 30 nm between 0° and 45° is one picture rather than ten overlaid
-spectra.
+Wavelength vs Angle answers **how far the coating drifts when the light stops arriving straight on**. It computes one quantity over a wavelength range and an angle range together and draws it as a color map, so a passband edge that walks 30 nm between 0° and 45° is one picture rather than ten overlaid spectra. The map recomputes whenever the design changes.
 
-The map recomputes whenever the design changes. There is nothing to press.
+<!-- shot: wavelength-angle-map | quarter-wave mirror, R over 0-60° in 0.5° steps as a 3D surface, turned so the stopband's walk shows -->
 
-## Settings
+## Computed quantities
 
-**Quantity**: **T**, **R** or **A**, on the control row.
+- **T**, **R** or **A** in percent at every wavelength and angle of the grid, for **avg**, **s** or **p**, in the surface mode set in the [Design Editor](/design/design-editor/) and under its cone of incidence.
+- **Results** holds the grid as numbers, one row per wavelength and angle.
 
-**Polarization**: **avg**, **s** or **p**. At normal incidence the three agree;
-they separate as the angle grows, and the s / p split is often the thing being
-looked for.
+Read across a row for the spectrum at one angle, and down a column for how one wavelength behaves as the light tilts. A diagonal feature moves with angle; a vertical one stays put. The s and p maps agree at normal incidence and part as the angle grows.
 
-**Render**: **Heatmap** draws the map flat, which is the easier one to read a
-number off. **3D** draws the same grid as a rotatable surface, which shows the
-shape of a peak better than a colour ramp does.
+## Controls and settings
 
-In the settings panel:
+**Quantity**, **Polarization**, and **Render**: **Heatmap** is flat and the easier to read a number off, **3D** a surface you can turn, which shows the shape of a peak better.
 
-**λ**: the wavelength range and the step between columns.
+**Settings**: the **λ** range and step, the **Angle** range (0 to 60° at first, up to 89°) and step, and **Colors**. The grid size shows under the ranges; start coarse over a thick stack.
 
-**Angle**: the angle-of-incidence range and the step between rows. The window
-opens on 0 to 60°, and takes anything up to 89°.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. The map is that environment's coating, media and cone. The choice is not saved with the design.
 
-**Colors**: the colorscale. Turbo by default, with Jet, Viridis, Cividis and
-others to pick from.
+For a map over something other than angle, such as a layer thickness, use the [Plot Engine](/analysis/plot-engine/).
 
-The grid size is shown under the ranges. Both step sizes are yours to set, and a
-fine grid over a thick stack takes longer, so start coarse and tighten once the
-region of interest is clear.
+## Theory
 
-The map is computed for the surface mode set in the
-[Design Editor](/design/design-editor/), shown as a badge under the map.
+At oblique incidence a layer's phase thickness is (Macleod, Eq. 9.2)
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the map says which one the map is computed in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The map is that environment's coating, between its media and on its substrate, on what that environment is scored on, its own **Other side**, and under its own cone, and the badges read that environment. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+```
+δ = 2π n d cos θ / λ
+```
 
-## How to read it
+with θ the angle inside the layer. The layer looks thinner by cos θ, so every feature of the spectrum moves to shorter wavelengths as the light tilts. For a narrowband filter the peak follows
 
-Read across a row for the spectrum at one angle, and down a column for how one
-wavelength behaves as the light tilts. Anything that runs diagonally is a
-feature moving with angle; anything vertical is a feature that stays put.
+```
+λ_θ = λ₀ · √( 1 − (n₀ sin θ₀ / n*)² )
+```
 
-Features move toward shorter wavelengths as the angle grows. A layer's phase
-thickness at oblique incidence is 2π·*nd*·cos θ/λ, where θ is the angle inside
-the layer rather than the angle of incidence. That leaves an apparent optical
-thickness of *nd*·cos θ, so the stack looks thinner the further it is tilted,
-and every wavelength-dependent feature in it shifts down with it. That is why
-an edge filter specified at normal incidence lands short of its target in a
-converging beam, and why a bandpass filter is often designed slightly long so a
-tilt brings it onto wavelength.
-
-The **Results** strip below the plot holds the grid as numbers, one row per
-wavelength and angle pair, and **Export** writes it to CSV. The chart's own
-toolbar saves the picture as PNG, in light colours whatever the theme.
-
-For a single angle at full spectral detail, use
-[Optical Evaluation](/analysis/optical-evaluation/); for a map over something
-other than angle, such as a layer thickness, use the
-[Plot Engine](/analysis/plot-engine/) surface, which this window is built on.
+with n* the effective index of the filter, `√(n_H n_L)` for a first-order cavity (Macleod, Section 8.2, Eq. 8.36). A higher n* shifts less. That is why an edge filter specified at normal incidence lands short in a converging beam, and why a bandpass filter is often made slightly long so a tilt brings it onto wavelength. The admittances change with angle too, which separates s from p; the map computes both exactly, as [Optical Evaluation](/analysis/optical-evaluation/) does.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §9.2 (Eq. 9.2, tilted thicknesses).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 9.2 (Eq. 9.2): tilted thicknesses.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 8.2, pp. 276–285 (Eq. 8.36): the effect of varying the angle of incidence on narrowband filters.

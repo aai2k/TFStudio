@@ -4,65 +4,75 @@ description: Build an edge filter from two materials whose s and p edges fall at
 ribbonIcon: edge-filter
 ---
 
-**Edge Filter** builds a shortwave-pass or longwave-pass filter from two materials for use at an oblique angle of incidence, with the edge for s-polarized and for p-polarized light at the same wavelength. You give the edge wavelength, the angle and the materials; the window finds the periods that do it, previews the finished filter, and puts it into the design.
-
-A quarter-wave stack used at 45° splits: its s edge and its p edge sit apart, and for unpolarized light the edge is no steeper than that split. No choice of the two thicknesses of a (0.5H L 0.5H) period removes it. A five-layer period can:
+Edge Filter builds a shortwave-pass or longwave-pass filter of two materials for an oblique angle of incidence, with its s and p edges at the same wavelength. A quarter-wave stack at 45° splits its s and p edges, and no choice of the two thicknesses in a (0.5H L 0.5H) period brings them together. A five-layer period can:
 
 ```
 aA bB cA bB aA
 ```
 
-with A and B the two materials and a, b and c quarter-wave multipliers at the edge wavelength. For some values of a there are values of b and c that put the s and p edges together at the chosen angle. The window searches a range of a and lists the periods it finds.
+with A and B the two materials and a, b and c quarter-wave multipliers at the edge wavelength. For some values of a there are a b and a c that put the s and p edges together at the chosen angle; the window searches a range of a and lists the periods it finds.
 
-## What the edge is
+<!-- new:edge-filter | SiO2 and TiO2, shortwave pass, edge at 510 nm, 45° in air, 19 periods: the periods listed with the best one picked, and the finished filter's s, p and mean T below with the edge marked -->
 
-The edge is the edge of the high-reflectance zone of an endless stack of the period. A symmetrical period acts like a single layer, and where the diagonal term of its characteristic matrix, N11, lies outside −1 to 1, light cannot pass through many periods of it; the zone ends where N11 = ±1. This is a property of the period alone. The number of periods, the substrate and any matching layers you add later do not move it.
+## Computed quantities
 
-The edge of a finished filter, where its transmittance crosses 50 %, sits close to the zone edge and closes in on it as periods are added. The p edge of a stack is a little less steep than the s edge, so with few periods and no matching layers the two 50 % points lie a fraction of a nanometre to a few nanometres apart even though the zones start at the same wavelength. The preview shows the finished filter, so you see both.
+| Column | Meaning |
+|---|---|
+| **Outside** | The material of the outer layers. |
+| **a, b, c** | The period's quarter-wave multipliers at the edge wavelength. |
+| **Width (nm) s, p** | Width of the s and of the p high-reflectance zone from the edge. |
+| **Width (nm) pass** | From the edge to the next zone of either polarization on the pass side; ∞ when there is none. |
 
-## Settings
+Widths use the indices at the edge wavelength. Unpolarized light is rejected only where both zones are, so the narrower of the s and p zones is the filter's rejection band: the periods are ranked by it, widest first, a tie going to the wider pass region, and the first is picked.
 
-**Shortwave pass / Longwave pass**: which side of the edge transmits. For a shortwave pass the rejection band lies above the edge wavelength.
+The plot shows the finished filter's T for s, p and their mean at the angle of incidence, with the edge marked. **Formula** holds the picked period in [Stack Formula](/design/stack-formula/) notation, H the material of higher index at the edge wavelength; for SiO2 and TiO2 with the edge at 510 nm, 45° in air and 19 periods it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`.
 
-**Edge λ**: the wavelength where both zones start. The period is written in quarter waves at this wavelength.
+## Controls and settings
 
-**Angle of incidence**: the angle in the incident medium at which s and p are brought together, from 0° up to 90°. At 0° s and p are the same wave, so every period has its edges together; the window then gives the plain quarter-wave period, scaled so that its zone starts at the edge, both ways round. For a shortwave pass (0.5L H 0.5L) is listed first and for a longwave pass (0.5H L 0.5H), the arrangements that match air to glass better. The range of a is not used there.
+**Shortwave pass / Longwave pass**: the side of the edge that transmits. **Edge λ (nm)**: where both zones start. **Periods**: the number of periods in the filter previewed and applied; it does not change the search.
 
-**Periods**: how many periods the filter has. It does not change the search, only the filter that is previewed and applied.
+**Angle of incidence (°)**: from 0° to below 90°. At 0° s and p are the same wave, so the window gives the plain quarter-wave period scaled to start its zone at the edge, both ways round: (0.5L H 0.5L) first for a shortwave pass and (0.5H L 0.5H) first for a longwave pass, the better match between air and glass.
 
-**Incident medium** and **Substrate**: the media around the filter. The search uses the incident medium; the substrate is used by the preview and goes into the design.
+**Incident medium** and **Substrate**: the search uses the incident medium; the substrate is for the preview and the design. **Material A** and **Material B** start as the lowest- and highest-index materials of the front coating, or SiO2 and TiO2.
 
-**Material A** and **Material B**: the two materials. The window first opens with the lowest- and highest-index materials of the design's front coating, or SiO2 and TiO2 when it has fewer than two.
+**a from**, **a to**, **Step of a**: the range searched, from 0 to 2 with a step of 0.0001 or more. Adding a little over 2 to a puts a tilted half wave into each outer layer and gives the same b and c again, so the range stops at 2. The default, 0.1 to 1 in steps of 0.05, takes a fraction of a second; 0 to 2 in steps of 0.0001 takes a few minutes. The search runs off the window's thread when the window opens and on **Search**; **Stop** ends it.
 
-The window keeps the pass, the angle, the periods, the two materials and the range of a from one opening to the next, and first opens at 0° with 10 periods. The edge wavelength and the media always come from the design. A remembered material the design cannot find is replaced by the design's own pair.
+The window keeps the pass type, the angle, the periods, the materials and the range of a between openings; the edge wavelength and media come from the design.
 
-**a from**, **a to**, **Step of a**: the range searched for the outer layers. The start is 0 or more, the end above the start and at 2 or below, and the step 0.0001 or more. Adding a little over 2 to a puts a half wave at the angle into each outer layer and gives the same b and c again, so the range stops at 2. The default, 0.1 to 1 in steps of 0.05, takes a fraction of a second; 0 to 2 in steps of 0.0001 takes a few minutes.
+**Open in Stack Formula** carries the formula, materials, media and edge wavelength there, for instance to add matching layers. **Replace**, **Append** and **New design** work as in Stack Formula; Replace also sets the reference wavelength to the edge wavelength, the substrate, and the incident or exit medium of the chosen side. Where two periods meet, the two outer layers become one layer of the summed thickness.
 
-## The search
+## Zone edge and the finished filter
 
-For each value of a the window finds the values of b for which the s and p zone edges meet at the edge wavelength, and for each of them the c that puts them there. It tries the period both ways round, with A outside and with B outside, and keeps only the periods whose s and p zones both lie on the side of the edge the filter blocks.
+- The zone edge belongs to the period alone: the number of periods, the substrate and matching layers do not move it. A finished filter's 50 % point sits near it and closes in as periods are added. The p edge is less steep than the s edge, so with few periods the two 50 % points lie a fraction of a nanometre to a few nanometres apart even when the zones start together.
+- The search takes each index at the edge wavelength and the layers as lossless; for a material that absorbs there the window says so and the preview uses n and k. Away from the edge wavelength real indices change, which the preview shows and the widths do not.
+- The search ignores pass-band ripple, which depends on how the period's equivalent admittance matches the media. To smooth it, run [Refinement](/synthesis/refinement/) with every layer locked but a few at either end.
 
-The search takes each material's refractive index at the edge wavelength and treats the layers as lossless. When a material absorbs there, the window says so; the search uses its n alone, and the preview uses the full n and k. Away from the edge wavelength the indices of real materials change, which the preview shows and the zone widths in the table do not.
+## Theory
 
-The window searches when it opens. After changing a setting the search uses, press **Search** again. The search runs in the background, and **Stop** ends it.
+With λe the edge wavelength, a layer of multiplier m and index n has d = m λe / (4n), phase thickness and tilted admittances (Macleod, Section 9.2, Eq. 9.2)
 
-## How to read it
+```
+δ = 2π n d cos θ / λ
+η_s = n cos θ,     η_p = n / cos θ
+```
 
-Each period found is a row: the material outside, a, b and c, the width of the s zone and of the p zone from the edge, and the width of the pass region from the edge to the next zone of either polarization. All widths are in nanometres and use the indices at the edge wavelength; ∞ means no further zone.
+with cos θ from n₀ sin θ₀. A symmetrical period of lossless layers has a characteristic matrix with real, equal diagonal terms N₁₁ = N₂₂ (Macleod, Section 7.2.2, Eqs. 7.5–7.6). Where |N₁₁| > 1 the reflectance of a stack of the period tends to unity as periods are added, and the zone edges are where N₁₁ = ±1 (Section 9.5.1, Eq. 9.21).
 
-The best period is listed first and picked. Unpolarized light is rejected only where both zones are, so the narrower of the s and p zones is the rejection band of the filter, and the periods are ranked by that width, widest first. A tie goes to the wider pass region. Click another row to preview and apply that period instead.
+The centre layer enters linearly in cos γ and sin γ, γ its phase:
 
-Below the table the plot shows the finished filter's transmittance for s, p and their mean at the angle of incidence, with the edge wavelength marked. The table and the plot share the space; drag the bar between them to give either more room.
+```
+N₁₁ = P cos γ + Q sin γ
+```
 
-## Putting it into the design
+with P the value of N₁₁ with the centre layer absent and Q with it a quarter wave. γ is the same for s and p, so N₁₁ = σ (σ = ±1) for both polarizations at λe is two linear equations in cos γ and sin γ. Their solution lies on the unit circle only for particular b:
 
-The **Formula** box holds the picked period in [Stack Formula](/design/stack-formula/) notation, with H the material of higher index at the edge wavelength and L the other. For the built-in SiO2 and TiO2 with the edge at 510 nm, 45° in air and 19 periods it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`. Select it to copy it, or press **Open in Stack Formula** to continue there with the formula, the materials, the media and the edge wavelength filled in, for instance to add matching layers around it.
+```
+F(b) = x² + y² − 1 = 0,    x = σ (Q_p − Q_s) / D,    y = σ (P_s − P_p) / D,    D = P_s Q_p − Q_s P_p
+```
 
-The buttons at the bottom work as in Stack Formula. **Replace** puts the filter in place of the chosen side's coating, **Append** adds it outside the coating already there, and **New design** makes a new design with it. Replace also sets the design's reference wavelength to the edge wavelength and its substrate to the one chosen here, and the incident medium becomes the incident medium of a front coating or the exit medium of a back one. Where two periods meet, their outer layers are one material and go into the design as one layer of the summed thickness.
-
-The search does not look at the ripple in the pass band, which depends on how well the period's equivalent admittance matches the media. To smooth it, refine the filter with [Refinement](/synthesis/refinement/) with every layer locked but a few at either end.
+For each a and either material outside, F is sampled over one period of b, each root is bisected, and c follows from γ. A root is kept when both zones lie on the side the filter blocks.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §7.2.2 (symmetrical periods), §9.5.1, Eq. 9.21 (edge filters at an intermediate angle of incidence).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 7.2.2, pp. 216–219 (Eqs. 7.5–7.6): symmetrical periods. Section 9.2 (Eq. 9.2) and Section 9.5.1, p. 351 (Eq. 9.21): tilted layers and edge filters at an intermediate angle of incidence.
 - A. Thelen, "Nonpolarizing edge filters," *J. Opt. Soc. Am.* **71**, 309-314 (1981).

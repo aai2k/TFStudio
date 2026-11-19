@@ -4,83 +4,47 @@ description: Weighted spectral averages such as Tvis, Tsol, TUV and TNIR, with s
 ribbonIcon: integral-values
 ---
 
-Integral Values condenses a whole spectrum into the single weighted-average
-numbers that spec sheets quote: visible transmittance, solar reflectance, and
-so on. For each weighting it averages T(λ), R(λ) or A(λ) over a wavelength band,
-weighting each wavelength by a light source times a detector response. Alongside
-the built-in standards you can build your own integral from any source, detector
-and band. These figures describe the filter as a whole, so they follow the
-design's [evaluation mode](/design/evaluation-modes/), whether that is the front
-surface, the back surface, or the complete front–substrate–back system, as the `Eval`
-badge under the chart shows. For the usual whole-part figures such as solar or photopic
-transmittance, evaluate the design as the total system.
+Integral Values condenses a spectrum into the weighted averages spec sheets quote: visible transmittance, solar reflectance and so on. Each row averages T, R or A over a band, weighting every wavelength by a light source times a detector response. The figures follow the design's [evaluation mode](/design/evaluation-modes/); for the usual whole-part figures, evaluate the design as the total system.
 
-## Settings
+<!-- shot: integral-values | ZnS/Ag/ZnS heat mirror over 300-2500 nm, Tsol selected with T(λ) drawn against the AM1.5G weighting -->
 
-**λ range / step**: the wavelength grid the spectrum is sampled on, in
-nanometres. Every row is integrated over its own whole band, so the grid has to
-span the band of each integral you want to read. A row whose band the spectrum
-does not span reads **n/a**, with the span the spectrum does cover shown beside
-its band, and the CSV export leaves its cells empty; it is never averaged over
-the part of the band that happens to be covered. The grid always ends on the
-end wavelength: a step that does not divide the range adds one shorter last
-interval. The default grid,
-300-2500 nm, covers every built-in row: photopic 380-780 nm, solar 300-2500 nm,
-UV 300-380 nm and NIR 780-2500 nm.
+## Computed quantities
 
-**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
+| Row | Weighting | Band |
+| --- | --- | --- |
+| Tvis, Rvis, Avis | D65 × photopic V(λ) | 380–780 nm |
+| Tsol, Rsol, Asol | AM1.5G solar | 300–2500 nm |
+| TUV, RUV | flat | 300–380 nm |
+| TNIR, RNIR | flat | 780–2500 nm |
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the chart says which one the integrals are computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** computes every environment that is on: the table lists each integral in every environment, one row each with the environment named after the integral, and the chart draws the selected integral's channel in each environment, in its own color from the window's Palette in Preferences > Analysis, without the minimum and maximum marks, which the table gives for each environment. The CSV has the same rows. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+Each row gives the average as a fraction and in percent, and the unweighted minimum and maximum of the channel in the band with the wavelengths they occur at, for worst-case checks such as T ≥ 99 % across the band. The chart shows the selected row's channel with its normalized weighting, so you can see which part of the spectrum carries the average.
 
-**+ Custom integral…** opens a dialog in which you define a weighted average of
-your own:
+## Controls and settings
 
-**Name**: what the row is called. It starts as a short name made of the
-channel, source and detector, such as T·D65·V(λ), selected so that typing
-replaces it, and it follows those choices until you type in it. A suggested name
-another custom integral already has gets #2, #3. An integral with no name cannot
-be added.
+**λ range / step**: the grid the spectrum is sampled on. A row is integrated over its whole band, never over the part the grid happens to cover: a row whose band the grid does not span reads **n/a**, with the span covered shown beside it. The default 300–2500 nm covers every built-in row.
 
-**Channel**: whether to average T, R or A.
+**AOI / pol**: the angle of incidence and s, p or their average.
 
-**Source**: the illuminant: D65, D50, illuminant A, AM1.5G solar, equal-energy E, a blackbody at a temperature you set, or a custom table. A blackbody exposes a temperature field; a custom source offers **Edit table…**, which opens the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points) on the source spectrum as a weight against wavelength.
+**+ Custom integral…** defines a row of your own: a **Name**, the **Channel** (T, R or A), a **Source** (D65, D50, A, AM1.5G, equal-energy E, a blackbody at a temperature you set, or a table), a **Detector** (V(λ), flat or a table) and a **Band**. The name follows the choices, such as T·D65·V(λ), until you type in it. A table source or detector opens the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points), which reads wavelengths in nm, µm, cm⁻¹ or eV. The pencil on a custom row edits it and the trash removes it. Custom rows are saved and restored automatically; an operand already built from one in the [Merit Function Editor](/design/merit-function-editor/) keeps the values it was built with.
 
-**Detector**: the observer or sensor response: the photopic curve V(λ), a flat
-response, or a custom table.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows, a numbered one holds the window on it even while it is switched off, and **All** lists every integral in each environment that is on and draws the selected row's channel in each environment's color. The choice is not saved with the design.
 
-**Band**: the wavelength range (in nm) over which the average is taken.
+## Photopic rows and the grid
 
-**Add** puts the integral in the table as a new row. A custom row reads like a
-built-in one, with what it integrates dimmed after its name: the channel, then
-source × detector, such as R · Blackbody 3000 K × Flat (unity). The pencil
-beside the row, or a double-click on it, opens the same dialog on it to change
-any of it, its source and detector included; **OK** applies the changes and the
-row keeps its place. The trash removes it. Custom integrals are saved and
-restored automatically. An operand already built from a custom integral in the
-[Merit Function Editor](/design/merit-function-editor/) keeps the values it was
-built with.
+With D65 and the CIE 1931 2° observer, Tvis is the luminance factor: a perfect white reads 100 %. The photopic rows are integrated on the λ grid like every other row, with the CIE tables interpolated onto it, so a feature narrower than the step is missed. For the Tvis of a narrow notch, set a step well below the notch width.
 
-A custom table is typed, pasted or read from a file in the curve editor, which reads text the way the spectrum importer does: a decimal comma is kept, and header rows, blank lines and `#` comment lines are ignored. The wavelength column can be in nm, µm, cm⁻¹ or eV. **Apply** needs at least two rows with both a wavelength and a weight, and sorts them by wavelength.
+## Theory
 
-## How to read it
+For channel C (T, R or A), source S and detector D over the band λ₁ to λ₂:
 
-Each row shows the weighted average both as a fraction and as a **percent**,
-plus the unweighted minimum and maximum of the channel within the band (with the
-wavelengths where they occur), useful for worst-case checks like "T ≥ 99 % across
-the band". Selecting a row draws the overlay chart on the right: the chosen
-channel in percent together with the normalized weighting curve, so you can see
-which part of the spectrum dominates the average. The minimum and maximum are
-marked on the chart.
+```
+C̄ = ∫ C(λ) S(λ) D(λ) dλ  /  ∫ S(λ) D(λ) dλ
+```
 
-A note on the visible figures: Tvis matches the photopic luminance only when the
-source is D65 and the detector is the CIE 1931 2° observer; a perfect white reads
-100 %. The photopic rows are integrated on the λ grid like every other row, with
-the CIE tables interpolated onto it, so a feature narrower than the 5 nm spacing
-of those tables is counted once the step resolves it. For the Tvis of a narrow
-notch, set a step well below the notch width.
+Both integrals are taken by the trapezoidal rule on the window's λ grid, with S and D interpolated linearly from their tables. The grid always ends on the end wavelength, a step that does not divide the range adding one shorter last interval. With S = D65 and D = ȳ(λ), C̄ is the luminance factor Y/100 of Macleod's Eq. 12.2.
 
 ## References
 
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 12.2, pp. 457–463 (Eq. 12.2): the luminance factor.
 - ASTM G173-03, Standard Tables for Reference Solar Spectral Irradiances.
 - CIE 15:2004, *Colorimetry*.
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §12.2.

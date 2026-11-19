@@ -4,97 +4,45 @@ description: Apply a correlated thickness or index shift across the whole stack,
 ribbonIcon: systematic-dev
 ---
 
-Systematic Deviations answers "what-if" questions where every layer drifts the
-same way at once: what if all layers ran 2 % thick, what if the coater is +5 nm
-long on every layer, or what if a material's index shifted by Δn = +0.05? Unlike
-[Monte Carlo](/analysis/error-analysis/), the error here is correlated: one
-deliberate offset applied across the design rather than an independent random draw
-per layer. Your design is never modified; the deviation is applied to a working
-copy and the result is overlaid against the unperturbed spectrum.
+Systematic Deviations answers what-if questions where every layer drifts the same way at once: all layers 2 % thick, the coater 5 nm long on every layer, or a material's index up by 0.05. Unlike [Monte Carlo](/analysis/error-analysis/), the error is correlated: one offset applied across the design, not an independent random draw per layer. The design itself is never changed.
 
-The analysis runs for the surface mode set in the
-[Design Editor](/design/design-editor/), shown as a badge on the window.
+<!-- shot: systematic-dev | 550 nm bandpass, Sweep mode, every layer scaled 0.98 to 1.02 in 41 steps, transmittance as a heat map -->
 
-Each layer's thickness becomes `d′ = max(0, d · scale + offset)`. The scale is
-multiplicative (global scale × per-material scale) and the offset is additive
-(global offset + per-material offset). The offset can be entered in four units,
-converted to physical nanometres per layer at the design reference wavelength λ₀:
+## Computed quantities
 
-- **nm**: physical nanometres, used directly.
-- **OT**: optical thickness in nm; divided by n(λ₀).
-- **QW**: quarter-waves at λ₀.
-- **FW**: full-waves at λ₀.
+- **Single**: the deviated T, R or A in percent, solid over the unchanged spectrum drawn dotted (**baseline**). The gap between them is the cost of the deviation. On a design with a [specification](/design/specification/), a verdict says whether the deviated design still passes.
+- **Sweep**: a heat map of one deviation parameter (vertical) against wavelength, colored by the channel in percent; **T+R+A** stacks three maps. A broad, slowly changing band means the design tolerates that error; a narrow, fast-changing one means it sits on a knife edge.
 
-## Settings
+The surface mode set in the [Design Editor](/design/design-editor/) decides which coatings are deviated, shown as a badge.
 
-**Single / Sweep**: the two working modes (described below).
+## Controls and settings
 
-**λ range / step**: the wavelength grid, in nanometres.
+**Single / Sweep**, the channel (**T+R+A**, **T**, **R**, **A**) and **baseline** sit on the row; **Settings** holds the **λ** range and step, the **AOI** and the polarization.
 
-**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
+**Deviations** strip, in Single mode: **d × scale**, **d + offset** with its unit (**nm**, **OT**, **QW**, **FW**), **Δn** and **Δk**, once under **Global** and again per material under **Per-material**. The global values act on the coating layers only; the incident medium, substrate and exit medium keep their index, since a process running off nominal changes the films it grows. A per-material row lists every place its material appears, media included, so a per-material Δn is the way to shift a substrate glass on purpose; it also shifts any layer of that material. **Reset deviations** returns everything to no change.
 
-**T+R+A / T / R / A**: which channel(s) to plot.
+In Sweep mode: **Sweep parameter** is any one of those controls, with **from**, **to** and **steps**; the range reseeds itself when you change the kind of parameter. **Run sweep** computes the map, varying only that parameter from the unchanged design. To combine a fixed deviation with a sweep, set the fixed part up in Single mode first.
 
-**baseline**: overlay the unperturbed spectrum behind the deviated one.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. The deviation is made on the layer list and seen in that environment, through the thickness factor of each material there. A sweep is drawn in the environment it was run in. The choice is not saved with the design.
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the deviation is seen in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The deviation is made on the layer list and seen in the environment: each layer f·(d · scale + offset) thick, f the thickness factor of its material there times the change the environment's temperature makes, made of the material the environment deposits for it at that temperature, moved by the Δn and Δk of the layer list's material, between the environment's media, and computed on what that environment is scored on, its own **Other side**. A sweep is drawn in the environment it was run in, and comes back when that one is shown again. The material range notice reads the environment shown, and the specification verdict judges the deviated design in every environment that is on. The choice belongs to this window and is not saved with the design.
+## Theory
 
-## Deviations
+For a layer of thickness d, index n and extinction coefficient k, with a global (g) and a per-material (m) part of each deviation:
 
-The strip below the plot holds the deviations themselves, and follows the mode.
+```
+d′ = max(0, d · s_g · s_m + o_g + o_m)
+n′ = n + Δn_g + Δn_m
+k′ = max(0, k + Δk_g + Δk_m)
+```
 
-In **Single** mode you build one fixed deviation and overlay it on the baseline:
+An offset entered in optical units becomes nanometres layer by layer, with n the layer's index at the design's reference wavelength λ₀:
 
-**d × scale**: the thickness multiplier.
+```
+o[nm] = OT / n(λ₀) = QW · λ₀ / (4 n(λ₀)) = FW · λ₀ / n(λ₀)
+```
 
-**d + offset**: a flat thickness offset, with the nm / OT / QW / FW unit
-selector beside it.
-
-**Δn / Δk**: additive shifts to the real and imaginary index (k stays ≥ 0).
-
-These appear once as a **Global** deviation and again per material under
-**Per-material**. The global deviation acts on the coating layers only: its
-scale and offset change every layer's thickness, and its Δn and Δk shift every
-layer's index, while the incident medium, the substrate and the exit medium keep
-their own index. A deposition process running off nominal changes the films it
-grows, not the glass underneath or the air in front. Per-material values combine
-with the global ones (additively for Δn and Δk, multiplicatively for the scale),
-so you can say "everything +2 %, but TiO₂ also overshot by +3 nm". Each
-per-material row lists every place that material appears, including the incident
-and exit media; a material in more than one role is shown once with all of them
-(for example, `Air (incident, exit)`), and editing it governs that material
-everywhere. A per-material Δn or Δk is therefore the way to shift a medium on
-purpose, such as a substrate glass whose index is off; it also shifts any layer
-made of the same material.
-
-**Reset deviations**: return every control to its no-op value.
-
-In **Sweep** mode you vary one parameter across a range and map the result:
-
-**Sweep parameter**: any one of the global or per-material controls above.
-
-**from / to / steps**: the range and resolution. The range re-seeds itself to
-sensible defaults when you switch parameter kinds, and stays fully editable.
-Offset parameters carry their own nm / OT / QW / FW unit selector.
-
-**Run sweep** computes the map. The sweep is self-contained: it varies only the
-chosen parameter, starting from the unperturbed design, so the Global and
-Per-material fields are not shown in this mode. To combine a fixed deviation with
-a sweep, set the fixed part up in Single mode first.
-
-## How to read it
-
-In Single mode the chart is in **percent**, with the baseline drawn dotted and
-the deviated spectrum solid on top. The gap between them is the cost of the
-deviation. If the design has a Specification, a live verdict tells you whether
-the deviated design still passes.
-
-In Sweep mode the result is a heatmap of parameter value (vertical) against
-wavelength (horizontal), with the channel value as color (also in percent);
-choosing T+R+A stacks three maps. The vertical axis is labelled with the swept
-parameter and its unit. A broad, slowly-changing band means the design tolerates
-that error well; a narrow, fast-changing one means it is on a knife edge.
+so a 0.01 QW offset is a thicker step in a low-index layer than in a high-index one. A medium takes only its per-material Δn and Δk. The deviated stack is then computed as in [Optical Evaluation](/analysis/optical-evaluation/).
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.7.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 13.7, pp. 514–524: tolerances; Section 13.9, p. 527: systematic and random errors.

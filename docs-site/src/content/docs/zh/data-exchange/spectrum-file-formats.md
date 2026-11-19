@@ -55,7 +55,7 @@ Wavelength (nm),%T,Wavelength (nm),%T
 
 IUPAC 光谱学标准，`.dx` 与 `.jdx`，可读可写。它自带单位和量，因此无需配置即可导入。复合 `LINK` 文件会把每一个数据块导入为一条独立曲线。定长格式的 `XYDATA` 压缩与 `XYPOINTS` 数对列表都受支持。
 
-导出时写出的 JCAMP-DX 使用你为 CSV 选择的同一波长单位和 Y 比例，因此 TFStudio 的曲线可以在任何光谱学软件中加载。
+导出时，实测曲线写成的 JCAMP-DX 使用你为 CSV 选择的波长单位和 Y 比例，设计光谱则以 nm 和百分比写出，因此 TFStudio 的曲线可以在任何光谱学软件中加载。
 
 ## 椭偏文件
 

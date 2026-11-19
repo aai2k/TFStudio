@@ -3,83 +3,54 @@ title: Design Import
 description: Read TFCalc (.tfd), Essential Macleod (.dds) and OptiLayer (.dsg) design files into a project as TFStudio designs, with materials matched to your catalogs.
 ---
 
-The **Import** button in the Project group of the Setup tab reads coating
-designs saved by TFCalc (`.tfd`), Essential Macleod (`.dds`) and OptiLayer
-(`.dsg`) and adds them to a project folder as TFStudio designs. Pick any
-number of files from any of the programs in one go; each file becomes one
-design.
+**Import**, in the Project group of the Setup tab, reads coating designs saved by TFCalc (`.tfd`), Essential Macleod (`.dds`) and OptiLayer (`.dsg`) and adds them to a project folder as TFStudio designs. Any number of files from any of the programs can be picked at once; each file becomes one design.
 
-## The dialog
+<!-- shot: import-designs | two Essential Macleod designs and a TFCalc mirror picked at once, the three-cavity narrowband filter highlighted with its stack, materials and spectrum -->
 
-The left side lists every design that could be read, with its program, its
-layer count and how many of its material names still need a TFStudio
-material. Files that could not be read are listed underneath with the reason.
-**Add files…** appends another pick to the same batch.
+## Computed quantities
 
-The right side shows the highlighted design: incident medium, substrate,
-exit medium and reference wavelength, then the stack with the thickness each
-layer will have in nanometres, and beside it what the file says about the
-layer (its optical thickness, a lock). Anything the reader had to assume or
-leave out is written above the stack, and so is a layer whose thickness could
-not be computed. Below the stack is the materials table, and at the bottom
-the design's transmittance, reflectance and absorptance at normal incidence
-over the file's own plot range, once every material is assigned.
+The list on the left gives every design read, with its program, layer count and how many material names still need a material; files that could not be read are listed below with the reason.
 
-**Materials.** A design names its materials the way the program's own database does. Each name is looked up in your catalogs by exact name, and the match is shown in the picker; a material imported from the same program is preferred over any other, a user catalog over the built-in library, and `Air` is always the built-in Air. Change any suggestion with the picker. A name is shared across the batch, so assigning it once covers every design that uses it. Import the program's material files first (Material Editor, **Add → From TFCalc, Macleod or OptiLayer files…**) so the names are found. A name left unassigned is imported as a missing material: the Design Editor flags it, and **Replace Materials** fixes it later.
+The highlighted design shows its incident medium, substrate, exit medium and reference wavelength; its stack with each layer's thickness in nm beside what the file says of it (its optical thickness, a lock); every assumption or omission above the stack, including a layer whose thickness could not be computed; the materials table; and, once every material is assigned, T, R and A at normal incidence over the file's own plot range.
 
-An OptiLayer design names its materials only by abbreviation, so the reader
-looks in the design's folder: the project file's abbreviation map when it has
-one, otherwise the material file whose index at the control wavelength is
-the one stored with the layer. The folder's substrate files supply the media
-and, when the project does not name it, the substrate. A material found this
-way is marked "from the design's folder" and travels inside the design, the
-way a `.tfs` file carries its materials, so the design computes with the
-definition it was made with. Pick a catalog material in its row to use that
-instead; the button beside the status gives the file's definition back.
+## Controls and settings
 
-An Essential Macleod design names its materials the way the program's own
-database does, and that database is one folder on the computer, not the
-design's folder. The reader looks for it where the program records it, the
-materials folder set in Essential Macleod's own settings, or the installer's
-default. Every name the database holds is taken from it, marked "from the
-program's material database", read between its table points the way Essential
-Macleod reads it, and carried inside the design, so an imported design
-reproduces the numbers the program computed. If the database is not found, or
-lives somewhere else, **Essential Macleod materials…** in the header points
-the batch at a folder. A name the database does not hold is matched against
-your catalogs as above.
+**Add files…** adds another pick to the batch.
 
-**Footer.** TFCalc files do not record their wavelength unit, but every
-layer carries both its quarter waves and its physical thickness, and the two
-agree only in the right unit, so the switch reads the unit from the file.
-Set it to nm or µm to override; the design then notes when the file
-disagrees. Choose the project folder, then **Import**. The Design Editor
-opens on the last design added.
+**Materials**: each name the design uses is looked up in your catalogs by exact name, preferring a material imported from the same program, then a user catalog over the built-in library; `Air` is always the built-in Air. A name is shared across the batch, so one assignment covers every design using it. Import the program's material files first (Material Editor, **Add → From TFCalc, Macleod or OptiLayer files…**) so the names are found. A name left unassigned imports as a missing material, which the Design Editor flags and **Replace Materials** fixes.
 
-## What is refused
+- **OptiLayer** names materials by abbreviation only, so the reader looks in the design's folder: the project file's abbreviation map, else the material file whose index at the control wavelength is the one stored with the layer. The folder's substrate files give the media, and the substrate where the project does not name it.
+- **Essential Macleod** names materials as its database does, and that database is one folder on the computer: the materials folder in the program's own settings, or the installer's default. **Essential Macleod materials…** in the header points the batch at another folder. Its materials are read between table points as the program reads them, so an imported design gives the numbers the program gave.
+- A material found in the design's folder or the program's database is marked as such and travels inside the design, as a `.tfs` carries its materials. Picking a catalog material in its row uses that instead; the button beside the status gives the file's definition back.
 
-A rugate or graded-index design is listed under the files that could not be
-read, with the reason. OptiLayer's rugate layers, Essential Macleod's
-packing-density layers and TFCalc's variable materials are those programs'
-ways of building a graded index, and TFStudio has no graded layer to hold
-one.
+**Footer**: TFCalc files do not record their wavelength unit, but every layer stores both its quarter waves and its physical thickness, which agree only in the right unit, so the unit switch reads it from the file; set nm or µm to override, and the design notes when the file disagrees. Pick the project folder, then **Import**; the Design Editor opens on the last design added.
 
-## How to read it
+A rugate or graded-index design is refused with the reason: OptiLayer's rugate layers, Essential Macleod's packing-density layers and TFCalc's variable materials build a graded index, and TFStudio has no graded layer to hold one.
+
+## File conventions
 
 | Quantity | TFCalc | Essential Macleod | OptiLayer | In TFStudio |
-| --- | --- | --- | --- | --- |
-| Layer numbering | from the substrate | from the incident medium | from the substrate | stored the same way whichever program wrote it |
-| Layer thickness | physical, nm; the QWOT is shown for reference | full-wave optical at λ₀, or physical | quarter waves at the control wavelength, with the index stored for the layer, at the match angle | physical nm; an optical thickness is converted with the layer's index at λ₀, at the match angle where the file has one |
-| Absorbing layer | physical, nm | optical with the real part of n | quarter waves with the real part of n; a layer whose index is too low for the wave to propagate at the match angle is converted at normal incidence and noted | physical nm |
-| Reference wavelength | Environment, in the file's unit, read from the layers | in the file's unit | the control wavelength | nm |
+|---|---|---|---|---|
+| Layer numbering | from the substrate | from the incident medium | from the substrate | stored the same whichever program wrote it |
+| Layer thickness | physical nm; QWOT shown for reference | full-wave optical at λ₀, or physical | quarter waves at the control wavelength, with the layer's stored index, at the match angle | physical nm ([Theory](#theory)) |
+| Absorbing layer | physical nm | optical, with the real part of n | quarter waves with the real part of n; a layer evanescent at the match angle is converted at normal incidence and noted | physical nm |
+| Reference wavelength | Environment, read from the layers | in the file's unit | the control wavelength | nm |
 | Back side | back layers | none | none | back stack; the surface mode follows |
-| Exit medium | Environment; the same material as the substrate means a semi-infinite substrate, any other means both surfaces of the substrate are evaluated | the substrate is the emergent medium | the project file; the substrate is semi-infinite, the program's default, since its Back Side option is not in the file | as in the file, with the evaluation mode set to match; the substrate material where the program has none, which means the same thing |
+| Exit medium | Environment; the substrate material means a semi-infinite substrate, another means both faces are evaluated | the substrate is the emergent medium | the project file; semi-infinite substrate, the program's default | as in the file, with the evaluation mode to match |
 | Substrate thickness | Environment, mm | not used | not in the file | TFStudio's default where the file has none |
-| Constant index | none | a number written as a material name, when no catalog holds a material of that name | the stored index, when no folder material matches | a constant-index material embedded in the design |
+| Constant index | none | a number written as a material name, when no catalog holds that name | the stored index, when no folder material matches | a constant-index material in the design |
 | Locked layer | Optimize = No | Lock | status F | locked |
 
-The stack formula and its symbols, the incident angle of the file, the
-match angle, and anything the reader left out or assumed (optimization
-targets, layer groups, linked layers, environments beyond the first,
-monitoring settings, a medium the project does not name) are written into
-the design's Notes, in the language the program is running in.
+The stack formula and its symbols, the file's incident and match angles, and whatever the reader left out or assumed (optimization targets, layer groups, linked layers, environments beyond the first, monitoring settings, a medium the project does not name) go into the design's Notes, in the program's running language.
+
+## Theory
+
+An optical thickness becomes physical with the real part of the layer's index n at the file's wavelength:
+
+```
+Essential Macleod, full waves T at λ₀:      d = T · λ₀ / n(λ₀)
+OptiLayer, quarter waves Q at λc:           d = Q · λc / (4 n cos θ)
+                                            sin θ = n_m sin θ_m / n
+```
+
+with θ_m the match angle in the match medium of index n_m. Where n_m sin θ_m ≥ n the wave is evanescent and has no real cos θ, so that layer is converted at normal incidence and noted.

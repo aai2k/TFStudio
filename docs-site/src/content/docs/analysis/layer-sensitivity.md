@@ -1,51 +1,63 @@
 ---
 title: Layer Sensitivity
-description: See which layers are the most critical to manufacture accurately.
+description: Which layers are the most critical to make accurately, ranked by how far the optical merit moves when each one alone is off in thickness.
 ribbonIcon: sensitivity
 ---
 
-Layer Sensitivity shows **which layers are the most critical to make
-accurately**. It nudges each layer's thickness by a small amount, measures
-how much the optical performance changes, and ranks the layers by that
-change. The layers at the top of the ranking are the ones that need the
-tightest monitoring and process control.
+Layer Sensitivity shows **which layers are the most critical to make accurately**. It makes one layer at a time thicker and thinner by a small step, measures how far the optical merit function moves, and ranks the layers by that change. The merit is the one in the [Merit Function Editor](/design/merit-function-editor/), so the ranking is for the targets you set.
 
-## Settings
+<!-- shot: sensitivity | bandpass design ranked against its bandpass target, table filling the window, Chart open below it -->
+![Layer Sensitivity](/screenshots/sensitivity.png)
 
-**Probe size**: how big a thickness change to test on each layer. Choose
-**Relative** (a percentage of the layer's own thickness, 1 % by default, and
-the usual choice since real errors scale with thickness) or **Absolute**
-(a fixed amount in nanometres). The sign does not matter; the tool always
-tests the same amount above and below nominal.
+## Computed quantities
 
-**Scale**: **Normalized** sets the most sensitive layer to 100 % and
-scales the rest against it (the easiest way to compare layers), or
-**Absolute** shows the raw change in merit on a logarithmic axis (use this
-when one layer dominates and you want its true size).
+- **Δd**: the thickness step applied to each layer, in nm.
+- **|ΔOMF|**: the mean change of the optical merit function when that layer alone is made thicker and thinner by Δd. The OMF leaves out the manufacturability rows `MNT`, `MXT`, `TT` and `STR`, so a layer near a thickness bound is not ranked high for that reason.
+- **Sens. (%)**: |ΔOMF| as a percentage of the largest one in the design.
+- **Rank**: 1 for the layer with the largest |ΔOMF|, the one that needs the tightest monitoring.
+- **Spec @ ±Δd**: on a design with a [specification](/design/specification/), whether every requirement still passes with all layers at once made thicker by Δd, and with all of them made thinner.
 
-The ranking is evaluated for the surface mode set in the
-[Design Editor](/design/design-editor/) (front, back, both, or symmetric),
-shown as a badge on the window.
+## Controls and settings
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the table says whose merit is probed. **Current** follows the environment the Design Editor and the ribbon show, and an environment picked by its number and name holds the window on that one, even while it is switched off: the merit is that environment's own, over the merit rows scored in it. **All** probes the optical merit over every environment that is on, combined as the merit tables combine the OMF: OMF² = (1/N) Σ OMF_k², N counting the environments that hold an optical row. Each probe is made on the layer list's thickness and seen in an environment as f·(d ± Δd), f the thickness factor of the layer's material there times the change the environment's temperature makes, so the table still lists the layers as the layer list holds them. The choice belongs to this window and is not saved with the design.
+**Normalized % / Absolute |ΔOMF|**: the chart's vertical axis, the largest bar at 100 % or the raw merit change on a logarithmic axis.
 
-## How to read it
+**Settings**: **Perturbation** is **Relative**, a **Δd / d** in percent of each layer's own thickness (1 % by default, since real thickness errors scale with thickness), or **Absolute**, one **Δd** in nm for every layer. **include locked** adds the layers locked in the Design Editor, which are otherwise left out.
 
-The window is the table: one row per layer in stack order, front layers first,
-with its material, the change in merit its perturbation produced, and its
-**Rank**, 1 for the most critical layer. The layers that need the tightest
-monitoring are the ones ranked 1, 2, 3. **Export** writes the table to CSV.
+The badge on the row shows the surface mode set in the [Design Editor](/design/design-editor/); the layers probed are the ones that mode evaluates.
 
-Open **Chart** below the table for the same numbers as bars. A tall bar means a
-small thickness error there produces a large change in performance. A short bar
-means the layer is forgiving. A design whose bars are all about the same height
-is robust, with no single layer that can ruin it.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** probes the merit of the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. **All** probes the optical merit over every environment that is on, combined as OMF² = (1/N) Σ OMF_k², N counting the environments that hold an optical row. Each probe changes the layer list's thickness, which an environment sees as f·(d ± Δd), f the thickness factor of the material there. The choice is not saved with the design.
 
-Layers are numbered as in the Design Editor (layer 1 touches the
-substrate), and locked layers are left out unless **include locked** is ticked. Sensitivity is measured against
-the optical performance, so the ranking reflects the effect on the
-spectrum.
+When a merit row has a Step of its own, the ranking first appears at the default step, faded and marked ≈, and is replaced when the ranking at the rows' own Steps is ready.
+
+## Ranking
+
+A tall bar means a small thickness error in that layer costs a lot of performance; a short bar means the layer is forgiving. A design whose bars are all about the same height has no single layer that can ruin it. Layers are numbered as in the Design Editor, F1 and B1 being the front and back layers on the substrate.
+
+## Theory
+
+For layer j of thickness d_j:
+
+```
+Δd_j = p · d_j / 100                  Relative, p = Δd / d in %
+Δd_j = Δd                             Absolute
+|ΔOMF|_j = ( |OMF(d_j + Δd_j) − OMF₀| + |OMF(d_j − Δd_j) − OMF₀| ) / 2
+Sens_j = 100 · |ΔOMF|_j / max_k |ΔOMF|_k
+```
+
+OMF₀ is the merit of the design as it is; a thinned layer stops at 0 nm and every other layer keeps its thickness. The OMF is the weighted RMS of the optical rows' residuals Δ_i, `OMF = √(Σ w_i Δ_i² / Σ w_i)`, each residual as the [Operand Reference](/design/operands/) defines it. Band rows are sampled on the unchanged design's wavelength grid for every evaluation, so a change in merit comes from the thickness and not from the grid.
+
+The two one-sided changes are averaged rather than a derivative taken because of where a design usually sits. About the design,
+
+```
+OMF(d_j ± Δd) − OMF₀ ≈ ± g_j Δd + ½ H_jj Δd²
+```
+
+with g_j the slope and H_jj the curvature along layer j. A refined design sits at a minimum, where every g_j is close to zero, so a central difference would rank the layers by what is left of the optimizer's convergence. The mean of the two magnitudes keeps ½ H_jj Δd², which is what a deposition error costs at a minimum, and reduces to |g_j| Δd on a design that has not been refined.
+
+In symmetric mode probing a front layer also moves its mirror image on the back.
+
+This is the per-layer sensitivity Baumeister introduced for filter tolerancing (Macleod, Section 13.7), taken over the merit function rather than one spectral curve. For random errors in every layer at once, use [Monte Carlo](/analysis/error-analysis/).
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.7.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 13.7, pp. 514–524: tolerances and the sensitivity of filter performance to errors in single layers.

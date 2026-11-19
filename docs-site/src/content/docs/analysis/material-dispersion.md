@@ -4,72 +4,43 @@ description: Phase, group delay, GDD, CDC and TOD for propagation through a bulk
 ribbonIcon: material-dispersion
 ---
 
-The Material Dispersion window calculates the delay added by one pass through a
-chosen thickness of bulk material. It separates substrate or window dispersion
-from coating dispersion and provides a closed-form check for the Total mode in
-the [GD / GDD window](/analysis/gd-gdd/).
+Material Dispersion computes what one pass through a chosen thickness of bulk material does to a pulse: its phase, group delay and the dispersion terms. Use it for the substrate, a window or any other glass in the beam, apart from the coatings, whose dispersion the [GD / GDD window](/analysis/gd-gdd/) gives. It needs no design.
 
-For thickness `d`, refractive index `n(ω)`, and angular frequency `ω`, the
-reported propagation terms are:
+<!-- shot: material-dispersion | GDD of 1 mm of fused silica from 400 to 1100 nm -->
+
+## Computed quantities
+
+The same five as the GD / GDD window, for the slab alone: **Phase** in degrees, **GD** in fs, **GDD** in fs², **CDC** in fs/nm and **TOD** in fs³. As a check, the built-in fused silica gives about 36.2 fs²/mm of GDD at 800 nm.
+
+## Controls and settings
+
+**Material**: any material in the design or the catalogs. **Quantity**: one of the five above.
+
+**Settings**: **Thickness**, the single-pass path in nm, µm or mm, and the **λ** range. The sampling is chosen automatically.
+
+**Notices**: where the λ range leaves the material's data, the curve is drawn over a shaded band naming the range it does cover, and the badge offers to narrow the plot to it. A table holds its end value out there, so the slab is drawn as dispersionless; a formula is extrapolated. Wavelengths with no value at all are gaps, and the badge gives the reason: an absorbing slab too thick for the pulse to survive, with the largest thickness that keeps the range evaluable, or a model that cannot give third derivatives.
+
+## Table knots
+
+A formula is differentiated exactly. A table is interpolated by a shape-preserving cubic (PCHIP), smooth in value and slope only, so GDD and TOD step at each table point; the plot draws the step through the value on each side, never a gap. A fitted dispersion formula is used only inside the validity range stored with it.
+
+## Theory
+
+For thickness d, index n(ω) and angular frequency ω:
 
 ```
+φ   = −(d/c) ω n
 GD  = (d/c) [n + ω dn/dω]
 GDD = (d/c) [2 dn/dω + ω d²n/dω²]
 TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
-CDC = GDD·2πc/λ²
+CDC = GDD · 2πc / λ²
 ```
 
-## Settings
+These are −dφ/dω and its derivatives, the same signs as the coating terms, so the slab's GDD adds to a coating's as in Macleod's Eq. 11.19. The bracket in GD is the group index.
 
-**Material**: any material available to the active design and material
-catalogs.
-
-**Thickness**: single-pass propagation distance. Select nm, µm, or mm to use
-film and substrate dimensions directly. For an opaque path, the warning badge on
-the control row reports the maximum thickness that keeps the full selected range
-evaluable.
-
-**Quantity**: phase, GD, GDD, CDC, or TOD. CDC is the same group delay
-dispersion taken against wavelength rather than angular frequency, in fs/nm,
-which is how a telecommunications specification is written.
-
-**Wavelength range**: the span plotted and exported. TFStudio selects the
-sampling automatically because each wavelength is evaluated pointwise.
-
-## Material models
-
-Formula derivatives are exact for the stored coefficients. PCHIP derivatives
-are exact for the cubic piece drawn through the supplied table, but higher
-orders still describe that interpolation choice. PCHIP is continuous through
-its first derivative; GDD and TOD can jump at table knots. The plot samples each
-knot and draws the jump as a step through the value on each side of it, so the
-curve is never cut there. A gap means the opposite, that the sample has no value:
-a wavelength the thickness has masked, or one whose model cannot supply
-third-order derivatives. The window's notice gives the reason.
-
-Outside the material's data range the curve is still drawn, over a shaded band
-naming the material and the range it does cover. A table holds the value in its
-last row out there, so its index has no slope and the material adds no
-dispersion at all: what is plotted in the band is the delay of a dispersionless
-slab. A formula is extrapolated past the band it was fitted over and keeps
-dispersing, which is a model outside its validity rather than an absence of one.
-A user-created smooth fit is used only inside the validity range stored with the
-material. The results table marks those rows with the material, so an exported
-number is never silently an extrapolation, and narrowing the plotted range to
-the covered span is one click on the notice.
-
-For an absorbing material, k does not enter propagation phase directly. It
-sets how much of the direct pulse survives. TFStudio masks wavelengths where
-the selected thickness gives a field optical depth above 50, equivalent to
-internal intensity transmission below exp(-100). Reporting a delay there would
-describe the phase of a pulse that has been extinguished.
-
-For reference, the bundled fused-silica Sellmeier model gives about 36.2
-fs²/mm at 800 nm. This check is bulk propagation only and does not include
-coating-interface phase.
+The extinction coefficient k does not enter the phase; it sets how much of the pulse survives. A wavelength is masked when the field optical depth `2π·k·d / λ` exceeds 50, an internal transmittance below e⁻¹⁰⁰, since a delay there would describe a pulse that no longer exists.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 11.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 11.2, pp. 414–425 (Eqs. 11.18–11.19): group-velocity dispersion of a medium and net GDD.
 - I. H. Malitson, "Interspecimen Comparison of the Refractive Index of Fused Silica," *Journal of the Optical Society of America* **55**, 1205-1209 (1965), [doi:10.1364/JOSA.55.001205](https://doi.org/10.1364/JOSA.55.001205).
-- OptiLayer, "Material Dispersion", bulk-material phase and group-delay definitions.

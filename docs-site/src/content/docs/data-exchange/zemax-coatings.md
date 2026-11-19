@@ -4,50 +4,54 @@ description: Read and write Zemax OpticStudio COATING.DAT, importing materials a
 ribbonIcon: zemax-coatings
 ---
 
-The **Zemax Coatings** window reads and writes Zemax OpticStudio `COATING.DAT` files. Import a coating stack (and its materials) from a `COATING.DAT` into a TFStudio design, save one to the [Coating Library](/design/coating-library/), or export the active design as a `COAT` stack plus its `MATE` material definitions for use in OpticStudio.
+Zemax Coatings reads and writes OpticStudio `COATING.DAT` files: a text database of `MATE` (material) and `COAT` (layer stack) records, beside the `IDEAL`, `IDEAL2`, `TABLE`, `TAPR` and `ENCRYPTED` coating models. It imports a stack and its materials into a design or the [Coating Library](/design/coating-library/), and exports the active design as a `COAT` stack with its `MATE` records. **Coatings**, **Materials** and **Export** are tabs in one row with the reference wavelength; the result of the last action shows at its right end.
 
-`COATING.DAT` is Zemax's coating database: a text file of `MATE` (material) and `COAT` (coating-stack) records, alongside the ideal and tabular coating models (`IDEAL`, `IDEAL2`, `TABLE`, `TAPR`, `ENCRYPTED`). The window parses the whole file and presents it in three tabs: **Coatings**, **Materials**, and **Export**. The tabs sit in one row with the reference wavelength, and what the last action did shows at the right-hand end of that row. Load a file with **Load COATING.DAT** in the panel on the left of the Coatings or the Materials tab; the parsed contents and your selections stay put while you switch between tools.
+<!-- shot: zemax-coatings | OpticStudio's own COATING.DAT read, its 12-layer 400-900 nm AR picked from the coatings list and imported onto the bare BK7 design -->
 
-## Settings
+## Computed quantities
 
-**Reference λ₀ (nm)**: the wavelength used to convert between Zemax's relative thickness (in waves) and physical thickness in nanometres on both import and export.
+**Coatings** lists every coating record with its type and layer count, and the selected stack's layers with their materials and physical thicknesses. **Materials** lists every `MATE` record. **Export** previews the `COAT` and `MATE` text before it is saved.
 
-**Coatings tab**: the panel lists every coating record in the file with its type and layer count. Select a layer stack to see its layers on the right. Only `COAT` layer stacks import; the ideal, table and encrypted records are listed with a lock.
+## Controls and settings
 
-- **Import → front coating** loads the stack as the front coating of the active design. Its `MATE` materials are registered into a `Zemax <file>` catalog so the design resolves its materials immediately. With no design selected there is nothing to import into, so the button is off, while **Save to Coating Library…** stays on and puts the coating between air and BK7. The button is off as well on a design coated on the back alone with [**Ignore other side**](/design/evaluation-modes/) ticked, which does not compute its front.
-- **Save to Coating Library…** saves the stack into My coatings, through the same dialog as **Save current coating…** in the Coating Library: give it a name, a type and a use note, and set the band, angle and polarization it is meant for. A `COAT` record names no incident medium or substrate, so the saved coating takes those of the active design. Its layers are the ones **Import → front coating** would put on the design, with relative thicknesses converted at the reference wavelength, which is stored with the coating. Its materials are embedded in it, so it works on a computer that never loaded the file. Saving adds nothing to your material catalogs.
+**Load COATING.DAT**, in the panel of the Coatings or Materials tab, reads a file; its contents and your picks stay while you switch windows. **Reference λ₀ (nm)** converts relative thicknesses in waves to nm, on import and export.
 
-**Materials tab**: lists every `MATE` record, one row each. Tick the ones you want and use **Import selected** or **Import all** to add them to a catalog without touching the design.
+**Coatings**: only `COAT` stacks import; the others are listed with a lock, since `IDEAL`, `IDEAL2` and `TABLE` describe a surface by its R and T rather than by layers, and `ENCRYPTED` cannot be decoded.
 
-**Export tab**: generates `COAT` + `MATE` text from the current front design, with a preview before you save:
+- **Import → front coating** puts the stack on the active design's front, and its `MATE` materials into a `Zemax <file>` catalog. It is off on a design coated on the back alone with [**Ignore other side**](/design/evaluation-modes/) ticked.
+- **Save to Coating Library…** saves the stack into My coatings through the Coating Library's dialog. A `COAT` record names no media, so the coating takes the active design's, or air and BK7 with no design open. Its thicknesses are converted at λ₀, which is stored with it, and its materials travel inside it, so nothing is added to your catalogs.
 
-- **Layer thickness**: write **Absolute (µm)** physical thickness or **Relative (waves)** of λ₀.
-- **Include materials**: export only the materials **Used by design**, or **All catalog materials**.
-- **Coating name**: the `COAT` record name.
-- **Material sampling grid**: the wavelength range and step at which each material's n,k is tabulated into its `MATE` record.
+**Materials**: tick records and **Import selected**, or **Import all**, to add them to a catalog without touching the design.
 
-With no design selected there is nothing to export, and the tab shows nothing but a request to open or create one.
+**Export**, from the front of the active design:
 
-## A name defined twice
+- **Layer thickness**: **Absolute (µm)** or **Relative (waves)** of λ₀. Absolute needs no λ₀ and loses nothing.
+- **Include materials**: **Used by design** or **All catalog materials**.
+- **Coating name**: the `COAT` record's name.
+- **Material sampling grid**: the range and step at which each material's n, k is tabulated into its `MATE` record.
 
-A file can define one material name in more than one `MATE` record. The window matches names without regard to case, so `SiO2` and `SIO2` count as one name. The Materials tab marks each such row with which record of the name it is, for example **2 of 2**, and a notice in the window's top row lists the names.
+## Format conventions
 
-Each record imports on its own. The first keeps its name and a later one gets (2), (3) after it, so importing both never replaces one with the other in the catalog. A coating layer that names such a material is built with the last record of that name, on import, on Save to Coating Library and in the thicknesses the Coatings tab shows. If the records differ, check which one the file meant before relying on that coating.
+| Quantity | Zemax | TFStudio |
+|---|---|---|
+| Wavelength | µm | nm |
+| Extinction | stores −k | k > 0, sign flipped both ways |
+| Layer thickness | relative T in waves, or absolute µm | physical d in nm |
+| Layer order | outermost to substrate | the same as the front coating is stored |
 
-## How to read it
+- No reversal is needed: Zemax's order is how TFStudio stores a front coating; the Design Editor only displays it from the substrate. A design exported and read back keeps its thicknesses and k signs.
+- An imported material reads its `MATE` table by straight lines between rows and holds the end rows outside it, as Zemax does. A catalog an earlier version made from the file reads the tables as a smooth curve: importing again on the Materials tab lists those materials as changed and asks before replacing them, and a coating import keeps them.
+- A name defined in more than one `MATE` record, matched without regard to case, is marked on the Materials tab as **2 of 2** and so on, and named in a notice. Each record imports on its own, a later one with (2), (3) after its name; a coating layer naming it is built with the last record of that name. If the records differ, check which one the file meant.
 
-TFStudio and Zemax differ in a few conventions, which the window handles for you automatically:
+## Theory
 
-| Quantity        | Zemax                     | TFStudio                      |
-| --------------- | ------------------------- | ----------------------------- |
-| Wavelength      | micrometres (µm)          | nanometres (nm)               |
-| Extinction      | stores **−k**             | `k > 0` (sign flipped on I/O) |
-| Layer thickness | relative `T` (waves)      | physical `d = T·λ₀ / n₀`      |
-| Layer order     | outermost → substrate     | same internal storage order   |
+A relative thickness T is an optical thickness in waves of the lens's primary wavelength λ₀:
 
-Layer order needs no reversal. Zemax's outermost-to-substrate order is exactly how TFStudio stores the front coating (the Design Editor only displays it reversed). Round-tripping a design out to `COATING.DAT` and back in preserves both the layer thicknesses and the k-sign convention. `IDEAL`, `IDEAL2` and `TABLE` coatings describe a surface by its reflectance and transmittance rather than by layers, and `ENCRYPTED` ones cannot be decoded, so none of them becomes a stack.
+```
+d = T · λ₀ / n(λ₀)
+```
 
-An imported material reads its `MATE` table by straight lines between the rows, holding the first and last rows outside the table, as Zemax reads it, so between rows it has the index Zemax uses. A catalog an earlier version made from the file reads its tables as a smooth curve: importing those materials again on the Materials tab lists them as changed and asks before replacing them, and a coating import keeps them as they are.
+with n the real index of the layer at λ₀. λ₀ belongs to the lens, not the file, so a relative coating needs it supplied. The help's worked example: n = 1.4, T = 0.25, λ₀ = 0.550 µm gives d = 0.0982 µm.
 
 ## References
 

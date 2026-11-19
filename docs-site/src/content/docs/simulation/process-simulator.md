@@ -4,98 +4,47 @@ description: Play back your coating layer by layer, watch the spectrum build up,
 ribbonIcon: process-sim
 ---
 
-The **Process Exporter** plays your coating back one layer at a time (the
-spectrum after layer 1 is finished, after layer 2, and so on to the complete
-design), so you can see exactly what the in-chamber spectrophotometer will
-measure as the stack grows. It also exports per-step **`.res` deposition
-files** that deposition-monitoring software can load directly, one file per
-layer, or the same spectra as CSV or text tables.
+The Process Exporter plays the coating back one layer at a time, the spectrum after layer 1, after layer 2 and so on to the finished design, so you see what the in-chamber spectrophotometer will read as the stack grows. It exports the target spectrum at the end of every layer as `.res` deposition files for monitoring software, one per layer, or as CSV or text tables. The spectra use nominal materials with no noise; for an as-built prediction use the [Broadband](/simulation/bbm-simulator/) or [Monochromatic](/simulation/mono-simulator/) simulator.
 
-A timeline at the bottom scrubs through the deposition. The chart shows the
-bare-substrate baseline (dotted), the finished spectrum of the layer the
-timeline is on, and the live curve at the current scrub position (bold). Show
-all layers adds a faint grey finished curve for every other layer. The spectrum is computed with the full system (front,
-substrate, and back, with an incoherent substrate), so it matches what the
-spectrometer would really see. The piece sits in the chamber, so it is read with air on both sides of it, whatever media the design is embedded in.
+<!-- shot: process-sim | the quarter-wave mirror deposited layer by layer on the part, held at its last layer, with the transmittance after every step drawn over the uncoated baseline -->
 
-## Settings
+## Computed quantities
 
-The toolbar holds what defines the run: the side, the part or witness chips,
-the state of the opposite surface, T or R, and Show all layers. The
-Settings button at its right-hand end holds the monitor's geometry, the
-spectral range, the export step and the file format. The left sidebar lists the deposition
-sequence and per-material rates, and on witness chips the chip setup above
-them.
+- The chart: the bare baseline (dotted), the finished spectrum of the layer the timeline is on, and the live curve at the current position (bold). **Show all layers** adds every other finished curve in faint grey; the current layer stays at full strength, since a turning point means something only against the curves before it. The hover readout stays on the three main curves.
+- The sequence table: each layer's thickness and time, the current one marked by a bar.
 
-**Active side**: which coating is being deposited, front or back.
+A layer that barely moves the spectrum is hard to monitor; one that swings it sharply is easy. The piece is computed as the whole part, front, incoherent substrate and back, with air on both sides whatever media the design sits in, as the spectrometer sees it in the chamber.
 
-**Deposit on**: the part, or witness chips. On the part every layer goes on one piece and the opposite surface can be bare or already coated. On witness chips each chip carries only the layers assigned to it, starts from bare chip glass, is grown like a front coating whichever side of the part the run deposits, and is read with its back face bare, so the opposite-surface choice does not apply. The chip plan, the chip glass and the witness ratio are the ones the [Monitor Worksheet](/simulation/monitor-worksheet/) shows: a chip number typed in either window is what the other shows, and in chip mode the sequence table gains an editable Chip column, with **Layers per chip**, **Chip glass** and **Witness ratio** in the sidebar above it.
+## Controls and settings
 
-**Opposite-surface state**: on the part, whether the other surface is bare or already
-coated for the whole run.
+| Control | Sets |
+|---|---|
+| **Active side** | The coating being deposited, front or back. |
+| **Deposit on** | The part, or witness chips. On the part every layer goes on one piece and the **opposite-surface state** is bare or already coated. On chips each chip carries only its own layers from bare chip glass, grown like a front coating and read with a bare back. |
+| **T / R** | What the monitor reads. |
+| **Show all layers** | Off by default; see above. |
+| **Angle of incidence**, **polarization** | In Settings, s, p or average. |
+| **Spectral range** | In Settings, the chart's start, end and step; a coarse step keeps scrubbing responsive. A range past a material's measured data is named in the toolbar badge, which offers to pull it back. |
+| **Export step** | The step written to the files, 0.5 nm by default; match your spectrophotometer's grid, which for a fixed array is often odd, such as 0.4375 nm. A dot or comma both work. |
+| **File format** | `.res` (one fixed layout), CSV, or text (the CSV under `.txt`). |
 
-**T / R**: what the monitor reads, transmittance or reflectance.
+On witness chips the chip plan, **Chip glass** and **Witness ratio** are those of the [Monitor Worksheet](/simulation/monitor-worksheet/): a chip number typed in either window shows in the other, the sequence table gains an editable Chip column, and **Layers per chip** sits in the sidebar.
 
-**Angle of incidence** and **polarization**: the standard analysis controls
-(s, p, or average), in Settings.
+For CSV and text, Settings also holds:
 
-**Spectral range**: the wavelength start, end, and step for the interactive
-chart, in Settings. A coarse step keeps scrubbing responsive. If the range
-reaches past the measured data of a material in the chamber, a layer, the
-substrate or the chip glass, the notice badge on the toolbar names it and
-offers to pull the range back onto the data.
+- **Files**: one per step, numbered like the `.res` files, or one table with a column per step (one per chip on witness chips).
+- **Header**: **Layer table**, the `.res` header with its layer table; **Conditions**, design, step, angle, side and polarization on `#` lines, which [Measured Spectra](/data-exchange/measured-spectra/) reads back on import; or **None**, numbers only. The side named is the one light comes from, the front in every run; the side being coated, or the chip's design layers, follow on that line.
+- **Delimiter**: comma, semicolon, tab or space; a spreadsheet set to a decimal comma opens a semicolon file without its import wizard.
+- **Y scale**, **Decimal places**, **Decimal mark**: percent or fraction, decimals for every value, point or comma; the wavelength is always written in full.
 
-**Export step**: the wavelength step written into the exported files. It does not
-affect the chart. The default is 0.5 nm; set it to match your
-spectrophotometer's grid, which for a fixed-array instrument is often an odd
-number such as 0.4375 nm. Type the decimal with either a dot or a comma. It is
-in Settings, under the spectral range.
+**Deposition rates**, per material in nm/s in the sidebar, shape only the time axis, not the spectrum. Click a layer to move the timeline to it fully deposited, then walk with the arrow keys; click again, press Play or move the timeline to release it. Setup and rates are remembered between sessions.
 
-**File format**: `.res`, the default, CSV or text, in Settings under the export step. A `.res` file has one fixed layout. CSV and text write the same spectra as a table, and a text file is the CSV file under a `.txt` name. For those two, Settings also holds:
+**Save** writes to a folder: in `.res`, one file per finished step (`01.res`, `02.res`, …) with a header and a table of each layer's physical and optical thickness, layers numbered in deposition order from the substrate. On witness chips each chip has a folder, `chip-1`, `chip-2` and so on, its files numbered from 01, its layer table at the thickness the witness receives, and each file's comment line naming its design layer. CSV and text per step follow the same names; one table goes under the design's name, with `_chip-1` and so on on chips. A long run shows its progress under the toolbar.
 
-- **Files**: one per step, numbered like the `.res` files, or one table with a column per step. On witness chips one table is written per chip.
-- **Header**: Layer table puts the `.res` header, with its layer table, above the column names. Conditions writes the design, the step, the angle, the side and the polarization on `#` lines; [Measured Spectra](/data-exchange/measured-spectra/) reads the angle and the polarization back when the file is imported. None writes the numbers alone, without column names. The side a Conditions header names is the one the light comes from, which is the front in every run. On the part the side being coated is named on the same line; a witness chip file names the design layers on the chip instead.
-- **Delimiter**: comma, semicolon, tab or space. A spreadsheet set to a decimal comma opens a semicolon file without its import wizard.
-- **Y scale**, **Decimal places** and **Decimal mark**: percent or fraction, how many decimals every value gets, and a point or a comma. The wavelength is always written in full.
+## Theory
 
-**Show all layers**: draw the finished curve for every layer. With it off, which
-is the default, the chart draws the baseline, the layer the timeline is on, and
-the live curve, and nothing else. Sixty finished curves over one plot is a grey
-haze with the answer somewhere inside it. Turn it on to compare the whole run at
-once; the layer the timeline is on stays at full strength and the rest go grey,
-because a turning point only means something against the curves before it. The
-hover readout stays on those same three curves whatever is drawn, so select a
-layer when you want to read a value off it.
-
-**Deposition rates**: an optional per-material rate (nm/s) in the sidebar.
-Rates only shape the time axis of the timeline; they do not change the
-spectrum. The sequence table shows each layer's thickness and time, with the
-current layer marked by a bar down its left edge. Click a layer to move the
-timeline to it, with that layer fully deposited; the up and down arrow keys then
-walk the stack from there. Click a held layer again to release it, and pressing
-Play or moving the timeline releases it too. Your setup choices and rates are
-remembered between sessions.
-
-**Save**: pick an output folder. In `.res`, one file is written per completed
-deposition step (`01.res`, `02.res`, …). Each file carries a header and a
-per-layer table of physical and optical thickness; layers are numbered in
-deposition order, with layer 1 being the first deposited (the one touching the
-substrate). On witness chips each chip gets a folder of its own, `chip-1`, `chip-2` and so on, with that chip's files numbered from 01 and the layer table listing the layers on the chip at the thickness the witness receives; the comment line of each file names the design layer it belongs to. CSV and text files written one per step are named and placed the same way. One table goes in the chosen folder under the design's name, with `_chip-1`, `_chip-2` and so on added on witness chips. A long run shows its progress under the toolbar while the files are being built.
-
-## How to read it
-
-Play or scrub the timeline to watch the spectrum evolve toward the final
-design. The step curves let you see at a glance how each layer moves the
-spectrum, which is useful for spotting a layer whose contribution is small (and
-therefore hard to monitor) or one that swings the spectrum sharply. The exported
-files are the deliverable for your deposition controller: they describe the
-target spectrum at the end of every layer so the monitor can compare the live
-measurement against the intended one. The live spectrum uses the design's
-nominal materials with no noise; for a realistic as-built prediction use the
-[Broadband](/simulation/bbm-simulator/) or
-[Mono](/simulation/mono-simulator/) monitoring simulators instead.
+After layer j the piece is the deposited layers 1 to j on its substrate, the opposite surface bare or coated, the passes through the substrate combined in intensity ([Surface & Evaluation Modes](/design/evaluation-modes/#theory)). On witness chips the deposited thickness is the design layer's times the witness ratio. The time axis is Σ d_i / r_i over the layers deposited, r_i the rate of layer i's material.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.6.4 (incoherent
-  substrate).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 2.14, pp. 60–63: incoherent reflection at two or more surfaces.

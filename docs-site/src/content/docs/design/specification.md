@@ -1,85 +1,79 @@
 ---
 title: Specification
-description: State your design requirements as PASS/FAIL qualifiers, then turn them into a merit function.
+description: The design's requirements as pass/fail checks, judged live on the design and turned into a merit function in one click.
 ribbonIcon: specification
 ---
 
-The **Specification** window holds your design's *requirements* as a list of
-PASS/FAIL **qualifiers**: "T ≥ 99 % averaged over 450–650 nm", "R ≤ 0.5 % at
-550 nm", "no more than 30 layers", and so on. It is the human-readable contract
-the coating must meet, kept separate from the
-[Merit Function](/design/merit-function-editor/) the optimizer minimizes. Each
-qualifier answers a yes/no question with a tolerance, and one button converts
-the whole list into merit operands so you can optimize toward exactly what you
-specified.
+The Specification holds what the coating must meet, as pass/fail checks such as "T ≥ 99 % averaged over 450–650 nm" or "no more than 30 layers". It is the requirement sheet, kept apart from the [merit function](/design/merit-function-editor/) the optimizers minimize; **Generate MF** turns the sheet into a merit function so a run aims at exactly what was specified. The checks are saved with the design.
 
-Each row is evaluated against the active design and recomputes on every change,
-showing a per-row verdict and an overall PASS/FAIL badge at the top.
+<!-- shot: specification | the 8-layer AR's own spec plus the Photopic AR preset appended and a layer count ≤ 8, every row passing and the banner green -->
 
-Every check that searches for a peak or samples a band has a **Step**, the flag of the merit row it stands for, and **Generate MF** writes the same step on that row, so the check and the row read the same number:
+## Computed quantities
 
-- **Min / Max** or **Central λ** on a peak (a maximum of T or A, a minimum of R): the step the band is searched at, 1 nm by default, or 0.1, 0.01 or 0.001 nm. Two peaks closer than about two steps can read as one. A check on a dip searches the design's fringes and has no Step. See [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip).
-- **T / R / A avg** and **Integral**: the step of the band's grid. **auto** takes the grid from the design's fringes, no more than 2 nm apart ([Sampling a band](/design/operands/#sampling-a-band)); a set step is the grid exactly, for a band across a narrow pass band, which the fringe grid can step over.
-- **FWHM** and **Edge λ**: the step the band is scanned at, 1 nm by default, with never fewer than 301 samples across the band; on a peak it is also the step the peak is searched at, while a dip is found on the design's fringes. Each crossing of the level is found exactly by bisection between samples, so the step decides only which peak is found and whether a narrow feature between it and its crossing is seen. These have no merit row.
+Each row shows the value it reads on the design beside its target, and a green tick or red cross; a failing row adds a line saying why. The banner turns green only when every row that is on passes, and counts how many do.
 
-The same Step holds in the report, the Coating Library, the Monte Carlo yield and the specification badge in the tolerance windows. A fine Step over a wide band costs time in each of them and in every optimizer run on the merit function: at 0.01 nm a check over a few hundred nanometres takes a fraction of a second, at 0.001 nm several seconds. The Monte Carlo yield and the tolerance badge work off the window's own thread, so the window stays free; the badge shows its value at the default steps at once, marked ≈, until it has the value at the checks' own Steps. During an optimizer run the badge waits for the run to stop before it reads the checks' own Steps, and under a cone of incidence it shows its value only when the worker has it. The Specification window shows each check at once at its default step and replaces the value when the analysis worker has it at the check's own Step; while it follows an optimizer run it stays at the defaults until the run stops. A value read at a default step where the check has a Step of its own is shown faded, with ≈ before it.
+| Kind | Reads | Unit |
+|---|---|---|
+| **T / R / A at λ** | The channel at one wavelength. | % |
+| **Avg T / R / A over band** | The channel averaged over a band. | % |
+| **Min / Max** | The lowest or highest value of the channel in a band, so a narrow spike inside a good average still fails. | % |
+| **Weighted integral** | The channel weighted by a source and a detector, such as Tvis or Tsol. | % |
+| **Central λ** | The wavelength of the peak or notch in a band. | nm |
+| **FWHM** | The width of the peak or notch at a level, half of the peak by default. | nm |
+| **Edge λ** | Where the channel crosses the level on one side of the peak: the edge of a long-pass or short-pass filter. | nm |
+| **Total thickness** | Physical thickness of the front, the back or both. | nm |
+| **Layer count** | Layers on the front, the back or both. | count |
+| **Peak-to-peak error vs curve** | The spread of the design's error against a measured T, R or A curve, the figure a gain-flattening filter is specified by. | dB |
 
-## Qualifier kinds
+A value faded and marked ≈ is read at the default step while the value at the check's own **step** is worked out. During an optimizer run the window stays at the default steps until the run stops.
 
-| Kind                | Asks                                                            | Units |
-| ------------------- | -------------------------------------------------------------- | ----- |
-| **T / R / A at λ**  | Channel value at a single wavelength versus a target.          | %     |
-| **T / R / A avg**   | Band-averaged channel value over a wavelength range.           | %     |
-| **Min / Max**       | Worst-case extremum of a channel over a band (catches spikes). | %     |
-| **Integral**        | A source × detector weighted metric (e.g. T_vis, T_sol).       | %     |
-| **Central λ**       | Center wavelength of a passband or edge feature.               | nm    |
-| **FWHM**            | Full width at half-maximum of a feature.                       | nm    |
-| **Edge λ**          | Wavelength where a channel crosses a level (a filter edge).    | nm    |
-| **Thickness budget**| Total physical thickness of the front, the back or both.       | nm    |
-| **Layer count**     | Number of layers on the front, the back or both.               | count |
-| **Peak-to-peak error vs curve** | Spread of the design's error against a measured T, R or A curve, in dB. | dB |
+## Controls and settings
 
-## Settings
+Each row shows only the fields its kind uses: **Ch**, the wavelength or **λ start** and **λ end**, **AOI**, **pol**, and for a peak **dir** (max or min). FWHM and Edge λ add **level**, a fraction of the peak between 0 and 1, and Edge λ the **edge** side, left or right of the peak. **cmp** is ≥, ≤, = ± **tol**, or between **lo** and **hi**.
 
-Each row exposes only the fields that apply to its kind:
+**step**: how finely a check searches or samples its band.
 
-**Kind**: one of the qualifier kinds above. **Channel** picks T, R or A
-(fixed for the at-a-wavelength and average kinds). **λ / band** is a single
-wavelength or a start/end range. **AOI** and **pol** set the angle of incidence
-and polarization for optical kinds. **Step** sets how finely a check searches or samples its band (above).
+- On a peak (Min / Max, Central λ): the search step, 1 nm by default, down to 0.001 nm. Two peaks closer than about two steps can read as one. A check on a dip searches the design's fringes and has no step.
+- On a band average or integral: **auto** takes the grid from the design's fringes, no more than 2 nm apart ([sampling a band](/design/operands/#sampling-a-band)), which can step over a narrow pass band; a set step is the grid exactly.
+- On FWHM and Edge λ: the scan step, 1 nm by default, never fewer than 301 samples across the band. Each crossing is found exactly between samples, so the step decides only which peak is found and whether a narrow feature next to it is seen.
 
-**Comparison and target**: the actual test. You can require `≥`, `≤`, an
-equality `= ± tol`, or a range `∈ [lo, hi]`, against the target value you enter
-(percentages for T/R/A; nanometres or a count for the geometric kinds; dB for
-the peak-to-peak error).
+The same step holds wherever the check is read: the report, the Coating Library, the Monte Carlo yield and the tolerance windows' badge. A fine step over a wide band is slow in all of them and in every optimizer run: at 0.01 nm a check over a few hundred nanometres takes a fraction of a second, at 0.001 nm several seconds.
 
-**Side**: a thickness budget or layer count adds up the front stack, the back stack (on a symmetric design, the front mirrored) or both. A new one starts at the side the design coats; one saved without a side adds up both.
+**side**: what a thickness or layer count adds up, the front, the back (the mirrored front on a symmetric design) or both.
 
-**Curve**: the peak-to-peak error kind takes one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) in place of a band, an angle and a polarization; it is read at the curve's own points and conditions. It is the number a gain-flattening filter is specified by, the `PPEF` operand of the [Operand Reference](/design/operands/#curves). **Generate MF** writes the curve into the merit function as a block at weight 0, a `PPEF` row measured against it, and the comparison row.
+**curve**: the peak-to-peak check reads one of the design's [measured curves](/data-exchange/measured-spectra/) at its own points and conditions instead of a band.
 
-**Env**: on a design with more than one [environment](/design/environments/), the environment a check is judged in: **All**, every environment that is on, or one environment by its number and name, judged there alone and only while it is on. In each environment the check is judged on the design that environment sees, and it passes when it passes in each of them. **Generate MF** writes a check's environment on every row it gives, and deleting an environment deletes the checks judged in it alone.
+**Env**: on a design with more than one [environment](/design/environments/), **All** judges the check in every environment that is on, and a numbered one judges it there alone while it is on. A check passes when it passes in each. Rows show their value in the current environment and a dash where they are not judged; the banner counts every environment that is on and names where a failing check fails. Deleting an environment deletes the checks judged in it alone.
 
-**Presets**: drop in a ready-made requirement set for a common coating type,
-either replacing or appending to the current list. You can also save the
-current list as your own reusable preset and load it back later. A preset belongs to no design, so its checks are saved and loaded without an environment.
+**Preset**: built-in sheets for common coatings, **replace** or **append**. **Save…** keeps the list as your own preset under Documents\TFStudio\Qualifiers, loaded from **Saved**. Presets carry no environment.
 
-## How to read it
+## Generate MF
 
-Each row carries a colored verdict: green and a check mark when it passes, red
-and a cross when it fails, with the measured value shown beside the target. The
-banner at the top turns green only when every active row passes, and reports
-how many of the total are passing. A failing row adds a short summary line
-explaining the miss.
+**Generate MF** replaces the design's merit function, as one undo step. Each check becomes a measurement row at weight 0 and the rows that hold it to the target: `OPGT` for ≥, `OPLT` for ≤, and the pair at lo and hi for a range or at target ± tol for an equality. The merit function is then met exactly when the check passes, and a run stops at the edge of a tolerance rather than its centre. An equality with no tolerance becomes the measurement row at its target, except on Min / Max and peak-to-peak, whose row scores one side only and so gets the pair. Every row carries its check's step and environment.
 
-On a design with environments each row shows its value and mark in the current environment, the one the Design Editor and the ribbon show, as the merit tables do; a check judged elsewhere, and every check while the current environment is off, shows a dash. The banner counts every environment that is on, names the environments a failing check fails in, and says which environment the values are read in. The report, the Coating Library, the Monte Carlo yield and the specification badge of the tolerance windows judge every environment the same way.
+- A **Total thickness** on the coating the optimizers move becomes a `TT` row, or a `TT` minimum and maximum for a range.
+- A peak-to-peak check writes its curve as a block at weight 0, a `PPEF` row against it and the comparison rows ([curves](/design/operands/#curves)).
+- **FWHM**, **Edge λ**, **Layer count**, a thickness on another side and a peak-to-peak check whose curve is not on the design write nothing; a note beside the button names them.
 
-For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
-*average* can pass while a narrow resonance spikes through it. Once your
-requirements are in place, **Generate MF** writes them into the design as `OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus the targets that reference it, one for `≥` or `≤` and two for a range or `= ± tol` (at target − tol and target + tol), so the rows are met exactly when the check passes, and [Refinement](/synthesis/refinement/) and the synthesis tools optimize toward the specification directly and stay in sync with it. A run stops at the edge of a tolerance rather than at its centre; an equality with no tolerance is written as the measurement row at its target, except a Min / Max or peak-to-peak one, whose row scores one side only and so gets the pair at the target.
-Every row it writes carries its check's **Step** as its flag, so the merit function reads the band as the check does.
-A **Thickness budget** on the coating the optimizer works on (the front of a front-only or symmetric design, the back of a back-only one, both when both sides are given) becomes a `TT` row, or a `TT` minimum and maximum for a range or `= ± tol`. **FWHM**, **Edge λ**, **Layer count** and a thickness budget on any other side have no merit row: while the list holds any of them, a note beside **Generate MF** names them, and names a peak-to-peak check whose curve is not on the design, since the merit function it writes leaves them out.
-The specification is saved in the project file alongside the design.
+## Theory
+
+With C(λ) the channel as a fraction, a band average and an integral read
+
+```
+C̄ = ∫ C dλ / (λ₂ − λ₁)
+C_w = ∫ S(λ) D(λ) C(λ) dλ / ∫ S(λ) D(λ) dλ
+```
+
+over the band, with S the source and D the detector of the integral. FWHM and Edge λ start from the peak λ_p found as Central λ finds it, with value C_p. For level L the crossing value is
+
+```
+C_x = L · C_p                   on a peak (max)
+C_x = C_p + L · (1 − C_p)       on a notch (min)
+FWHM = λ_right − λ_left
+```
+
+where λ_left and λ_right are the first wavelengths either side of λ_p at which C reaches C_x, each found by bisection between scan samples. Edge λ is λ_left or λ_right. L is held between 0.001 and 0.999, since a level of 0 or 1 has no crossing.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 7 (filter specifications: central wavelength, FWHM, edges).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 7, p. 213 and Chapter 8, p. 251: edge filters and band-pass filters, their edges and halfwidths.

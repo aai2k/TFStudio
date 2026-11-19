@@ -4,152 +4,65 @@ description: Check, layer by layer, whether the design can be terminated on an o
 ribbonIcon: monitor-worksheet
 ---
 
-The **Monitor Worksheet** answers the question that comes before a deposition
-run: **can this design be monitored at all**. For every layer it shows how much
-signal the monitor has to stop on, where the stop sits between the two turning
-points that surround it, and how far the thickness moves if the monitor reading
-is wrong. A design that cannot be terminated reliably is a design that cannot be
-made repeatably, whatever the spectrum says.
+The Monitor Worksheet answers the question before a deposition run: **can this design be monitored at all**. For every layer it shows how much signal the monitor has to stop on, where the stop sits between the turning points around it, and how far the thickness moves if the reading is wrong. A design that cannot be terminated reliably cannot be made repeatably, whatever its spectrum. The [Monochromatic Monitoring Simulator](/simulation/mono-simulator/) runs an experiment; this window reports the controllability of the plan itself.
 
-The [Mono Simulator](/simulation/mono-simulator/) runs one manufacturing
-experiment and shows what came out. This window runs no experiment: it reports
-the controllability of the plan itself.
+<!-- shot: monitor-worksheet | the 550 nm bandpass on witness chips of three layers, one monitoring wavelength per chip picked by Auto λ, with the signal the monitor would see and the cut of every layer -->
 
-## Witness chips
-
-A run is monitored on witness chips, not on the part. Each chip carries only the
-layers assigned to it, so a chip is its own short coating starting from bare
-glass. That is the setting the whole worksheet turns on: put too many layers on
-one chip and the last of them sit on a signal with almost no swing left, and put
-too few and the run needs more chips than the fixture holds. Two to four layers
-per chip is the usual range.
-
-Every layer on a chip is monitored at the same wavelength. A layer too thin to
-produce a turning point of its own has to be read against the one before it, and
-that only exists on the same curve.
-
-## Settings
-
-**Layers per chip** assigns the run to chips in deposition order. It is the
-first control to reach for when the numbers come out badly.
-
-**Auto λ** picks one monitoring wavelength per chip: the wavelength at which the
-worst layer on that chip terminates most precisely. A layer that has no signal at any wavelength, one of the chip's own index, is left out of the choice: it goes to the crystal whichever wavelength is picked.
-
-**Set all** puts the wavelength in the box beside it on every layer of the run,
-for a machine that monitors everything at one wavelength.
-
-**Reset plan** discards chip numbers and wavelengths entered by hand and goes
-back to the plain division by chip size.
-
-The **Chip** and **λ** cells are editable. A wavelength belongs to the chip
-rather than to the layer, so typing one into any row moves every layer on that
-chip. Layers carrying the same chip number are on the same physical piece even
-when they are not deposited one after another, which is how a chip is returned
-to later in the run.
-
-In the settings panel:
-
-**Measured**, **Polarization** and **Angle** are what the monitor sees. Most
-in-chamber monitors read transmittance at normal incidence.
-
-**Chip glass** is the witness chip the monitor watches. It follows the design
-substrate; pick another material when the witness is a different glass than the
-part. A design on an absorbing substrate has to be monitored on a transparent
-chip, and this is where that is said.
-
-**Witness ratio** is the thickness the witness chip receives as a multiple of
-the thickness the part receives. Leave it at 1 when the chip sits in the same
-position as the work.
-
-**Signal error** is how far the monitor reading can be from the truth, as a
-percentage of the reading. This is the same quantity as the random signal error
-in the Mono Simulator.
-
-**Absolute noise** is the monitor's photometric noise floor, in percent of full
-scale. Unlike the signal error it does not shrink with the reading, so a
-wavelength where the signal has died, deep inside a stopband, scores as
-unusable instead of as noiseless. It is what steers **Auto λ** away from a
-mirror's own band. A layer whose whole swing is smaller than this floor plus the signal error has no usable signal, and the row says so.
-
-**Max Δd** is the thickness error a layer is allowed to be terminated with,
-as a percentage of the layer. A layer that costs more than this is flagged.
-
-**Chart window** is how many layers the chart opens on.
-
-## How to read it
+## Computed quantities
 
 One row per deposited layer, in run order.
 
-**Chip** is the witness chip and the layer's position on it, so `2-1` is the
-first layer on chip 2.
+| Column | Meaning |
+|---|---|
+| **Chip** | Witness chip and the layer's place on it: `2-1` is the first layer on chip 2. |
+| **λ** | Monitoring wavelength; red where the layer cannot be terminated closely enough on it. |
+| **Signal** | The level the operator stops at. **Initial level**, on a chip's first layer only, is where the chip starts and the gain is set. |
+| **Turning points** | How many the layer passes. Zero means it is read against a turning point in an earlier layer on the chip, or the monitor cannot see it move at all (no amplitude, ∞ for Δd), as deep in a saturated stopband. |
+| **Amplitude** | The full swing between the turning points before and after the cut, usually more than the layer traverses. |
+| **Swing in**, **Swing out** | From the layer's starting level to that turning point, and from the turning point to the cut. |
+| **Cutoff ratio** | Swing out over amplitude: near 0 the stop is on the flat turn and the level says little; near 0.5 on the steepest flank, the most informative; near 1 it nears the next turn. |
+| **Δd** | Thickness error left when the reading is off by the signal error, by the rule the layer is cut with ([Theory](#theory)); none for a layer cut on time. |
+| **Crystal** | Thickness for the quartz monitor in kÅ. Flagged layers, the ones the crystal must carry, are drawn in full; the rest are dimmed. |
 
-**λ** is the monitoring wavelength. A red cell here is a wavelength this layer
-cannot be terminated on closely enough.
+The chart under the table is the run as the monitor sees it: signal against cumulative optical thickness, each cut marked and numbered, each curve continued dashed past its cut to show the turning point that sets its amplitude. Chips are shaded in alternate bands and an out-of-budget layer is drawn in the flag color. The strip under it shows the whole run with the visible part boxed: drag the box or its ends, or roll the wheel over the plot; the toolbar's reset returns to the opening view.
 
-**Signal** is the level the operator stops at. **Initial level** is the level
-the chip starts from and appears on the first layer of each chip only, which is
-where the gain is set.
+## Controls and settings
 
-**Turning points** is how many the layer passes through. Zero means the layer is
-read against a turning point in an earlier layer on the same chip, or that the monitor could not see the layer move at all: a layer whose whole swing is smaller than the monitor's own error, deep in a saturated stopband, shows zero with no amplitude and ∞ for Δd.
+**Layers per chip** assigns the run to chips in deposition order, the first control to reach for when the numbers come out badly. **Auto λ** picks one wavelength per chip, the one at which its worst layer terminates most precisely; a layer with no signal at any wavelength, one of the chip's own index, is left out of the choice and goes to the crystal. **Set all** puts one wavelength on every layer. **Reset plan** discards hand-entered chips and wavelengths. The **Chip** and **λ** cells are editable; a wavelength belongs to the chip, so typing it in one row moves the whole chip, and layers with the same chip number are on the same piece even when not deposited one after another.
 
-**Amplitude** is the full swing available to the layer, measured between the
-turning point before the cut and the one after it. It is not the swing the layer
-actually traverses, which is usually smaller.
+| Setting | Meaning |
+|---|---|
+| **Measured**, **Polarization**, **Angle** | What the monitor reads, usually T at normal incidence. |
+| **Chip glass** | The witness glass, the design substrate to start with; a design on an absorbing substrate needs a transparent chip here. |
+| **Witness ratio** | Thickness the chip receives over what the part receives; 1 for a chip in the work's position. |
+| **Signal error** | How far the reading can be off, in % of the reading, as the simulator's random signal error. |
+| **Absolute noise** | Photometric floor in % of full scale. It does not shrink with the reading, so a dead signal deep in a stopband scores unusable rather than noiseless, which steers Auto λ off a mirror's own band. A layer whose whole swing is below this plus the signal error has no usable signal. |
+| **Max Δd** | Termination error allowed, in % of the layer; a layer past it is flagged. |
+| **Chart window** | How many layers the chart opens on. |
 
-**Swing in** is the distance from the level the layer started at to that turning
-point, and **Swing out** the distance from the turning point to the cut.
+**Export** copies the table, or saves it, the chart's signal curves (per layer from start to cut: thickness in the layer, chart position, signal) or the chart as a picture, in light colors whatever the theme. The bottom of the settings panel sets one file for the run or one per chip, the header (conditions on # lines, column names, or numbers only), delimiter, decimals and decimal mark, the same for every design.
 
-**Cutoff ratio** is swing out over amplitude: where the stop sits between the
-two turning points. Near 0 the stop is on the turn, where the signal is flat and
-the level says little about the thickness. Near 0.5 it is on the steepest part
-of the flank, where the level is most informative. Near 1 it is approaching the
-next turn.
+## Witness chips
 
-**Δd** is the number the rest of the row adds up to: the thickness error left
-behind when the monitor reads wrong by the signal error set above. It follows
-the rule the layer is cut with, either following the signal to a level or
-detecting the reversal at a turning point, so both are on the same scale. Layers
-cut on time have no optical feedback and show none.
+- A run is monitored on witness chips, each carrying only its own layers from bare glass. Too many layers on one chip leaves the last of them almost no swing; too few needs more chips than the fixture holds. Two to four layers a chip is usual.
+- Every layer on a chip is monitored at the same wavelength, since a layer too thin for its own turning point is read against the one before it, which exists only on the same curve.
+- The signal is read through the whole chip, coating and bare back face added incoherently, as in the simulator: a bare chip of n = 1.52 reads 91.8 %, the level the gain is set against. The chip hangs in the chamber with air above the coating, so a filter designed between two glasses still starts at the bare-chip level, not 100 %.
+- Layers whose curves flatten toward the end of the run are the ones to fix: a chip of their own, another wavelength, or the crystal.
 
-**Crystal** is the thickness to run the quartz monitor to, in kilo-angstroms, on every layer. The flagged layers are the ones the crystal has to carry and are drawn in full; the rest are dimmed.
+## Theory
 
-**Export** copies the table, or saves the table, the signal curves or the chart as a picture, in light colours whatever the theme. The signal curves are the chart's own: for every layer, from its start to its cut, the thickness deposited in the layer, the position on the chart's axis and the signal. The dashed continuation past a cut is left out.
+The signal error at the cut is the relative error of the reading plus the floor, both as fractions of full scale:
 
-How the table and the curves are written is set at the bottom of the settings panel: one file for the run or one per chip, the header (the conditions on # lines, the column names only, or numbers only), the delimiter, the decimal places and the decimal mark. The same settings apply to every design. One file is saved through a save dialog; one file per chip goes into a folder you pick.
+```
+δS = e_rel · |S| + e_abs
+level cut:     Δd = δS / |dS/dd|
+turning cut:   Δd = √(2 δS / |S″|)
+cutoff ratio = swing out / amplitude
+```
 
-## The chart
-
-The chart under the table is the run as the monitor sees it: signal against
-cumulative optical thickness, each cut marked and numbered, and each layer's
-curve continued past its cut as a dashed line so the turning point that sets its
-amplitude is visible. Chips are shaded in alternating bands, and a layer drawn in
-the flag colour is one that is out of budget.
-
-Drag the divider between the table and the chart to give either one more of the
-window.
-
-A whole run drawn end to end is unreadable, so the chart opens on the first few
-layers. The strip under it shows the entire run with the visible part boxed:
-drag the box along to move through the run, drag its ends to widen or narrow the
-view, or roll the wheel over the plot to zoom. The toolbar's reset returns to the
-opening window.
-
-Layers whose curves flatten out toward the end of the run are the ones to fix.
-Give them a chip of their own, try another wavelength, or accept that they will
-be run on the crystal.
-
-## Notes
-
-The signal is read through the whole witness chip: the growing coating on the
-front face and the bare back face, added incoherently, the same convention the
-monochromatic simulator uses. A bare chip of n = 1.52 glass reads 91.8 %, and
-that is the level the monitor's gain is set against. The chip hangs in the chamber, so the signal is read with air above the growing coating whatever medium the design is embedded in: a filter designed between two glasses still monitors like a chip in air, and its first layer reads the bare-chip level, not 100 %.
+A level cut follows the signal to a computed value, so its error is the signal error over the slope there. A turning cut detects the reversal itself: near an extremum S ≈ S_ext + ½ S″ (d − d_ext)², so the signal must move δS away before the turn is seen. Both put the two rules on one scale.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
-- A. V. Tikhonravov, M. K. Trubetskov and T. V. Amotchkina, "Statistical
-  approach to choosing a strategy of monochromatic monitoring of optical coating
-  production", *Appl. Opt.* **45**, 7863 (2006).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 13, p. 471: production methods and optical monitoring.
+- A. V. Tikhonravov, M. K. Trubetskov and T. V. Amotchkina, "Statistical approach to choosing a strategy of monochromatic monitoring of optical coating production," *Appl. Opt.* **45**, 7863 (2006).

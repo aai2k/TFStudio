@@ -43,18 +43,40 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 | 膜层堆栈 | `insertLayer`、`deleteLayer`、`setLayer`、`stackFromFormula`、`cleanDesign`、`scaleThicknesses`、`quantize`、`perturb`、`flipLayers`、`copySide`、`edgeFilter`、`applyEdgeFilter`、`needleProfile`、`insertNeedle` |
 | 环境 | `environments`、`addEnvironment`、`setEnvironment`、`removeEnvironment` |
 | 评价函数 | `setMerit`、`merit` |
-| 规格说明 | `setSpecification`、`checkSpecification` |
+| 规格 | `setSpecification`、`checkSpecification` |
 | 材料 | `findMaterials`、`materialNK`、`materialDispersion` |
 | 分析 | `spectrum`、`layerSensitivity`、`indexProfile`、`layerThicknesses`、`designFacts`、`admittance`、`electricField`、`color`、`integrals`、`ellipsometry`、`ellipsometryVsAngle`、`groupDelay`、`pulseAnalysis`、`setPulseSpectrum`、`inhomogeneities`、`roughness`、`stress`、`bandFeature`、`edgeShift`、`readSpectrumFile`、`measuredDifference`、`readEllipsometryFile`、`addMeasuredCurves`、`fitMeasured`、`exportMeasuredCurves`、`processSteps`、`exportProcess`、`monitorWorksheet` |
 | 镀膜文件 | `saveZemaxCoating`、`readZemaxCoating`、`importZemaxCoating`、`saveCodevCoating`、`readCodevCoating`、`importCodevCoating` |
 | 运行 | `refine`、`synthesize`、`monteCarlo`、`jobStatus`、`stopJob`、`listJobs` |
 | 打开的设计（需 `--live`） | `listAppDesigns`、`selectAppDesign`、`readAppDesign`、`applyToApp`、`addAppDesign`、`deleteAppDesign` |
 
-`spectrum` 按[光学评估](/zh/analysis/optical-evaluation/)窗口的方式计算 R、T、A、Rs 和 Rp；`merit` 按[评价函数编辑器](/zh/design/merit-function-editor/)的显示给出总值和每一行；`refine` 可运行[精炼](/zh/synthesis/refinement/)窗口的任一方法；`synthesize` 运行[针式变化](/zh/synthesis/needle/)、[渐进演化（GE）](/zh/synthesis/gradual-evolution/)或[结构优化器](/zh/synthesis/structural-optimizer/)。`monteCarlo` 和 `layerSensitivity` 与[蒙特卡洛](/zh/analysis/error-analysis/)和[层灵敏度](/zh/analysis/layer-sensitivity/)窗口的计算相同。评价函数的行使用[操作数参考](/zh/design/operands/)中的操作数。`setSpecification` 接受[规格说明](/zh/design/specification/)窗口的检查，`checkSpecification` 按该窗口的方式判定设计是否满足这些检查，并给出每个数值离其界限还有多远；对带有检查的设计，`monteCarlo` 还会统计良率。`cleanDesign` 按[设计清理器](/zh/synthesis/design-cleaner/)的方式合并相邻的同材料膜层并移除薄层。`quantize` 和 `perturb` 按[设计编辑器](/zh/design/design-editor/)中“取整”和“扰动”对话框的方式对某一面的厚度取整或加上随机误差（可给出种子），`flipLayers` 和 `copySide` 对应其“反转”和“复制”按钮，`scaleThicknesses` 把某一面按同一系数加厚或减薄，`designDifferences` 列出两个设计之间的不同之处。`environments`、`addEnvironment`、`setEnvironment` 和 `removeEnvironment` 列出和编辑设计的环境，即同一镀膜使用时的其他条件，例如另一种基底、在水下使用，或膜层长得较薄的腔体位置：每个环境设置自己的介质、基底、厚度系数、材料替换、入射锥角、另一面和温度，其余沿用环境 1，即设计本身。在有多个环境的设计上，评价函数的行可用 `env` 只在一个环境中计分，`merit` 在总值之外给出每个环境的评价函数值，`refine`、`synthesize` 和 `needleProfile` 对每个开启的环境计分。`spectrum`、`bandFeature`、`edgeShift`、`color`、`integrals`、`indexProfile`、`layerThicknesses`、`admittance`、`electricField`、`ellipsometry`、`ellipsometryVsAngle`、`groupDelay`、`pulseAnalysis`、`inhomogeneities`、`roughness` 和 `stress` 在环境 1 中计算，除非 `env` 指定了其他环境；`env: 'all'` 给出每个开启的环境的结果。规格检查可用 `env` 只在一个环境中判定；`checkSpecification`、`monteCarlo` 统计的良率以及 `inhomogeneities` 给出的判定对每个开启的环境判定：一项检查在其判定的每个环境中都通过才算通过。`monteCarlo` 给出环境 1 的分散，除非 `env` 指定了其他环境；`env: 'all'` 时由同一组试验给出每个环境的分散。`layerSensitivity` 探测环境 1 的评价函数，或 `env` 指定的环境的评价函数；`env: 'all'` 时探测每个开启的环境上的评价函数。`edgeFilter` 按[边缘滤光片](/zh/design/edge-filter/)窗口的方式搜索非偏振边缘滤光片的周期，`applyEdgeFilter` 按其“替换”或“追加”的方式放入其中一个。`needleProfile` 按[针法手动](/zh/synthesis/needle/#needle-manual)窗口剖面的方式求出各材料的薄层放在哪里会降低评价函数值，`insertNeedle` 按其“应用插入”的方式放入一个针层。`indexProfile` 和 `layerThicknesses` 按[折射率分布](/zh/analysis/refractive-index-profile/)和[膜层厚度](/zh/analysis/layer-thicknesses/)窗口的方式在某一波长处读取膜层堆栈；`designFacts` 给出总厚度和光学厚度、每种材料的层数以及每层的四分之一波长光学厚度（QWOT），`setLayer` 也接受 QWOT。`admittance` 和 `electricField` 按[导纳图](/zh/analysis/admittance/)和[电场](/zh/analysis/efield/)窗口的方式，在某一波长处计算一个镀膜面：给出导纳轨迹及每层外表面处的导纳和反射系数，以及穿过膜层的电场、其峰值和峰值所在的膜层。`color` 和 `integrals` 计算[颜色评估](/zh/analysis/color-evaluation/)和[积分值与特性](/zh/analysis/integral-values/)窗口显示的内容，计算对象为设计的评价对象，并在其入射锥角内取平均：R 或 T 的 CIE 颜色及其各颜色空间、主波长和色温，以及从 Tvis 到 RNIR 的加权平均和你自己的行。`ellipsometry` 和 `ellipsometryVsAngle` 按[椭偏仪评估](/zh/analysis/ellipsometry/)窗口的方式计算一个镀膜面的 Ψ 和 Δ：在一个或多个入射角下随波长变化，或在一个波长下随入射角变化；Δ 可采用椭偏仪记录的符号，也可采用相反的符号。`groupDelay` 按[群延迟 / GDD](/zh/analysis/gd-gdd/)窗口的方式计算一个镀膜面的相位、群延迟、GDD、TOD 和 CDC：反射或透射，按均匀的波长步长或窗口自己的网格；透射时还可按[脉冲分析](/zh/analysis/pulse-analysis/)的方式穿过整个元件计算。`pulseAnalysis` 按该窗口的方式计算脉冲经过一个镀膜面或整个元件后的变化，给出其时间曲线、光谱曲线和结果表；脉冲为高斯、sech² 或超高斯脉冲，或取自 `setPulseSpectrum` 从文件或若干行设置在设计上的光谱。`inhomogeneities` 按[非均匀性与界面层](/zh/analysis/inhomogeneities/)窗口的方式，计算在你指定的界面处带有渐变界面层时的光谱，与设计原样的光谱对比，并给出放入界面层后对设计规格的判定。`roughness` 按[粗糙度 / 散射](/zh/analysis/roughness-scattering/)窗口的方式，计算界面粗糙时的镜面 R 与 T，与光滑设计对比，并给出光束中损失的光；所有界面共用一个 σ 和类型，你指定的界面可以单独设置。`stress` 按[应力](/zh/analysis/stress/)窗口的方式，依据设计所用材料上的常数以及 `setDesignSetup` 设置的两个温度和基底直径，给出每层膜承担的应力、薄膜合力、它使基底弯曲的曲率半径和挠度，以及应变能。`materialDispersion` 按[材料色散](/zh/analysis/material-dispersion/)窗口的方式计算一种材料的平板的相位、群延迟、GDD、CDC 和 TOD 以及材料的群折射率。`processSteps` 按[工艺导出器](/zh/simulation/process-simulator/)窗口的方式给出腔体内监控仪在每层之后读到的光谱，工件或监控片均可；`exportProcess` 写出其“保存”所写的文件。`monitorWorksheet` 按[监控工作表](/zh/simulation/monitor-worksheet/)窗口的方式给出同一组监控片上的各行：监控在何处停切每一层、可供停切的极值点和摆幅，以及监控读数出错时厚度会偏离多少。`saveZemaxCoating` 和 `saveCodevCoating` 按 [Zemax 镀膜](/zh/data-exchange/zemax-coatings/)和 [CODE V 镀膜](/zh/data-exchange/codev-coatings/)窗口导出标签页的方式写出设计的一个面，`readZemaxCoating` 和 `readCodevCoating` 按这两个窗口的显示读取文件，`importZemaxCoating` 和 `importCodevCoating` 按其导入的方式把文件中的膜层放到设计上；文件中的材料由设计携带，不加入材料目录。
+每个工具都按其窗口的方式、用同样的代码计算，因此数值与应用中显示的一致：
+
+| 工具 | 计算方式 |
+|---|---|
+| `spectrum`、`bandFeature`、`edgeShift` | [光学评价](/zh/analysis/optical-evaluation/)：R、T、A、Rs 和 Rp；波段的峰值、边缘和 FWHM；边缘随入射角的移动 |
+| `merit`、`setMerit` | [评价函数编辑器](/zh/design/merit-function-editor/)，总值和每一行，使用[操作数参考](/zh/design/operands/)中的操作数 |
+| `refine`、`synthesize` | [精炼](/zh/synthesis/refinement/)的任一方法；[针法](/zh/synthesis/needle/)、[渐变演化](/zh/synthesis/gradual-evolution/)或[结构优化器](/zh/synthesis/structural-optimizer/) |
+| `monteCarlo`、`layerSensitivity` | [蒙特卡洛](/zh/analysis/error-analysis/)，带检查项的设计还给出良率；[膜层灵敏度](/zh/analysis/layer-sensitivity/) |
+| `setSpecification`、`checkSpecification` | [规格](/zh/design/specification/)，并给出每个值距其界限多远 |
+| `cleanDesign`、`quantize`、`perturb`、`flipLayers`、`copySide`、`scaleThicknesses`、`designDifferences` | [设计清理器](/zh/synthesis/design-cleaner/)；[设计编辑器](/zh/design/design-editor/)的取整、扰动（带随机种子）、反转和复制；一个面按同一系数变厚或变薄；两个设计之间的差异 |
+| `environments`、`addEnvironment`、`setEnvironment`、`removeEnvironment` | [环境](/zh/design/environments/)窗口 |
+| `edgeFilter`、`applyEdgeFilter` | [边缘滤光片](/zh/design/edge-filter/)的搜索，以及其替换或追加 |
+| `needleProfile`、`insertNeedle` | [针法手动](/zh/synthesis/needle/#needle-manual)的轮廓和应用 |
+| `indexProfile`、`layerThicknesses`、`designFacts` | 单一波长下的[折射率分布](/zh/analysis/refractive-index-profile/)和[膜层厚度](/zh/analysis/layer-thicknesses/)；总厚度与光学厚度、每种材料的层数以及每层的 QWOT |
+| `admittance`、`electricField` | [导纳图](/zh/analysis/admittance/)和[电场](/zh/analysis/efield/)，单一波长下的一个镀膜面 |
+| `color`、`integrals` | [颜色评价](/zh/analysis/color-evaluation/)和[积分值](/zh/analysis/integral-values/)，在评分的面上并对锥角取平均 |
+| `ellipsometry`、`ellipsometryVsAngle` | [椭偏测量](/zh/analysis/ellipsometry/)，随波长或入射角变化，Δ 可取任一符号 |
+| `groupDelay`、`pulseAnalysis`、`setPulseSpectrum` | [群延迟 / GDD](/zh/analysis/gd-gdd/) 和[脉冲分析](/zh/analysis/pulse-analysis/)，脉冲取自模型或设计上设置的光谱 |
+| `inhomogeneities`、`roughness`、`stress`、`materialDispersion` | 带规格判定的[不均匀性与过渡层](/zh/analysis/inhomogeneities/)、[粗糙度 / 散射](/zh/analysis/roughness-scattering/)、按材料常数和 `setDesignSetup` 计算的[应力](/zh/analysis/stress/)、[材料色散](/zh/analysis/material-dispersion/) |
+| `processSteps`、`exportProcess`、`monitorWorksheet` | [工艺导出器](/zh/simulation/process-simulator/)及其保存；[监控工作表](/zh/simulation/monitor-worksheet/)的各行 |
+| `saveZemaxCoating`、`readZemaxCoating`、`importZemaxCoating`，以及 `Codev` 的同样三个 | [Zemax 镀膜](/zh/data-exchange/zemax-coatings/)和 [CODE V 镀膜](/zh/data-exchange/codev-coatings/)窗口；导入时文件的材料随设计携带，而不加入目录 |
+
+在有多个环境的设计上，评价函数行或规格检查用 `env` 指定只在一个环境中评分；`merit` 在总值旁给出每个环境的评价函数；`refine`、`synthesize` 和 `needleProfile` 在每个开启的环境中评分，`checkSpecification` 和良率也是如此。分析工具默认计算环境 1，`env` 可指定其他环境，`env: 'all'` 则给出每个开启的环境。
 
 ## 设计方法
 
-`designMethod` 向助手给出镀膜工程师的工作顺序：需求、材料、起始膜层堆栈、评价函数、精炼与合成、镀膜机能够镀制的膜层堆栈、规格说明以及良率。服务器会告诉助手在开始设计任务前先读取它。
+`designMethod` 向助手给出镀膜工程师的工作顺序：需求、材料、起始膜层堆栈、评价函数、精炼与合成、镀膜机能够镀制的膜层堆栈、规格以及良率。服务器会告诉助手在开始设计任务前先读取它。
 
 同一段文字也作为 Agent Skill（技能）随应用提供：这是一个文件夹，任务涉及镀膜时助手会自行加载它。它位于安装目录 `resources` 文件夹中的 `skills\coating-design`，例如 `C:\Users\you\AppData\Local\Programs\TFStudio\resources\skills\coating-design`，也位于 GitHub 上 TFStudio 仓库的 `skills` 文件夹中。把这个文件夹复制到你的助手读取技能的文件夹中，该文件夹见助手的文档；Claude Code 读取 `%USERPROFILE%\.claude\skills`，Claude Desktop 则在其设置中以 zip 文件的形式添加该文件夹。如果已安装 Node.js，`npx skills add aai2k/TFStudio -g` 会从 GitHub 为你选择的助手安装该技能。不读取技能的助手仍可通过该工具获得这套方法。
 

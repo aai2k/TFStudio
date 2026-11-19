@@ -4,99 +4,55 @@ description: Simulate making your coating under a broadband optical monitor, the
 ribbonIcon: bbm-simulator
 ---
 
-The **Broadband Monitoring Simulator** is a 6-page wizard that simulates what
-happens when your design is actually deposited and watched by an in-chamber
-**broadband spectrophotometer**. It grows the coating layer by layer with
-realistic deposition-rate jitter, per-material index drift, and signal noise,
-lets the simulated monitor decide when to cut each layer, and then shows you
-the manufactured spectrum next to the theoretical one so you can see how well
-the design survives production.
+The Broadband Monitoring Simulator is a six-page wizard that deposits the design under an in-chamber broadband spectrophotometer: layer by layer, with rate jitter, index drift and signal noise, letting the simulated monitor decide when to cut each layer. It ends on the as-built spectrum beside the design, so you see how well the design survives production. Pages 1 to 4 set the conditions, page 5 runs one experiment and plays it back, page 6 gives the result.
 
-You set up the deposition conditions on the first four pages, run a single
-computational-manufacturing experiment on page 5 and scrub through it like a
-movie, and read the resulting performance on page 6.
+<!-- shot: bbm-simulator | one simulated deposition of the 550 nm bandpass with the default rates and signal noise, on Resulting Performance: the as-built transmittance against the design -->
 
-## Settings
+## Computed quantities
 
-The wizard walks through one topic per page.
+- **Deposition Simulation** (page 5): a timeline with play, pause, speed, scrub and layer ticks; for the current layer the **estimated**, **actual** and **target** thickness as bars, and the spectrum against the guide curves at 80 %, 90 % and the end of the layer. Once a layer is cut, its estimated bar is what the monitor believes it deposited, the target unless the cut ran late.
+- **Resulting Performance** (page 6): the manufactured spectrum against the theoretical one, **relative** and **absolute** thickness error per layer, and tables of as-built thicknesses and refractive indices.
 
-**Page 1: Deposition Rates.** For each material, set the **mean rate**
-(nm/s), the **RMS** rate fluctuation, and the **correlation time** that
-controls how slowly the rate drifts. The preview shows a sample rate-vs-time
-trace; press **Randomize** to draw a new one. The rate wanders within each
-layer at the scan interval, as the preview shows, and carries on into the next
-layer of the same material. With a correlation time of 0 the rate noise
-averages out of the thickness completely.
+A manufactured curve on top of the theoretical one with small error bars means the design survives these conditions. A large error on one layer marks a layer hard to monitor in this band, a candidate for another band, tighter rate control or a more tolerant design. Each run draws fresh errors, so run it a few times to see the spread.
 
-**Page 2: Parameters Deviation.** Per material, add a **systematic** and
-**random** shift to the real refractive index, plus a **systematic
-inhomogeneity**. The lower table lets you **exclude** individual layers from
-monitoring and give each one an extra relative thickness error: an excluded
-layer ends at its target thickness plus that error, whatever the rate did,
-and the shutter delay still adds to it as to any other layer. **Shutter delay** (mean and RMS, in seconds) models
-the lag between the cut decision and the shutter actually closing.
+## Controls and settings
 
-**Page 3: Monitoring System.** Choose the measured **quantity** and
-polarization (T or R, s/p/average), the **angle of incidence**, the **scan
-interval** between spectrum readings, and the monitoring **band** (λ min, λ
-max, and number of points). **Chip glass** is the witness chip the monitor
-watches: it opens on the design substrate, and picking another material moves
-the monitor signal onto that glass, for a witness that is not the same glass
-as the part. The preview shows the ideal monitoring signal for the layer
-selected in the tab strip.
+| Page | Sets |
+|---|---|
+| 1 **Deposition Rates** | Per material **Mean rate, Å/s**, **RMS, Å/s** and **Corr. time, s**. The preview draws a rate trace; **Randomize and update** draws another. The rate wanders within a layer at the scan interval and carries on into the next layer of the same material. |
+| 2 **Parameters Deviation** | Per material **Re(n) Syst. Dev.**, **Re(n) Random Dev.** and **Syst. Inh. (%)**; the inhomogeneity is listed with the results but does not change the deposited layer. Per layer **Exclude** from monitoring with a **Relative Thickness Error, %**: an excluded layer ends at its target plus that error, whatever the rate did. **Mean shutter delay** and **Shutter delay RMS**, in s, between the cut decision and the shutter closing, added to every layer. |
+| 3 **Broadband Monitoring System** | Quantity and polarization (T or R; avg, s or p), **Incidence angle**, **Scan interval**, the band (**Wavelength min**, **max**, **Points**) and **Chip glass**, the witness the monitor watches, the design substrate to start with. The preview shows the ideal signal for the layer picked in the tab strip. |
+| 4 **Signal Errors** | **Random Errors, %** of the signal and a slow **Drift**, with the noisy signal previewed. |
+| 5 **Deposition Simulation** | **Start** runs the experiment; **Restart**, **Stop** and **Time multiplier rate**. |
 
-**Page 4: Signal Errors.** Add **random noise** (percent of signal) and a
-slow baseline **drift** to the monitor signal. The preview shows the noisy
-signal for the selected layer.
+The coating side deposited, and how the result is scored, follow the surface mode in the [Design Editor](/design/design-editor/), shown as a badge.
 
-**Page 5: Deposition Simulation.** Press **Start** to run one full
-manufacturing experiment. The coating then plays back layer by layer on an
-interactive timeline (play/pause, speed, scrub, layer ticks). The bar chart
-compares the **estimated**, **actual**, and **target** thickness of the
-current layer; the spectrum shows the theoretical guide curves (end, 80 %,
-90 %) against the as-built curve. Once a layer is cut, its estimated bar is
-what the monitor believes it deposited, which is the target unless the cut ran
-late.
+## How the monitor cuts a layer
 
-**Page 6: Resulting Performance.** Tabs show the **manufactured vs.
-theoretical** spectrum, **relative** and **absolute** thickness-error bars per
-layer, and tables of as-built **thicknesses** and **refractive indices**.
+- From 60 % of a layer's planned time, every scan the monitor fits the thickness of the growing layer. Each fit scans 0 to 3 times the target at a step finer than the band's fringes before refining, so it needs no starting guess and lands in the best-fitting fringe rather than the nearest.
+- A tracker follows thickness and rate from these fits, weighting each by how well its scan pins the thickness, and the shutter closes where the tracked thickness reaches the target, between scans if need be. Without noise every layer ends on target at any scan interval.
+- Each fit uses the monitor's own estimate of the layers below, not what was really deposited, so an error carries into the fits of later layers as in a real chamber. An excluded layer enters that estimate at its target.
+- The signal is read through the whole witness chip: the growing coating on its front, the bare back face, added incoherently, with air above the coating whatever medium the design is embedded in. A bare chip of n = 1.52 reads 91.8 %, not the 95.7 % of its coated surface alone.
 
-**How the monitor cuts a layer.** From 60 % of a layer's planned time on, the
-monitor fits the thickness of the growing layer to every scan. Each fit scans
-the whole range from zero to three times the target at a step finer than the
-fringes of the monitoring band before it refines, so it needs no starting guess
-and settles in the best-fitting fringe rather than the nearest one. A
-tracker follows the layer's thickness and rate from these fits, weighting each
-fit by how well its scan pins the thickness, and the shutter closes where the
-tracked thickness reaches the target, between scans if need be. Without noise
-every layer ends on target at any scan interval. Each fit is made over the
-monitor's own estimate of the layers below, not over what the chamber really
-deposited, so an error in one layer carries into the fits of the next ones the
-way it does in a real chamber. An excluded layer enters that model at its
-target.
+## Theory
 
-The coating side that is deposited, and the way the resulting spectrum is
-scored, follow the surface mode set in the
-[Design Editor](/design/design-editor/), shown as a badge on the window. The
-in-chamber monitor signal is read through the whole witness chip: the growing
-coating on its front face and its bare back face, added incoherently, the way
-a spectrophotometer aimed through the chamber actually sees it. A bare chip of
-n = 1.52 glass reads 91.8 %, not the 95.7 % of the coated surface alone. The chip hangs in the chamber, so the signal is read with air above the growing coating whatever medium the design is embedded in.
+The rate of each material is an Ornstein–Uhlenbeck process about its mean r̄, with RMS σ and correlation time τ, and a layer grows by the integral of the rate:
 
-## How to read it
+```
+dx = −x / τ · dt + σ √(2/τ) dW,      r = r̄ + x
+d(t) = ∫ r dt
+```
 
-Page 6 is the verdict. If the manufactured curve hugs the theoretical one and
-the error bars are small, the design is robust to the monitoring conditions
-you set. Large thickness errors on a particular layer point to a layer that is
-hard to monitor at the chosen wavelength or strategy, a candidate for a
-different monitoring wavelength, tighter rate control, or a more tolerant
-redesign. Because every run uses fresh random draws, run it a few times (or
-re-run page 5) to see the spread of outcomes rather than trusting a single
-realization.
+Both are drawn together at each step, so a layer's thickness noise does not depend on the scan interval; with τ = 0 the rate noise averages out of the thickness entirely. A layer's index is n + Δn_syst + Δn_rand, one random draw per material and run. At each scan the monitor fits
+
+```
+d̂ = argmin_d  Σ_λ ( S_meas(λ) − S_model(λ; d) )²
+```
+
+over the band, S being T or R of the witness chip with the layers below at their estimated thicknesses, and the shutter delay adds r · t_delay after the cut.
 
 ## References
 
-- Tikhonravov & Trubetskov, *Appl. Opt.* **44**, 6877 (2005), computational
-  manufacturing as a bridge between design and production.
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
+- A. V. Tikhonravov and M. K. Trubetskov, "Computational manufacturing as a bridge between design and production," *Appl. Opt.* **44**, 6877 (2005).
+- D. T. Gillespie, "Exact numerical simulation of the Ornstein-Uhlenbeck process and its integral," *Phys. Rev. E* **54**, 2084 (1996).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 13, p. 471: production methods and optical monitoring.

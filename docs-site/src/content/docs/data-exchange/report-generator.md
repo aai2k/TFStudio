@@ -4,36 +4,31 @@ description: Assemble a document from blocks over one or several designs, then s
 ribbonIcon: report-gen
 ---
 
-The **Report** window builds the document you hand to a customer or file with a design. It is a docked window like the analysis windows: the block list on the left, the page on the right, and the page follows the design as you edit it. Every number comes from the same calculation engines as the analysis windows, so the report shows what the app shows.
+Report builds the document you hand to a customer or file with a design: the block list on the left, the page on the right, following the design as you edit it. Every number comes from the same calculations as the analysis windows, so the report shows what the app shows. It opens from **Report** on the **Production** tab of the ribbon.
 
-Open it from the **Report** button on the **Production** ribbon tab.
+<!-- shot: report-gen | the design record of the 8-layer 400-1000 nm AR: block list on the left, the first page on the right -->
 
-## Blocks
+## Computed quantities
 
-A report is an ordered list of blocks. Each block is a table first, with an optional plot. Five blocks are in every new report: title, design facts with the stack diagram, layer table, materials, and notes. A template can switch them off but not remove them.
+A report is an ordered list of blocks, each a table with an optional plot.
 
-Other blocks come from the analysis windows: spectrum, color, integral values, group delay with GDD and TOD, ellipsometry, electric field and refractive index profile, plus the specification verdict, the merit function operands and a signature line. Add them with **Add block** at the bottom of the rail. A new block copies the settings its window shows right now, or that window's saved defaults if it has not been opened, so a range set once in Optical Evaluation is not typed again.
+- In every report: title, design facts with the stack diagram, layer table, materials, and notes. A template can switch them off but not remove them.
+- From the analysis windows: spectrum, color, integral values, group delay with GDD and TOD, ellipsometry, electric field, refractive index profile, the specification verdict, the merit function operands and a signature line.
+- **Monte Carlo** prints the last run of the [Monte Carlo](/analysis/error-analysis/) window for the design, with its curves, statistics per wavelength and yield; it does not repeat the run.
+- **Monitoring worksheet** prints the witness-chip table of the [Monitor Worksheet](/simulation/monitor-worksheet/), one row per layer, with that window's chip plan, wavelengths, chip glass and settings for the design.
 
-Two blocks reach into production. **Monte Carlo** prints the last run made in the Monte Carlo window for the design: the design curve, the mean over the trials, the corridor, the statistics per wavelength and the specification yield. It does not repeat the run; run it there again to refresh. **Monitoring worksheet** prints the witness-chip table from the Monitor Worksheet: one row per deposited layer with every column the window shows. The chip plan, the wavelengths, the chip glass and the monitor settings are the window's own for the design; change them there and the report follows.
+The layer table lists number, material, thickness and QWOT, layer 1 next to the substrate on both sides. A long stack flows into side-by-side columns, about 150 layers to a page.
 
-Tick a block to include it, drag it to reorder, and open its gear to change its settings: range and step, angles, curves, plot size, and how often the table samples the curve. The spectrum block carries the Optical Evaluation window's own controls: the angle chips, the curves with their s and p components, the spectral unit, and the vertical scale (percent, fraction, dB or optical density) with its range. The gear also moves or removes the block.
+## Controls and settings
 
-## Layer table
+**Add block**, at the foot of the list, adds a block with the settings its window shows now, or its saved defaults if it has not been opened. Tick a block to include it and drag to reorder; its gear sets range and step, angles, curves, plot size and how densely the table samples the curve, and moves or removes it. The spectrum block carries Optical Evaluation's own controls: angle chips, curves with s and p, spectral unit, and the vertical scale (percent, fraction, dB or optical density) with its range.
 
-The layer table lists number, material, thickness and QWOT. Layer 1 is next to the substrate, on both sides, and the page says so under the table. A long stack flows into side-by-side columns, so about 150 layers fit on one page. Switch on **n, OT, FWOT columns** for the full optical thickness family; it trades columns for width. **Group identical periods** merges a repeated period such as (H L) × 24 into one row. Only rows identical at the printed precision merge, so a refined stack whose thicknesses differ in the last digit prints every layer.
+Layer table: **n, OT, FWOT columns** adds the optical-thickness family, trading columns for width. **Group identical periods** merges a repeated period such as (H L) × 24 into one row; only rows identical at the printed precision merge, so a refined stack prints every layer.
 
-## Templates, document fields and branding
+**Template**: **Design record**, the default, with everything including the recipe; **Customer report**, specification first, no recipe, signature lines; and **Comparison**. **Save as template** keeps your own block list.
 
-The **Template** list holds three: Design record, the default, with everything including the recipe; Customer report, with the specification first, no recipe and signature lines; and Comparison. Save your own block list with **Save as template**.
+**Document**: the fields that change per report, title, customer, document number, revision, date and designer. **Branding**: what does not, company line, accent color, footer line, default designer and logo, saved once for every report. Templates and the branding profile are saved in your TFStudio data folder.
 
-**Document** holds the fields that change per report: title, customer, document number, revision, date and designer. **Branding** holds what does not: company line, accent color, footer line, default designer and logo. Save the profile once and every report uses it.
+**Designs**: pick more than one and the report becomes a comparison. The designs are lettered A, B, C with their full names in a key under the masthead, so a long name never widens a column. Facts, verdicts, integral values and color become one table with a column per design, six to a table; the spectrum block draws every design on one plot, and recipes sit side by side. Blocks with no comparison form render once per design. With no design open the report covers only the designs picked.
 
-## Several designs
-
-Pick more than one design under **Designs** and the report becomes a comparison. The designs are lettered A, B, C and listed with their full names in a key under the masthead; tables, plot legends and recipe headings refer to them by letter, so a long name never widens a column. Facts, verdicts, integral values and color render as one table with a column per design, six designs to a table, the spectrum block draws every design on one plot, and the recipes sit side by side. Blocks without a comparison form render once per design. With no design open the report covers only the designs picked under **Designs**; with none picked there is no page, only a request to open or create a design.
-
-## Export
-
-The Export menu at the bottom right saves a PDF with a running header and footer and page numbers, saves a single self-contained HTML file, or copies every table as tab-separated text for a spreadsheet. Paper size is A4 or Letter, and the language of the document is chosen independently of the app's. Both have defaults under Settings, Analysis, Report.
-
-Saved templates and the branding profile go to your TFStudio data folder.
+**Export**, bottom right: a PDF with running header, footer and page numbers; one self-contained HTML file; or every table as tab-separated text for a spreadsheet. Paper size, A4 or Letter, and the document's language are set apart from the app's, with defaults under Preferences, Analysis, Report.

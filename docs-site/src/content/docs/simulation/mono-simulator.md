@@ -4,112 +4,52 @@ description: Simulate making your coating under a single-wavelength monitor, wit
 ribbonIcon: mono-simulator
 ---
 
-The **Mono Simulator** is a 7-page wizard that simulates depositing your
-design under an in-chamber **single-wavelength optical monitor**. It is the
-monochromatic counterpart of the
-[Broadband Monitoring Simulator](/simulation/bbm-simulator/) and shares the
-same setup and playback; the difference is that each layer is cut from one
-monitoring wavelength using one of three classic termination strategies.
+The Monochromatic Monitoring Simulator is a seven-page wizard that deposits the design under an in-chamber single-wavelength optical monitor. It shares the setup and playback of the [Broadband Monitoring Simulator](/simulation/bbm-simulator/); the difference is that each layer is cut at one monitoring wavelength by one of three termination strategies. Pages 1 to 5 set the conditions and the per-layer plan, page 6 runs one experiment, page 7 gives the result.
 
-You configure the deposition conditions and the per-layer monitoring plan on
-the first five pages, run a single manufacturing experiment on page 6, and
-read the resulting performance on page 7.
+<!-- shot: mono-simulator | one simulated deposition of the quarter-wave mirror cut on turning points at the design wavelength, on Resulting Performance: the as-built reflectance against the design -->
 
-## Settings
+## Computed quantities
 
-**Page 1: Deposition Rates.** Per material, set the **mean rate** (nm/s),
-the **RMS** fluctuation, and the **correlation time** governing how slowly the
-rate drifts. The preview shows a sample rate-vs-time trace; **Randomize** draws
-a new one.
+- **Deposition Simulation** (page 6): the timeline, the **estimated / actual / target** thickness of the current layer, and the spectrum against the guide curves, as in the broadband wizard.
+- **Resulting Performance** (page 7): manufactured against theoretical spectrum, per-layer **relative** and **absolute** thickness error, and tables of as-built thicknesses and refractive indices.
 
-**Page 2: Parameters Deviation.** Per material, add **systematic** and
-**random** index shifts and a **systematic inhomogeneity**. The lower table
-**excludes** chosen layers from monitoring: an excluded layer ends at its target
-thickness plus the optional extra relative thickness error you give it, whatever
-the rate did; the shutter delay still adds to it, as to any other layer. **Shutter delay** (mean and RMS) models the cut lag.
+Layers with large errors are those whose wavelength or strategy does not serve them: try **Auto λ (all)** or another strategy and run again, several times, to see the spread.
 
-**Page 3: Monitoring System.** Set the measured **quantity** and polarization,
-the **angle of incidence**, the **scan interval**, and the number of
-**confirm scans** a cut needs before it is accepted. **Chip glass** is the
-witness chip the monitor watches: it opens on the design substrate, and picking
-another material moves the monitor signal onto that glass, for a witness that
-is not the same glass as the part. The preview plots the ideal signal versus
-deposited thickness for the selected layer, with the cut point marked.
+## Controls and settings
 
-**Page 4: Monitoring Wavelengths.** The per-layer plan: for each layer choose
-the **monitoring wavelength** and the termination **strategy**:
+| Page | Sets |
+|---|---|
+| 1 **Deposition Rates** | **Mean rate, Å/s**, **RMS, Å/s** and **Corr. time, s** per material; **Rndm & Update** draws another preview trace. |
+| 2 **Parameters Deviation** | Systematic and random index shifts and **Syst. Inh. (%)** per material, the inhomogeneity listed with the results but not applied to the layer; layers **excluded** from monitoring with an extra relative thickness error; mean and RMS shutter delay. |
+| 3 **Monitoring System** | Quantity and polarization, **Incidence, °**, **Scan interval, s**, **Confirm scans** a cut needs, and **Chip glass**. The preview plots the ideal signal against deposited thickness for the selected layer, with the cut marked. |
+| 4 **Monitoring Wavelengths** | Per layer **λ mon, nm**, **Strategy** and **Order** ([below](#termination-strategies)); **Auto λ (all)**, **Set all** and **Strategy for all…**. Clicking a row previews that layer's signal. |
+| 5 **Signal Errors** | **Random errors, %** of the reading, **Absolute noise, %** of full scale, which does not shrink with the signal, and **Drift, %**. |
+| 6 **Deposition Simulation** | **Start** runs the experiment and plays it back. |
 
-- **Turning point**: cut when the monitor signal reaches an expected extremum.
-  The **order** column picks which extremum. While the signal is clean enough
-  to show its curvature, the monitor forecasts the extremum from the last few
-  readings and closes the shutter on it, between scans if need be. On a noisy
-  signal it waits for the signal to turn back, and the cut runs a little past
-  the extremum.
-- **Level**: cut when the signal crosses a target level in the expected
-  direction. The cut is armed only on the branch that holds the target, after
-  the last extremum the model predicts before it, so a layer thicker than a
-  quarter wave is not cut where the signal first passes the same level. An
-  **order** of N, 2 or more, arms it after extremum N − 1 instead, so the order
-  picks the branch here the way it picks the extremum for a turning cut; 1
-  leaves the branch to the model. The monitor watches for the smoothed signal
-  to reach the value the model gives it the **confirm scans** ahead of the
-  target, works out the crossing time between scans, and closes the shutter on
-  a timer that much later. The confirmation then costs no thickness, and a
-  noiseless run ends on target at any scan interval. On a branch too short to
-  hold the confirm scans, the cut runs late by the part that did not fit.
-- **By time**: cut after a precomputed time, with no signal feedback. The time
-  is the target thickness over the mean rate from page 1, and the layer grows
-  at the rate the run actually has, so it ends thick or thin by the rate error.
+The deposited side and how the result is scored follow the surface mode in the [Design Editor](/design/design-editor/). The signal is read through the whole witness chip, coating and bare back face added incoherently, with air above the coating: a bare chip of n = 1.52 reads 91.8 %, not the 95.7 % of its coated surface alone.
 
-The table opens at the reference wavelength. A layer within 6 % of a whole
-number of quarter waves gets a turning cut when its signal on the chip, with
-the design's layers beneath it, turns within 6 % of a quarter wave of the
-layer's end; every other layer gets a level cut, and a layer that barely moves
-the signal is cut by time.
+## Termination strategies
 
-**Auto λ (all)** picks, for every layer, the wavelength and strategy whose cut
-is most precise. Quarter-wave layers keep the reference wavelength's turning
-point, and its self-compensation, while the reversal is still detectable; once
-a stopband saturates the signal, its layers are monitored outside the band,
-and a layer no wavelength can serve is cut by time. **Set all** puts one
-wavelength on the whole run, and the strategy dropdown beside it applies one
-termination rule to every layer at once. Clicking a table row shows that
-layer's ideal signal in the preview beside the table.
+- **Turning point**: cut at an extremum of the signal; **Order** picks which. While the signal is clean enough to show its curvature, the monitor forecasts the extremum from the last readings and closes the shutter on it, between scans if need be; on a noisy signal it waits for the signal to turn back, and the cut runs past.
+- **Level**: cut where the signal crosses a target level in the expected direction, armed only on the branch that holds the target, after the last extremum before it, so a layer thicker than a quarter wave is not cut where the signal first passes that level. An **Order** of N ≥ 2 arms it after extremum N − 1; 1 leaves the branch to the model. The monitor waits for the smoothed signal to reach the value the model gives it the confirm scans ahead, works out the crossing between scans and closes on a timer, so confirming costs no thickness and a noiseless run ends on target. On a branch too short for the confirm scans the cut runs late by what did not fit.
+- **By time**: cut after the target thickness over the page 1 mean rate, with no signal feedback, so the layer ends off by the rate error.
 
-**Page 5: Signal Errors.** Add **random noise** (percent of the reading), the
-monitor's **absolute noise** floor (percent of full scale, which does not
-shrink with the signal), and a slow **drift** to the single-wavelength signal;
-the preview shows the noisy signal for the selected layer.
+The plan opens at the reference wavelength. A layer within 6 % of a whole number of quarter waves gets a turning cut when its signal on the chip, over the design's layers, turns within 6 % of a quarter wave of its end; other layers get a level cut, and a layer that barely moves the signal is cut by time. **Auto λ (all)** picks for each layer the wavelength and strategy with the most precise cut: quarter-wave layers keep the reference wavelength's turning point and its self-compensation while the reversal is still detectable; once a stopband saturates the signal its layers are monitored outside the band, and a layer no wavelength serves is cut by time.
 
-**Page 6: Deposition Simulation.** Press **Start** to run one manufacturing
-experiment, then play it back on the interactive timeline. The bar chart shows
-the **estimated / actual / target** thickness of the current layer; the
-spectrum shows the theoretical guide curves against the as-built curve.
+A turning point suits a layer near a quarter-wave multiple at the monitoring wavelength, being precise and blind to direction; for other thicknesses a level cut where the signal is steep through the cut point is the most precise.
 
-**Page 7: Resulting Performance.** Tabs show the **manufactured vs.
-theoretical** spectrum, per-layer **relative** and **absolute** thickness-error
-bars, and tables of as-built **thicknesses** and **refractive indices**.
+## Theory
 
-The deposited side and the way the resulting spectrum is scored follow the
-surface mode set in the [Design Editor](/design/design-editor/), shown as a
-badge on the window. The monitor signal is read through the whole witness chip:
-the growing coating on its front face and its bare back face, added
-incoherently, the way a transmittance monitor actually sees a chip in the
-chamber. A bare chip of n = 1.52 glass reads 91.8 %, not the 95.7 % of the
-coated surface alone. The chip hangs in the chamber, so the signal is read with air above the growing coating whatever medium the design is embedded in.
+The rate model and the witness chip are those of the [broadband simulator](/simulation/bbm-simulator/#theory). At one wavelength λ_m the signal S(d) of a growing layer of index n has its extrema where the layer is a whole number of quarter waves:
 
-## How to read it
+```
+n d = m λ_m / 4,     m = 1, 2, …       turning points
+t_cut = d_target / r̄                   by time
+```
 
-Match the strategy to the layer. When a layer's thickness is close to a
-quarter-wave multiple at the monitoring wavelength, a turning point is precise
-and direction-blind, so it is the natural choice. For other thicknesses, pick a
-level cut at a wavelength where the signal slope is steep through the cut point,
-which gives the best precision. On page 7, layers with large thickness errors
-are the ones whose monitoring wavelength or strategy isn't serving them; try
-the auto-wavelength suggestion or a different strategy, then re-run. Run the
-experiment several times to see the spread rather than a single outcome.
+Near a turning point dS/dd = 0, so a timing error barely moves S but a thickness error barely shows in it either; quarter-wave stacks monitored at their own wavelength gain from the errors of one layer being taken up by the cut of the next.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
-- Tikhonravov & Trubetskov, *Appl. Opt.* **44**, 6877 (2005).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 13, p. 471: production methods and optical monitoring.
+- A. V. Tikhonravov and M. K. Trubetskov, "Computational manufacturing as a bridge between design and production," *Appl. Opt.* **44**, 6877 (2005).

@@ -1,67 +1,51 @@
 ---
 title: Ellipsometry Evaluation
-description: Ψ and Δ, the amplitude-ratio and phase quantities an ellipsometer measures.
+description: Ψ and Δ, the amplitude-ratio and phase quantities an ellipsometer measures, predicted for the design.
 ribbonIcon: ellipsometry
 ---
 
-The Ellipsometry window computes the ellipsometric angles Ψ and Δ for the active
-design, the amplitude-ratio and phase-shift quantities that an ellipsometer
-reports. Use it to **predict what your instrument should see** for a given
-coating, so you can compare a simulated curve against a measured one or plan a
-measurement.
+The Ellipsometry window computes the ellipsometric angles Ψ and Δ of the active design, the two numbers an ellipsometer reports. Use it to **predict what your instrument should see** for a coating, or to compare against a measurement. Only reflection off an isotropic sample is modelled; transmission, generalized and Mueller-matrix ellipsometry are outside it.
 
-The angles come from the complex reflectance ratio between p- and s-polarized
-light:
+<!-- shot: ellipsometry | 100 nm SiO2 on silicon at 65°, spectral sweep 400-800 nm, Ψ and Δ on -->
+
+## Computed quantities
+
+- **Ψ**, in degrees on the left axis, 0 to 90°: `tan Ψ` is the ratio of the p to the s reflection amplitude.
+- **Δ**, in degrees on the right axis, 0 to 360°: the phase difference between the p and s reflections.
+
+Measured Ψ and Δ added in [Measured Ellipsometry](/data-exchange/measured-ellipsometry/) are drawn over the spectral sweep, dotted with hollow points, on the side they were measured on and with Δ moved into the convention the window shows.
+
+## Controls and settings
+
+**Ψ / Δ**: show or hide each curve; the last one shown cannot be switched off.
+
+**Settings**: **Mode** sweeps wavelength (**Spectral**) at a fixed **AOI (°)**, 65° by default, or the angle of incidence (**Angular**) at a fixed **λ (nm)**, which follows the design's reference wavelength. **Side** picks the front or back coating; each is one coherent reflection off its own face. **Δ convention** is **Azzam–Bashara**, the sign an ellipsometer writes and the default, or **360° − Δ** for data written in the other time convention. Ψ is the same in both.
+
+**Range warning**: a ⚠ badge appears when the sweep reaches outside a material's data range.
+
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows, a numbered one holds the window on it even while it is switched off, and **All** draws every environment that is on in its own color, Ψ solid and Δ dashed, with the table giving each environment its own Ψ and Δ columns. The choice is not saved with the design.
+
+**Results**: Ψ and Δ against the swept variable.
+
+## Ψ and Δ of a coating
+
+A bare dielectric gives Δ = 180° below its Brewster angle and 0° above it, with Ψ falling to 0 at Brewster; a bare absorbing surface gives Δ = 90° at its principal angle in the Azzam–Bashara convention. These are useful checks of a measurement's sign. A film adds oscillations in Ψ and Δ with wavelength.
+
+This window is a forward calculation. To recover thicknesses or optical constants from a measurement, fit it from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/).
+
+## Theory
+
+r_s and r_p are the amplitude reflection coefficients of the stack for s and p light, `r = (η₀ − Y) / (η₀ + Y)`, with the tilted admittances and the surface admittance Y of the [Admittance Diagram](/analysis/admittance/). Then (Macleod, Eq. 14.17):
 
 ```
-ρ = r_p / r_s = tan(Ψ) · exp(i Δ)
+ρ = tan Ψ · e^{iΔ}
+tan Ψ = |r_p| / |r_s|
+Δ = φ_p − φ_s + 180°
 ```
 
-That is the reflected pair, and it is the only one modelled: an instrument
-working in transmission measures a different quantity, which this window does
-not compute. The sample is isotropic, so generalised and Mueller-matrix
-ellipsometry are outside it as well.
-
-You can sweep either wavelength at a fixed angle, or angle of incidence at a
-fixed wavelength.
-
-To bring a real instrument's Ψ and Δ into a design and compare the two, use
-[Measured Ellipsometry](/data-exchange/measured-ellipsometry/).
-
-## Settings
-
-**Mode**: sweep over wavelength (spectral) or over angle of incidence
-(angular).
-
-**Side**: evaluate the front coating or the back coating. Ellipsometry models a
-single coherent reflection off one face, so each side is treated independently.
-
-**Wavelength range and step** (spectral mode): the span and sampling interval
-of the sweep, in nm.
-
-**AOI** (spectral mode): the fixed angle of incidence, in degrees. The default
-of 65° is a common ellipsometer angle near the Brewster region of typical
-substrates.
-
-**Wavelength** (angular mode): the fixed wavelength for an angle sweep.
-
-**AOI range and step** (angular mode): the span and sampling interval of the
-angle sweep, in degrees.
-
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one Ψ and Δ are computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on: its Ψ solid and its Δ dashed, both in its own color from the window's Palette in Preferences > Analysis, with a legend above the plot naming them, and the axes named Ψ (°) and Δ (°). The readout names each curve's environment, and the table and the CSV give Ψ and Δ of each environment in columns named after it. Measured curves are drawn as with one environment. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
-
-## How to read it
-
-Ψ is plotted on the left axis (0–90°) and Δ on the right axis (0–360°). Ψ
-encodes the ratio of the p and s reflection amplitudes, and Δ their phase
-difference. In an angle sweep, the substrate's Brewster angle shows up as a
-sharp step in Δ, which makes a useful calibration check.
-
-The data table lists Ψ and Δ against the swept variable for export. This window
-is a forward calculation: to recover layer thicknesses from a measured Ψ and Δ,
-use Refinement with targets set on those quantities.
+φ_s and φ_p are the phase changes on reflection in Macleod's convention, `N = n − ik`. The 180° turns the p coefficient built from `η_p = N / cos θ` into the sign ellipsometry uses, so that the result is the Azzam–Bashara Δ. **360° − Δ** is its complex conjugate, the same sample in the other time convention. Δ is wrapped into 0 to 360°, so a measured value of −12° plots at 348°.
 
 ## References
 
-- H. G. Tompkins & E. A. Irene, *Handbook of Ellipsometry* (William Andrew, 2005).
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., p. 553 (Eq. 16.2).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 14.2, pp. 544–560 (Eq. 14.17): the ellipsometric parameters in reflection and transmission.
+- H. G. Tompkins and E. A. Irene, *Handbook of Ellipsometry* (William Andrew, 2005).

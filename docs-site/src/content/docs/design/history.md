@@ -1,40 +1,31 @@
 ---
 title: History
-description: Browse and jump to any previous state of the active design. It is the same per-design timeline that backs Ctrl+Z and Ctrl+Y, shown as a list.
+description: Every recorded state of the active design with its layer count and merit, to jump back or forward to. The same timeline Ctrl+Z and Ctrl+Y step through.
 ribbonIcon: history
 ---
 
-The **History** window lists every recorded state of the active design and lets
-you jump to any of them. It is the same per-design timeline that backs Ctrl+Z
-and Ctrl+Y, shown as a clickable list, a generalized undo/redo. F3 and Ctrl+F3
-undo and redo too. Click any row
-and the design returns to that exact state; the past and future are rebuilt
-around your choice so undo and redo keep working from there.
+History lists every recorded state of the active design, newest first, and jumps the design to the row you click. It is the timeline that Ctrl+Z and Ctrl+Y (also F3 and Ctrl+F3) step through, so after a jump undo and redo carry on from the state you picked.
 
-States are listed newest first, and the current state is highlighted.
+<!-- shot: history | the broadband AR's states from a bare substrate through target set, Gradual Evolution, Best and Refinement, layer count rising and MF falling up the list -->
 
-## How to read it
+## Computed quantities
 
-| Column     | Meaning                                       |
-| ---------- | --------------------------------------------- |
-| **#**      | Position in the timeline.                      |
-| **State**  | Whether the row is the oldest state, an earlier (undo) state, the **current** state, or a later (redo) state. |
-| **Layers** | Layer count at that snapshot.                  |
-| **MF**     | Merit-function value at that snapshot.         |
+| Column | Meaning |
+|---|---|
+| **#** | Position in the timeline, #1 the oldest. |
+| **State** | **Oldest recorded**, **Undo to here** for an earlier state, **Current**, or **Redo to here** for a later one. |
+| **Layers** | Front plus back layers in that state. |
+| **MF** | The merit function the [Merit Function Editor](/design/merit-function-editor/) shows for that state; a dash when the state has no enabled rows. |
 
-The Layers and MF columns let you spot where the design changed and how the
-merit moved: for example, the moment a synthesis run added layers and dropped
-the merit. A row with no operands defined shows a dash for MF.
+An MF dimmed and marked ≈ is read with every row at its default step, and the value at the rows' own Steps replaces it once worked out. Under a cone angle the MF shows Computing cone response until it is worked out off the window's thread. A red MF means a material of that state is missing. During an optimizer run no MF is worked out off the thread.
 
-The timeline holds up to 50 states per design. This copy of TFStudio keeps it,
-with any edits you have not saved, so both are still there the next time you
-open the app; the design file holds only what you saved. If the file is saved
-from somewhere else in the meantime, such as another installed version, the
-saved file opens and your unsaved version becomes the last undo state.
-Refinement, Needle and Gradual Evolution each add a single checkpoint when they
-start and stream their iterations as previews, so one Ctrl+Z reverts a whole run
-rather than stepping back through every iteration.
+## Controls and settings
 
-## References
+Click a row to make it the current state. The header gives the number of states and the current position.
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13 (iterative refinement of multilayer designs).
+## Timeline length and storage
+
+- Up to 50 undo states and 50 redo states per design. Any committed edit after an undo drops the redo states.
+- Refinement, Needle and Gradual Evolution record one state when they start and show their iterations as previews, so one Ctrl+Z takes back a whole run.
+- A rename is not part of the timeline: undo keeps the current name.
+- This copy of TFStudio keeps the timeline and any unsaved edits, so both are there the next time it opens; the design file holds only what you saved. If the file was saved from somewhere else in the meantime, such as another installed version, the saved file opens and your unsaved version becomes the last undo state.

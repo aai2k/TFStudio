@@ -4,46 +4,38 @@ description: Every layer of a coating as a bar, in physical or optical thickness
 ribbonIcon: layer-thicknesses
 ---
 
-The Layer Thicknesses window draws the chosen coating as a bar chart: one bar
-per layer, layer number on the horizontal axis, thickness on the vertical axis,
-each bar in its material's color. It is the quickest way to take in the shape of
-a design's thickness sequence: the taper of a chirped mirror, the thin spacers a
-needle run has inserted, or a layer that came out of refinement far thicker than
-its neighbours. The Design Editor lists the same numbers, but a list does not
-show shape.
+Layer Thicknesses draws a coating as one bar per layer, colored by material. It shows the shape of a thickness sequence that a list hides: the taper of a chirped mirror, the thin layers a needle run has inserted, or one layer that refinement made far thicker than its neighbours.
 
-Layers are numbered from the substrate, matching the Design Editor. When the
-stack uses more than one material, the legend above the plot names each
-material's color.
+<!-- shot: layer-thicknesses | chirped mirror in QW at its 700 nm reference wavelength, the chirp reading as a taper -->
 
-## Settings
+## Computed quantities
 
-**Units**: what the bars read in.
+- **nm**: physical thickness d.
+- **OT**: optical thickness n·d, in nm.
+- **QW**: quarter waves, `4·n·d / λ₀`. A quarter-wave layer reads 1, a half-wave cavity 2.
+- **FW**: full waves, `n·d / λ₀`.
 
-- **nm**: physical thickness `d`.
-- **OT**: optical thickness `n·d`, in nm.
-- **QW**: quarter-wave optical thickness `4·n·d/λ₀`. A classic quarter-wave
-  layer reads exactly 1.
-- **FW**: full-wave optical thickness `n·d/λ₀`.
+Layers are numbered from the substrate, as in the [Design Editor](/design/design-editor/), and a layer of zero thickness keeps its number. **Results** lists every layer in all four units.
 
-The optical units read each material's index at the wavelength `λ₀`, set in the
-settings panel. It defaults to the design's reference wavelength, so the values
-agree with the Design Editor's QW column.
+## Controls and settings
 
-**Side**: the **front** or the **back** coating.
+**Units** and **Side** pick what the bars show. **Settings** holds **λ₀**, the wavelength the optical units read each index at; it follows the design's reference wavelength, so QW agrees with the Design Editor's QW column.
 
-**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the layers are drawn in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. Each bar is the layer as that environment deposits it: its thickness times the thickness factor of its material there and the change the environment's temperature makes, made of the material the environment deposits for it, the optical units reading that material's index at the environment's temperature. The layers keep the Design Editor's numbers. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+**Environment**: on a design with more than one [environment](/design/environments/), **Current** follows the environment the Design Editor shows and a numbered one holds the window on it even while it is switched off. Each bar is the layer as that environment deposits it, with the thickness factor of its material and the change its temperature makes, and the optical units read that material's index there. The choice is not saved with the design.
 
-## How to read it
+## Theory
 
-In QW units a quarter-wave stack is a row of bars at 1, and any departure from
-it stands out at a glance: half-wave cavities read 2, and the graded ends of a
-broadband design fall away from 1. In physical units the same plot shows where
-the deposition time goes.
+With n the real part of the layer's index at λ₀:
 
-The data table lists every layer with all four readings side by side, and
-exports as CSV.
+```
+OT = n·d
+QW = 4·n·d / λ₀
+FW = n·d / λ₀
+δ  = 2π·n·d / λ₀ = (π/2)·QW
+```
+
+δ is the phase thickness at λ₀ at normal incidence. A layer with QW = 1 has δ = π/2 and turns the admittance from Y′ to n²/Y′; a layer with QW = 2 is a half wave, which at λ₀ changes nothing and is called an absentee layer (Macleod, Section 3.1).
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §3.1 (quarter- and half-wave optical thicknesses).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 3.1, pp. 65–66: quarter- and half-wave optical thicknesses.

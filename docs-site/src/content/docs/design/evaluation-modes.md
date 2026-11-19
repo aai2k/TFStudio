@@ -1,92 +1,57 @@
 ---
 title: Surface & Evaluation Modes
-description: The two controls that decide which coating is optimized and what every window evaluates.
+description: The two Design Editor controls that decide which coating the optimizers move and whether results are for one surface or the whole part.
 ---
 
-A coated part can have a coating on each side, and "the performance" can mean
-the front coating alone, the back coating alone, or the whole part together.
-TFStudio settles both questions (*which coating you are designing* and *what
-the numbers mean*) with just two controls in the [Design
-Editor](/design/design-editor/). They are the single source of truth: every
-other window (Optical Evaluation, the Specification, all the tolerance tools,
-and the optimizers) follows them and shows a read-only badge of the result, so
-two windows can never score the same design differently.
+A part can carry a coating on each face, and its performance can mean one coating alone or the whole part. Two controls in the [Design Editor](/design/design-editor/) settle which coating you design and what every result means. They are saved with the design, and every window whose result depends on them follows them, so two windows never score the same design differently.
 
-## The two controls
+## Controls
 
-**Surface**: a `Front / Back / Both` dropdown. It chooses which coating you
-are designing and which stack the optimizer is allowed to move. When **Both**
-is selected, a **Symmetric (back = front)** sub-checkbox appears; ticking it
-links the back coating to an exact mirror of the front, so both sides are
-optimized together as one identical stack.
+**Surface**: **Front**, **Back** or **Both**, the coating the optimizers move. Under **Both**, **Symmetric (back = front)** makes the back coating the mirror of the front, so both faces carry the same coating and move together.
 
-**Ignore other side**: a checkbox. When **checked**, the design is evaluated
-as the active surface *alone*, sitting on a semi-infinite substrate with no
-back-surface reflection, the standard idealization for designing a single
-coating. When **unchecked**, the design is evaluated as the **whole physical
-part**: front coating, finite substrate, and back coating, combined together.
-The checkbox is disabled for **Both**, because two real coatings are always
-evaluated as the full system.
+**Ignore other side**: checked, the active coating is evaluated alone on a semi-infinite substrate, with no light back from the rear face. Unchecked, the whole part is evaluated: front coating, finite substrate and back coating. Under **Both** it is unchecked and greyed, since two coatings always make a whole part. A new design starts at **Front** with **Ignore other side** checked.
 
-A new design starts at **Front + Ignore other side**: you design one front
-coating against air and a semi-infinite substrate, which is the most common
-starting point.
+On a design with [environments](/design/environments/), each environment from the second on has its own **Ignore other side**.
 
-## How the two controls combine
+## Combinations
 
-The Front and Back tabs in the layer table are always present, but the
-*ignored* side's tab goes inactive, since you cannot edit a coating you have told
-the program to ignore. Its layers stay in the design, dormant, and return the
-moment you clear the checkbox.
+The tab of an ignored coating is greyed in the layer table; its layers stay in the design and come back when the box is cleared.
 
-| Surface | Ignore other side | Front tab | Back tab | Optimizes | **Evaluates** |
-| ------- | ----------------- | --------- | -------- | --------- | ------------- |
-| Front   | off               | active    | active   | front     | **TOTAL**     |
-| Front   | on *(default)*    | active    | inactive | front     | **FRONT** only |
-| Back    | off               | active    | active   | back      | **TOTAL**     |
-| Back    | on                | inactive  | active   | back      | **BACK** only  |
-| Both    | n/a *(disabled)*  | active    | active   | both      | **TOTAL**     |
-| Both + Symmetric | n/a *(disabled)* | active | inactive *(= front)* | both, linked | **TOTAL** |
+| Surface | Ignore other side | Front tab | Back tab | Optimizers move | Evaluated |
+|---|---|---|---|---|---|
+| Front | checked (default) | active | greyed | front | **FRONT** |
+| Front | cleared | active | active | front | **TOTAL** |
+| Back | checked | greyed | active | back | **BACK** |
+| Back | cleared | active | active | back | **TOTAL** |
+| Both | greyed | active | active | both | **TOTAL** |
+| Both, Symmetric | greyed | active | greyed, mirrors front | both, as one | **TOTAL** |
 
-"Front, don't ignore" and "Both" both evaluate the total part; the only
-difference is what the optimizer is free to move. With Front selected the
-optimizer moves only the front coating (any back coating is included but
-fixed); with Both it also frees the back stack.
+Front with the box cleared and Both evaluate the same thing; they differ only in what the optimizers may move. With Front, a back coating is counted but held fixed.
 
-## The badges
+## Badges
 
-Because the two controls live only in the Design Editor, every other window
-shows what it is doing as a read-only badge:
+Every window whose result depends on these controls shows a read-only **Eval: FRONT / BACK / TOTAL** badge, the same in all of them. Optimizer windows add **Optimize: FRONT / BACK / BOTH / BOTH (sym)**. Windows that show one coating at a time, such as the admittance diagram, electric field, group delay and ellipsometry, choose their side themselves and show no Eval badge.
 
-- **`Eval: FRONT / BACK / TOTAL`**: appears in Optical Evaluation, Integral
-  Values, the Specification, Color, Monte Carlo, Systematic Deviations, Layer
-  Sensitivity, the Variator, Inhomogeneities and Roughness/Scattering. It is the
-  *same* value in all of them.
-- **`Optimize: FRONT / BACK / BOTH / BOTH (sym)`**: appears additionally in
-  the optimizer windows (Refinement, Needle Variation, Gradual Evolution,
-  Manual Needle) to show which coating is being moved.
+## Substrate models
 
-## How the substrate is handled
+| Evaluated | Substrate | Rear face |
+|---|---|---|
+| FRONT or BACK | Semi-infinite: light that enters it never returns | None |
+| TOTAL | Finite and incoherent: light reflected inside adds as intensity, with the bulk absorption over its thickness | The bare face, or the back coating |
 
-| Ignore other side | Substrate model | Back surface |
-| ----------------- | --------------- | ------------ |
-| Checked (single surface) | **Semi-infinite**: light exits into the substrate and never returns | None, no back-surface reflection |
-| Unchecked (total) | **Finite and incoherent**: internal reflections combine as intensities | Real: the bare-substrate reflection, or the back coating if one exists |
+## Theory
 
-A single-surface coating designed with "Ignore other side" is evaluated
-exactly as the coating in isolation, the correct idealization for that task,
-while clearing the checkbox folds in the real back surface to show what the
-finished, two-sided part actually does.
+A substrate many wavelengths thick, under light of finite bandwidth, sums its internal reflections in intensity rather than amplitude (Macleod, Section 2.14). With R_f, T_f the front coating seen from the incident medium, R_f′, T_f′ the same coating seen from inside the substrate, R_b, T_b the back coating between substrate and exit medium, and P the transmittance of one pass through the bulk:
 
-These settings are stored on the design, so they save with the project and a
-design reopens in the mode it was built in. Integral Values is a whole-part
-figure and follows these modes too. The per-surface windows (group delay,
-electric field, ellipsometry, the admittance diagram and the refractive-index
-profile) instead carry their own **Front / Back** control, since each shows a
-single coating on the substrate in isolation. The refractive-index profile adds
-a **Total** option that lays the front coating, substrate and back coating out
-as one continuous structural (n, k vs depth) profile.
+```
+P = exp(−4π k_s d_s / (λ cos θ_s))
+T = T_f P T_b / (1 − R_f′ R_b P²)
+R = R_f + T_f T_f′ R_b P² / (1 − R_f′ R_b P²)
+A = 1 − R − T
+```
+
+with k_s the substrate's extinction coefficient, d_s its thickness and θ_s the refracted angle inside it. Each polarization is summed on its own and the two then averaged. Each coherent pass is the usual characteristic-matrix result for that coating. With P = 1 and no absorption, T reduces to Macleod's Eq. 2.165, T = T_a T_b / (1 − R_a R_b). A is what the two coatings and the bulk absorb together.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.6.4 (combining a coated substrate's two surfaces incoherently).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 2.14, pp. 60–63 (Eq. 2.165): incoherent reflection at two or more surfaces.
