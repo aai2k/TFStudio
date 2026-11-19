@@ -6,10 +6,9 @@
 
 import { LOG_MINMAX_OPERAND_TYPES, LOG_OPERAND_TYPES, logOperand } from '../optimizer/logReadings.js';
 
-// Legacy per-curve palette (kept for any external importers). The overlay now
-// colours targets by R/T/A *family* and encodes polarization via dash instead,
-// so avg / s / p of the same quantity stay clearly distinguishable (they were
-// near-identical hues before).
+// Per-curve palette. The overlay colours targets by R/T/A *family* and encodes
+// polarization via dash, so avg / s / p of the same quantity stay clearly
+// distinguishable.
 export const CURVE_COLOR = {
     T:  '#4fc3f7',
     R:  '#ef5350',

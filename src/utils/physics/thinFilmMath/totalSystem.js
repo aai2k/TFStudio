@@ -33,7 +33,7 @@ export function incidence(theta_deg) {
 /**
  * Geometry of the ray inside the substrate, by real-part Snell's law.
  *
- * M1: at or beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed or
+ * At or beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed or
  * cemented configurations where the incident medium is denser than the
  * substrate) the real-angle model would set sinθ_sub = 1 → θ_sub = 90°, and the
  * substrate-side passes then form cdiv(n,[0,0]) for p-polarization → R/T/A =

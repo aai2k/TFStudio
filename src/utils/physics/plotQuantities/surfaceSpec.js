@@ -94,9 +94,9 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
 }
 
 /**
- * Exact λ set the surface compute will query getNK at — for Approach-A worker
- * pre-sampling (so the worker's table-lookup getNK is byte-identical to the
- * main thread). MF: the operands' sample λ.
+ * Exact λ set the surface compute will query getNK at — for the surface workers'
+ * pre-sampled material tables (so the worker's table-lookup getNK is
+ * byte-identical to the main thread). MF: the operands' sample λ.
  * Optical: the wavelength-axis samples (or the fixed λ), both as they stand and
  * on the grid the spectrum evaluates them at (buildLambdaGrid): one wavelength
  * at a time, and a whole wavelength axis as the single spectrum

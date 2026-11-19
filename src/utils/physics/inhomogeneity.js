@@ -1,9 +1,9 @@
 /**
  * Inhomogeneities & Interlayers — model graded-index regions in a thin-film
- * stack by SLICING them into N homogeneous sub-layers (Macleod 5th ed.
- * "Inhomogeneous Layers", chunk 137; also chunk 513 — Marseille method
- * "uses a model for the layer consisting of at least 10 homogeneous
- * sublayers with linearly varying values of n").
+ * stack by SLICING them into N homogeneous sub-layers (Macleod 5th ed.,
+ * "Inhomogeneous Layers"; the Marseille method uses a model for the layer
+ * consisting of at least 10 homogeneous sublayers with linearly varying values
+ * of n).
  *
  * Two grading mechanisms are supported:
  *
@@ -20,10 +20,9 @@
  * The mixing rule between two materials at fraction f ∈ [0,1] is LINEAR
  * (n_eff = (1-f)·n_A + f·n_B). This matches the Macleod-Marseille
  * "linearly varying n" convention. More sophisticated effective-medium
- * approximations (Bruggeman, Maxwell-Garnett, Lorentz-Lorenz) are deferred to a
- * future version — the linear rule is the canonical
- * starting point in the reference literature and is the one the standard
- * "10 sub-layers" guidance assumes.
+ * approximations (Bruggeman, Maxwell-Garnett, Lorentz-Lorenz) are not used: the
+ * linear rule is the canonical starting point in the reference literature and
+ * is the one the standard "10 sub-layers" guidance assumes.
  */
 
 // ── Profile functions: t ∈ [0,1] → f ∈ [0,1] (B-fraction) ────────────────────

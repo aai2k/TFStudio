@@ -5,7 +5,7 @@
  * refines, the Design Cleaner's post-clean pass and the Needle Manual refine
  * after an insertion; the benchmark runs the same job on its own thread through
  * InThreadOptimizerWorker. Multi-start is a worker POOL: the main thread
- * (Refinement.js) spawns several workers, hands each a perturbed-design job,
+ * (utils/refinement/dlsPool.js) spawns several workers, hands each a perturbed-design job,
  * and aggregates the global best. A job only ever does "optimize this design,
  * stream progress, report the best you found"; orchestration lives with the
  * caller.
@@ -75,8 +75,9 @@ function runSingle(job, resolveMat, postMessage) {
     // undefined for a plain single-start (non-pool) run.
     const rIdx = job.restartIdx, nR = job.nRestarts;
 
-    // Engine method: 'dls' (default, used by the Local Refinement pool) or one
-    // of the Global-Refinement engines 'de' / 'sa' / 'cg'. All share the same
+    // Engine method: 'dls' (default, used by the multi-start pool) or any other
+    // makeEngine method ('de', 'sa', 'cg', 'newton', 'newton-cg', 'sqp',
+    // 'trust-region'). All share the same
     // step()/isConverged()/applyToDesign()/mf/mfBest/iter interface, so the
     // run loop below is method-agnostic.
     const opt = makeEngine(job.method || 'dls', operands, design, resolveMat, {

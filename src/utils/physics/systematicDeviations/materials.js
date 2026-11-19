@@ -15,9 +15,7 @@ export function enumerateUniqueMaterials(design) {
     if (!design) return [];
     // One entry per unique material id (deviations are keyed by material id, so a
     // single perturbation governs every place that material appears). We still
-    // collect ALL roles it plays so the UI can show e.g. "Air (incident, exit)" —
-    // previously only the first role was kept, which made the exit medium look
-    // missing whenever it shared a material (the common Air|…|Air case).
+    // collect ALL roles it plays so the UI can show e.g. "Air (incident, exit)".
     const order = [];
     const roles = new Map();   // id → ['incident', 'exit', …] (insertion order, deduped)
     const add = (id, role) => {

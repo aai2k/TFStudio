@@ -34,7 +34,7 @@ export function evaluateChar({ design, params, evalMode, resolveMat,
     const subMat  = resolveMat(subId);
     const exitMat = resolveMat(exitId);
 
-    // H10: capture the ORIGINAL (unfiltered) layer index BEFORE dropping
+    // Capture the ORIGINAL (unfiltered) layer index BEFORE dropping
     // zero-thickness layers, and hand THAT index to getMatForLayer. The trial's
     // perturbation arrays (dThk/dn/dk) and matsFront/matsBack are all on the
     // unfiltered index space, so a layer that is 0 nm nominally — or clamped to

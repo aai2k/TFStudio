@@ -255,7 +255,7 @@ function fillTotalSpectrum(result, lambdas, materials, validFront, validBack,
 /**
  * Build the ascending wavelength sampling grid for a spectrum evaluation.
  *
- * H8 guard: a non-positive or non-finite `lambdaStep` (e.g. a UI field parsed
+ * A non-positive or non-finite `lambdaStep` (e.g. a UI field parsed
  * as `-1`, `0`, or NaN) would ask for an endless grid, an OOM hang that
  * freezes the renderer. Fall back to a 5 nm grid in that case. The UI
  * inputs are also clamped at the source; this is the last line of defence for

@@ -28,8 +28,8 @@
  *   layer ids, material picks, fractions and accept rolls all draw from it. This
  *   keeps the engine unit-testable (see tests/structural_optimizer.mjs).
  * • Mutations operate on ONE side's layer array (the surface-mode "active"
- *   side); the window component handles symmetric mirroring and the worker
- *   refinement. Locked layers are NEVER moved, merged, split or removed; their
+ *   side); the run (utils/structural/refine.js) handles symmetric mirroring and the
+ *   worker refinement. Locked layers are NEVER moved, merged, split or removed; their
  *   thickness is never perturbed.
  * • The Metropolis criterion is **scale-invariant**: the merit function's
  *   absolute magnitude varies by orders of magnitude between problems
@@ -42,8 +42,8 @@ import { cleanupLayers } from '../physics/optimizer/layerOps.js';
 
 // ── Seedable RNG (mulberry32) ───────────────────────────────────────────────────
 // Small, fast, well-distributed 32-bit PRNG. Deterministic for a given seed so
-// tests are reproducible; the window seeds it with the run's seed, the one in
-// its seed field or a fresh one, and records it with the run's generations.
+// tests are reproducible; the run seeds it with its seed (utils/structural/runState.js),
+// the one given in the settings or a fresh one.
 export function makeRng(seed) {
     let a = (seed >>> 0) || 1;
     return function rng() {
@@ -292,7 +292,7 @@ export function temperatureAt(frac, T0, Tend) {
 // `maxIter` or a patience early-stop. "Deep" mode instead runs an Iterated Local
 // Search / Basin Hopping loop: keep a global best, and on stagnation *reheat and
 // kick* instead of finalizing, looping until the user Stops (or a wallclock
-// bound). These three pure helpers carry the policy so the run loop in the window
+// bound). These three pure helpers carry the policy so the run loop (utils/structural/loop.js)
 // stays thin and the behavior is unit-testable without React/workers.
 
 /**

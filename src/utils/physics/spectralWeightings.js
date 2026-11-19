@@ -129,11 +129,7 @@ function resolveCustomTable(spec, fallbackLabel) {
     };
 }
 
-// Derive the integration range from the BUILTIN_SOURCES metadata (single
-// source of truth) instead of hardcoding. The old code clipped BOTH 'A' and
-// 'E' to 200–4000, but 'E' (equal energy) is declared 0–1e9 — so integrals
-// using source E were silently truncated beyond 4000 nm even though equal
-// energy applies at every λ.
+// The integration range comes from the BUILTIN_SOURCES metadata.
 // The resolvers run inside the optimizer as well as the UI, so they have no
 // locale. `label` here is the standard designation, which is what the integral
 // formula wants to read ("T(λ) × D65"); the described form for a picker comes
