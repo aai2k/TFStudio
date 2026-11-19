@@ -31,6 +31,7 @@ import { startWindowRun } from './windowRun.js';
 import { setCachedOptState } from './sessionState.js';
 import { syncOnDesignSwitch } from './needleLifecycle.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
+import { showAcceptedDesign } from '../synthesisShared/showAcceptedDesign.js';
 import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
 import { synthesisMntFloor, deriveDMinDefault, loadDMinTrack, dMinTyped } from '../synthesisShared/minThickness.js';
 
@@ -171,11 +172,15 @@ export function useNeedleVariation(t) {
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = runningRef.current;
         teardownRun({ runningRef, activeRunRef, abortRef });
+        // Not over an edit made while the run was going.
+        if (wasRunning && getDesignRevision?.(designRef.current?.id) === baseRevRef.current) {
+            showAcceptedDesign({ baseDesignRef, updateDesignRef, rowsRef: gensRef, setMf, setOmf, setLayerCount });
+        }
         setPhase('idle');
         // Stopping a run clears the phase text it was showing; a finished run's
         // reason stays when Best or Restore is pressed after it.
         if (msg || wasRunning) setStatusMsg(msg);
-    }, []);
+    }, [getDesignRevision]);
 
     // If the user manually edited the design (a non-transient write bumps
     // the revision) since baseDesignRef was cached, drop the stale base so the

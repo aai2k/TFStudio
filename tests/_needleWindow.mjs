@@ -10,6 +10,7 @@
 import { dispatchSynthesisJob } from '../src/utils/workers/synthesisWorker.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
 import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
+import { showAcceptedDesign } from '../src/components/windows/optimization/synthesisShared/showAcceptedDesign.js';
 import EN from '../src/constants/locales/en.js';
 
 // Window settings that live in local storage.
@@ -130,6 +131,7 @@ export function makeWindow(spec) {
     ctx.stopOpt = (msg = '') => {
         const wasRunning = ctx.runningRef.current;
         teardownRun(ctx);
+        if (wasRunning) showAcceptedDesign({ ...ctx, rowsRef: ctx.gensRef });
         ctx.setPhase('idle');
         if (msg || wasRunning) ctx.setStatusMsg(msg);
     };

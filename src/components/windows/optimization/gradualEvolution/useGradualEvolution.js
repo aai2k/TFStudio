@@ -28,6 +28,7 @@ import {
     restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot,
 } from './geStateHelpers.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
+import { showAcceptedDesign } from '../synthesisShared/showAcceptedDesign.js';
 import { synthesisMntFloor, deriveDMinDefault, loadDMinTrack, dMinTyped } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -196,11 +197,15 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = run.runningRef.current;
         teardownRun(run);
+        // Not over an edit made while the run was going.
+        if (wasRunning && getDesignRevision?.(run.designRef.current?.id) === run.baseRevRef.current) {
+            showAcceptedDesign({ ...run, updateDesignRef, rowsRef: run.cyclesRef });
+        }
         run.setPhase('idle');
         // Stopping a run clears the phase text it was showing; a finished run's
         // reason stays when Best or Restore is pressed after it.
         if (msg || wasRunning) run.setStatusMsg(msg);
-    }, []);
+    }, [getDesignRevision]);
 
     // Drop a stale cached base if the user manually edited the design (a
     // non-transient write bumps the revision) since it was snapshotted, so the

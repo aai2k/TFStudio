@@ -31,7 +31,7 @@ Click a point below zero to pick its position and material. **Apply insertion** 
 
 ## Controls and settings
 
-**Run**, **Stop**, **Reset**, **Best**, **Clear history**: Stop pauses, and the next Run carries on in the same run. Reset undoes the last Run press. Best puts the lowest-MF generation on the design, as **Restore** does for any row. Clear history forgets the rows and keeps the design.
+**Run**, **Stop**, **Reset**, **Best**, **Clear history**: Stop pauses, shows the last design the run accepted, and the next Run carries on from it in the same run. Reset undoes the last Run press. Best puts the lowest-MF generation on the design, as **Restore** does for any row. Clear history forgets the rows and keeps the design.
 
 **Candidate materials**: the pool of materials Needle is allowed to insert. The pool starts with only the materials of the design's layers ticked, front and back; the substrate and the media are listed under **This design** but unticked, and no other catalog is ticked. **All / Clear** select or empty the pool in one click. Once you change the pool, the window keeps your choice for every design, except that each design's substrate and media stay unticked until you tick them on that design; a pool emptied with **Clear** starts again from the design's own materials the next time the window opens.
 

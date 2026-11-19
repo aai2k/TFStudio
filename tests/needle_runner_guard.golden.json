@@ -2432,7 +2432,7 @@
         ]
       ]
     },
-    "designUpdates": 4,
+    "designUpdates": 5,
     "edits": 0,
     "genCount": 2,
     "jobs": {
@@ -2603,7 +2603,7 @@
         ]
       ]
     },
-    "designUpdates": 1,
+    "designUpdates": 2,
     "edits": 0,
     "genCount": 1,
     "jobs": {
@@ -2678,6 +2678,7 @@
       "canReset": true,
       "generation": 1,
       "layerCount": 1,
+      "mf": 0.013969787074056024,
       "mfBest": 0.013969787074056024,
       "omf": 0.013969787074056024,
       "omfBest": 0.013969787074056024,
@@ -2778,8 +2779,16 @@
     },
     "cached": null,
     "checkpoints": 1,
-    "design": null,
-    "designUpdates": 0,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          100
+        ]
+      ]
+    },
+    "designUpdates": 1,
     "edits": 0,
     "genCount": 0,
     "jobs": {},
@@ -2818,7 +2827,10 @@
       ]
     ],
     "shown": {
-      "canReset": true
+      "canReset": true,
+      "layerCount": 1,
+      "mf": null,
+      "omf": null
     },
     "terminated": 1
   },
@@ -2864,24 +2876,12 @@
       "back": [],
       "front": [
         [
-          "MgF2",
-          92.42498198694106
-        ],
-        [
           "SiO2",
-          85.13385794163418
-        ],
-        [
-          "MgF2",
-          141.93660172147173
-        ],
-        [
-          "SiO2",
-          66.98619296085421
+          100
         ]
       ]
     },
-    "designUpdates": 1,
+    "designUpdates": 2,
     "edits": 0,
     "genCount": 0,
     "jobs": {
@@ -2926,9 +2926,10 @@
     ],
     "shown": {
       "canReset": true,
-      "layerCount": 4,
-      "mf": 0.013541386643221682,
-      "mfBest": 0.013541386643221682
+      "layerCount": 1,
+      "mf": null,
+      "mfBest": 0.013541386643221682,
+      "omf": null
     },
     "terminated": 1
   },
@@ -2948,16 +2949,12 @@
       "back": [],
       "front": [
         [
-          "TiO2",
-          60
-        ],
-        [
           "SiO2",
-          90
+          100
         ]
       ]
     },
-    "designUpdates": 1,
+    "designUpdates": 2,
     "edits": 0,
     "genCount": 0,
     "jobs": {},
@@ -2998,9 +2995,9 @@
     ],
     "shown": {
       "canReset": true,
-      "layerCount": 2,
-      "mf": 0.5,
-      "omf": 0.5
+      "layerCount": 1,
+      "mf": null,
+      "omf": null
     },
     "terminated": 1
   }

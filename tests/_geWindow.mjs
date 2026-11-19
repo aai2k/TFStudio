@@ -16,6 +16,7 @@ import { makeTableHolder } from '../src/utils/workers/jobTables.js';
 import { WorkerPool } from '../src/utils/workers/workerPool.js';
 import { SYNTHESIS_WORKER_URL } from '../src/workerUrls.js';
 import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
+import { showAcceptedDesign } from '../src/components/windows/optimization/synthesisShared/showAcceptedDesign.js';
 import EN from '../src/constants/locales/en.js';
 
 // Window settings that live in local storage.
@@ -200,6 +201,7 @@ export function makeWindow(spec, id) {
     ctx.stopOpt = (msg = '') => {
         const wasRunning = ctx.runningRef.current;
         teardownRun(ctx);
+        if (wasRunning) showAcceptedDesign({ ...ctx, rowsRef: ctx.cyclesRef });
         ctx.setPhase('idle');
         if (msg || wasRunning) ctx.setStatusMsg(msg);
     };
