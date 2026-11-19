@@ -57,7 +57,15 @@ export function lineChartSVG(cfg) {
   parts.push(`<rect x="${mL}" y="${mT}" width="${pw}" height="${ph}" fill="#ffffff" stroke="#888" stroke-width="1"/>`);
 
   parts.push(...axisTicksSVG(geom));
+  // Curves are cut at the plot frame, as the window cuts them, so one past a
+  // fixed range does not run through the margins and the legend. The clip's id
+  // names its rectangle, so the charts of one report that share a frame share
+  // an identical definition.
+  const clipId = `tf-plot-${mL}-${mT}-${pw}-${ph}`;
+  parts.push(`<clipPath id="${clipId}"><rect x="${mL}" y="${mT}" width="${pw}" height="${ph}"/></clipPath>`);
+  parts.push(`<g clip-path="url(#${clipId})">`);
   parts.push(...seriesPolylinesSVG(all, sx, sy));
+  parts.push('</g>');
   parts.push(...axisLabelsSVG(geom, xLabel, yLabel));
   if (rows.length) parts.push(...legendSVG(rows, height));
 

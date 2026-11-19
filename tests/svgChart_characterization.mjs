@@ -85,5 +85,15 @@ ok('escapeHtml: number coerced', escapeHtml(42) === '42');
      points(svg)[0] === '56.0,262.2 380.0,262.2 380.0,25.8 704.0,25.8');
 }
 
+// ── lineChartSVG: a fixed range cuts a curve at the plot frame ───────────────
+// A curve past the range would otherwise run through the margins and the legend.
+{
+  const svg = lineChartSVG({ yMin: 0, yMax: 2, series: [{ x: [400, 500, 600], y: [0.5, 20, 1], color: '#000', label: 'R' }] });
+  const frame = /<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="#ffffff" stroke="#888"/.exec(svg);
+  const clip = /<clipPath id="([^"]+)"><rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"\/><\/clipPath><g clip-path="url\(#([^)]+)\)">((?:(?!<\/g>).)*)<\/g>/.exec(svg);
+  ok('lineChartSVG fixed range: the curves are clipped to a rectangle equal to the plot frame',
+     frame && clip && clip[1] === clip[6] && frame.slice(1, 5).join() === clip.slice(2, 6).join() && clip[7].includes('<polyline'));
+}
+
 if (fail === 0) console.log(`PASS: svgChart_characterization (${pass} checks)`);
 else { console.error(`\n${fail} test(s) failed, ${pass} passed.`); process.exit(1); }
