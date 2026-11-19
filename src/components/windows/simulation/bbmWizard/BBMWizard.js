@@ -135,7 +135,7 @@ export function BBMWizard({ c, t, onClose }) {
         quantity: 'T', pol: 'avg', aoi: 0, scanInterval: 3.0, lamMin: 400, lamMax: 800, points: 30,
         chipMaterial: null,                       // witness glass; null = design substrate
         previewLayer: 1, monNonce: 0, sigNonce: 0,
-        randomPct: 0.3, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
+        randomPct: 0.3, drift: 0, yFixed: true,
         timeMult: 10, resultTab: 'spectral', seed: 0xBBADCAFE,
     }));
     const set = useCallback((key, val) => setP(prev => ({ ...prev, [key]: val })), []);

@@ -23,7 +23,7 @@ A manufactured curve on top of the theoretical one with small error bars means t
 | 1 **Deposition Rates** | Per material **Mean rate, Å/s**, **RMS, Å/s** and **Corr. time, s**. The preview draws a rate trace; **Randomize and update** draws another. The rate wanders within a layer at the scan interval and carries on into the next layer of the same material. |
 | 2 **Parameters Deviation** | Per material **Re(n) Syst. Dev.**, **Re(n) Random Dev.** and **Syst. Inh. (%)**; the inhomogeneity is listed with the results but does not change the deposited layer. Per layer **Exclude** from monitoring with a **Relative Thickness Error, %**: an excluded layer ends at its target plus that error, whatever the rate did. **Mean shutter delay** and **Shutter delay RMS**, in s, between the cut decision and the shutter closing, added to every layer. |
 | 3 **Broadband Monitoring System** | Quantity and polarization (T or R; avg, s or p), **Incidence angle**, **Scan interval**, the band (**Wavelength min**, **max**, **Points**) and **Chip glass**, the witness the monitor watches, the design substrate to start with. The preview shows the ideal signal for the layer picked in the tab strip. |
-| 4 **Signal Errors** | **Random Errors, %** of the signal and a slow **Drift**, with the noisy signal previewed. |
+| 4 **Signal Errors** | **Random Errors, %** of the signal and a slow **Drift, % per 1000 s**, with the noisy signal previewed. |
 | 5 **Deposition Simulation** | **Start** runs the experiment; **Restart**, **Stop** and **Time multiplier rate**. |
 
 The coating side deposited, and how the result is scored, follow the surface mode in the [Design Editor](/design/design-editor/), shown as a badge.

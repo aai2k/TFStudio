@@ -58,7 +58,7 @@ function makeInitialMonoState() {
         bulkLambda: null,                         // batch λ field; null = design reference λ
         lamMin: 400, lamMax: 800,                 // display band (spectrum pages)
         previewLayer: 1, monNonce: 0, sigNonce: 0,
-        randomPct: 0.3, absNoisePct: 0.1, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
+        randomPct: 0.3, absNoisePct: 0.1, drift: 0, yFixed: true,
         timeMult: 10, resultTab: 'spectral', seed: 0x300FCAFE,
     };
 }

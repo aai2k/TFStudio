@@ -24,7 +24,7 @@ Layers with large errors are those whose wavelength or strategy does not serve t
 | 2 **Parameters Deviation** | Systematic and random index shifts and **Syst. Inh. (%)** per material, the inhomogeneity listed with the results but not applied to the layer; layers **excluded** from monitoring with an extra relative thickness error; mean and RMS shutter delay. |
 | 3 **Monitoring System** | Quantity and polarization, **Incidence, °**, **Scan interval, s**, **Confirm scans** a cut needs, and **Chip glass**. The preview plots the ideal signal against deposited thickness for the selected layer, with the cut marked. |
 | 4 **Monitoring Wavelengths** | Per layer **λ mon, nm**, **Strategy** and **Order** ([below](#termination-strategies)); **Auto λ (all)**, **Set all** and **Strategy for all…**. Clicking a row previews that layer's signal. |
-| 5 **Signal Errors** | **Random errors, %** of the reading, **Absolute noise, %** of full scale, which does not shrink with the signal, and **Drift, %**. |
+| 5 **Signal Errors** | **Random errors, %** of the reading, **Absolute noise, %** of full scale, which does not shrink with the signal, and **Drift, % per 1000 s**. |
 | 6 **Deposition Simulation** | **Start** runs the experiment and plays it back. |
 
 The deposited side and how the result is scored follow the surface mode in the [Design Editor](/design/design-editor/). The signal is read through the whole witness chip, coating and bare back face added incoherently, with air above the coating: a bare chip of n = 1.52 reads 91.8 %, not the 95.7 % of its coated surface alone.
