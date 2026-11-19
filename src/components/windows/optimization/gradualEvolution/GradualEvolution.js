@@ -26,6 +26,7 @@ import {
     computePareto, TopDesignsPanel as SharedTopDesignsPanel,
 } from '../synthesisShared/synthesisHelpers.js';
 import { useGradualEvolution } from './useGradualEvolution.js';
+import { bestRowOf } from './geStateHelpers.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -52,9 +53,7 @@ export function GradualEvolution({ c, theme, t }) {
 
     // ── Render ────────────────────────────────────────────────────────────────
     const running   = phase !== 'idle';
-    const bestMFVal = cyclesRef.current.filter(cy => cy.layers).length
-        ? Math.min(...cyclesRef.current.filter(cy => cy.layers).map(cy => cy.mf))
-        : (mf ?? Infinity);
+    const bestMFVal = bestRowOf(cyclesRef.current)?.mf ?? (mf ?? Infinity);
 
     // Always show the merged timeline; the Side column tags which side each
     // cycle inserted on, and per-side reset lives in the ControlBar.

@@ -16,7 +16,7 @@ import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { minOmfOf } from '../synthesisShared/synthesisMath.js';
 import { lastRowOf } from '../synthesisShared/showAcceptedDesign.js';
 import { activeBaseline, activeRunNum, openRunBlock } from '../synthesisShared/runBlocks.js';
-import { cacheRun } from './geStateHelpers.js';
+import { bestRowOf, cacheRun } from './geStateHelpers.js';
 
 // Live preview: a worker's in-flight design is shown at most this often, in ms.
 const LIVE_EVERY_MS = 90;
@@ -66,7 +66,7 @@ function historyOf(ctx) {
     return {
         genNum: newBlock ? 0 : ctx.genCountRef.current,
         geSteps: newBlock ? 0 : ctx.geStepsRef.current,
-        bestMF: cycles.length ? Math.min(...cycles.map(c => c.mf)) : Infinity,
+        bestMF: bestRowOf(cycles)?.mf ?? Infinity,
         elapsedMs: cycles.length ? (cycles[cycles.length - 1].tMs || 0) : 0,
         hasRows: cycles.length > 0,
     };
@@ -168,6 +168,17 @@ function recordRow(ctx, row, info) {
     cacheRun(ctx);
 }
 
+// Mark the row of the design a run that ended on its own answers with, among
+// that run's rows, so bestRowOf counts it in place of the run's other rows.
+function markAnswer(ctx, result) {
+    const runNum = activeRunNum(ctx.runsRef.current);
+    const rows = ctx.cyclesRef.current;
+    const row = lastRowOf(rows.filter(r => r.runNum === runNum), result.frontLayers, result.backLayers);
+    if (!row) return;
+    ctx.cyclesRef.current = rows.map(r => (r === row ? { ...row, answer: true } : r));
+    ctx.setCycles(ctx.cyclesRef.current.slice());
+}
+
 // The run is over. One that ended on its own shows its best design and closes
 // its run block, so the next Run press opens a new one; a Stop leaves the block
 // open (stopOpt). A run that failed after it started stops the window with the
@@ -181,9 +192,10 @@ function endRun(ctx, result, run) {
         return;
     }
     showDesign(ctx, result, true);
+    markAnswer(ctx, result);
     ctx.setMf(result.mf);
     ctx.setOmf(lastRowOf(ctx.cyclesRef.current, result.frontLayers, result.backLayers)?.omf ?? null);
-    ctx.setMfBest(result.mf);
+    ctx.setMfBest(bestRowOf(ctx.cyclesRef.current)?.mf ?? result.mf);
     ctx.setLayerCount(result.frontLayers.length + result.backLayers.length);
     cacheRun(ctx);
     ctx.runningRef.current = false;

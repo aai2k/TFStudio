@@ -10,6 +10,22 @@ import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 
+// The history row the window calls its best, or null when no row can be
+// applied. A run that ended on its own answers with the design it ended on,
+// which its consolidation can leave above the lowest merit the run passed
+// through, so that run counts only its answer row; a run that was stopped
+// counts every row. Among the rows that count, the lowest merit wins, the
+// earliest on a tie.
+export function bestRowOf(cycles) {
+    const answered = new Set(cycles.filter(cy => cy.answer).map(cy => cy.runNum));
+    let best = null;
+    for (const cy of cycles) {
+        if (!cy.layers || (answered.has(cy.runNum) && !cy.answer)) continue;
+        if (!best || cy.mf < best.mf) best = cy;
+    }
+    return best;
+}
+
 // Restore a switched-to design's cached run (cycles/best) or clear the
 // timeline for a design with none. Also tears down any in-flight run for the
 // design being switched away from.
@@ -34,7 +50,7 @@ export function restoreOrClearForDesign(design, ctx) {
     const cached = getCached(newId);
     if (cached) {
         const cy      = cached.cycles;
-        const bestMF  = cy.length ? Math.min(...cy.map(c => c.mf)) : null;
+        const bestMF  = bestRowOf(cy)?.mf ?? null;
         const lastCy  = cy[cy.length - 1];
         cyclesRef.current     = cy;
         runsRef.current       = cached.runs || [];
@@ -95,7 +111,7 @@ export function cacheRun(ctx) {
 function syncFromCycles(ctx) {
     const survivors = ctx.cyclesRef.current;
     ctx.setCycles(survivors.slice());
-    ctx.setMfBest(survivors.length ? Math.min(...survivors.map(cy => cy.mf)) : null);
+    ctx.setMfBest(bestRowOf(survivors)?.mf ?? null);
     ctx.setOmfBest(minOmfOf(survivors));
 }
 

@@ -85,7 +85,7 @@ const SCRIPTED_ANSWERS = {
 // answer, for one job.
 function answerJob(win, job, materials, post) {
     if (win.spec.worker === 'scripted') {
-        const answer = SCRIPTED_ANSWERS[job.type];
+        const answer = win.spec.answers?.[job.type] || SCRIPTED_ANSWERS[job.type];
         post({ type: 'result', ...(answer ? answer(jobStacks(job), job) : {}) });
         return;
     }
@@ -152,7 +152,8 @@ globalThis.Worker = FakeWorker;
 /**
  * A window on `spec.design` (as design `id`) with `spec.ops`, `spec.pool` and
  * the field values maxLayers, maxGeCycles, targetMF, dlsIter, dMin and
- * deepSearch. `win.press` sets what the workers do during the next Run press;
+ * deepSearch. With `worker: 'scripted'`, `spec.answers` replaces the scripted
+ * answer of each job type it names. `win.press` sets what the workers do during the next Run press;
  * `win.shown`, `win.statuses`, `win.phases` and `win.applied` record what the
  * window shows. `win.posted` keeps every job the workers get, `win.initMessage`
  * the message the pool was built with, and `win.reconciles` how often the run

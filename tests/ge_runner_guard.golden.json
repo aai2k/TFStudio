@@ -649,6 +649,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -6.257704029941948e-7,
         "frontSnap": [
@@ -1464,6 +1465,7 @@
         "type": "refine"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -2.9195227906411714e-7,
         "frontSnap": [
@@ -2211,6 +2213,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -9.823125600577631e-7,
         "frontSnap": [
@@ -2785,6 +2788,7 @@
         "type": "ge"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -0.0024438577415332595,
         "frontSnap": [
@@ -3856,6 +3860,7 @@
         "type": "refine"
       },
       {
+        "answer": true,
         "backSnap": [
           [
             "TiO2",
@@ -4421,6 +4426,7 @@
         "type": "ge"
       },
       {
+        "answer": true,
         "backSnap": [
           [
             "TiO2",
@@ -5088,6 +5094,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -2.0429820238310192e-8,
         "frontSnap": [
@@ -6525,6 +6532,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": 0.0007174984208498554,
         "frontSnap": [
@@ -6968,6 +6976,7 @@
         "type": "ge"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -0.0024444831781320784,
         "frontSnap": [
@@ -7894,6 +7903,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -6.257704029941948e-7,
         "frontSnap": [
@@ -8446,6 +8456,7 @@
         "type": "ge"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": 0.000005337068558187996,
         "frontSnap": [
@@ -8496,7 +8507,7 @@
       },
       {
         "backSnap": [],
-        "dMF": -1.6576397442180646e-9,
+        "dMF": -0.000005338726197932214,
         "frontSnap": [
           [
             "SiO2",
@@ -8837,6 +8848,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -3.6141434114336443e-7,
         "frontSnap": [
@@ -9682,6 +9694,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -6.257704029941948e-7,
         "frontSnap": [
@@ -10737,6 +10750,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [],
         "dMF": -0.21999999999999997,
         "frontSnap": [
@@ -11161,6 +11175,7 @@
         "type": "needle"
       },
       {
+        "answer": true,
         "backSnap": [
           [
             "TiO2",

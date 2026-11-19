@@ -22,7 +22,7 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 ## Controls and settings
 
-**Run**, **Stop**, **Reset**, **Best**, **Clear history**, **Restore** and **Material Pool**: as in [Needle](/synthesis/needle/#controls-and-settings).
+**Run**, **Stop**, **Reset**, **Best**, **Clear history**, **Restore** and **Material Pool**: as in [Needle](/synthesis/needle/#controls-and-settings). From a run that ended on its own, **Best** takes only the design the run ended on: consolidation can leave that design a little above the lowest MF the run passed through.
 
 **Max layers**: the most layers the design may hold. Reaching it does not end the run: only needles that fit are taken, and freeing a layer comes before a forced step. 50 by default.
 

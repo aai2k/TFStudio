@@ -25,7 +25,7 @@ import { GE_DEFAULTS } from '../../../../utils/gradualEvolution/settings.js';
 
 import { startWindowRun } from './windowRun.js';
 import {
-    restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot,
+    restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot, bestRowOf,
 } from './geStateHelpers.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { showAcceptedDesign } from '../synthesisShared/showAcceptedDesign.js';
@@ -274,8 +274,8 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
 
     // ── Jump to best ──────────────────────────────────────────────────────────
     const bestOpt = useCallback(() => {
-        if (!run.cyclesRef.current.length) return;
-        const bestCy = run.cyclesRef.current.filter(cy => cy.layers).reduce((a, b) => (a.mf <= b.mf ? a : b));
+        const bestCy = bestRowOf(run.cyclesRef.current);
+        if (!bestCy) return;
         stopOpt('');
         applyCycleSnapshot(bestCy, { updateDesign, designRef: run.designRef, baseDesignRef: run.baseDesignRef });
         run.setMf(bestCy.mf);
