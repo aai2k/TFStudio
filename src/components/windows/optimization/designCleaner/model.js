@@ -22,11 +22,23 @@ export function computeCleanupPreview(design, opts) {
 // is set, on the cleaned stack, its merit rows sampled as a Refinement run
 // samples them at launch, so a feature narrower than a row's grid is seen, the
 // step budget clamped to 1..500 and the thickness floor to at least 1 nm.
-function refineJob(cleaned, design, { reoptIters, dMin, reoptMethod }) {
+// A side the cleanup leaves alone stays as it is through the pass: its layers
+// are locked for the refiner and written back unchanged afterwards. A
+// symmetric design's back is its front's mirror, so it is never held.
+function heldSide(design, side) {
+    if (design?.surfaceMode === 'symmetric') return null;
+    return side === 'front' ? 'backLayers' : side === 'back' ? 'frontLayers' : null;
+}
+
+function refineJob(cleaned, design, { reoptIters, dMin, reoptMethod, side }) {
+    const held = heldSide(cleaned, side);
+    const job = held
+        ? { ...cleaned, [held]: cleaned[held].map(layer => ({ ...layer, locked: true })) }
+        : cleaned;
     return {
         method: reoptMethod || DEFAULT_REFINE_METHOD,
-        operands: densifyForRun(design.meritOperands, cleaned),
-        design: cleaned,
+        operands: densifyForRun(design.meritOperands, job),
+        design: job,
         iters: Math.max(1, Math.min(500, reoptIters)),
         dMin: Math.max(dMin, 1.0),
     };
@@ -50,7 +62,10 @@ export async function applyCleanup(preview, design, dc, settings, resolveMat) {
             refined = inWorker
                 ? await refineOffThread(job, resolveMat, { signal, onProgress })
                 : await refineInTicks(job, resolveMat, { signal, onProgress });
-            if (refined) nextDesign = refined.design;
+            if (refined) {
+                const held = heldSide(nextDesign, settings.side);
+                nextDesign = held ? { ...refined.design, [held]: nextDesign[held] } : refined.design;
+            }
         } catch (e) {
             console.error('[Cleaner] post-clean refinement failed', e);
         }

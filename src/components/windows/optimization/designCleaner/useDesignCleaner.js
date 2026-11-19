@@ -117,7 +117,7 @@ export function useDesignCleaner(dc) {
 
     const merit = useCleanerMerit(design, preview?.design ?? null, isOptimizing);
 
-    const settings = useMemo(() => ({ reoptimize, reoptIters, reoptMethod, dMin }), [reoptimize, reoptIters, reoptMethod, dMin]);
+    const settings = useMemo(() => ({ reoptimize, reoptIters, reoptMethod, dMin, side: cleaned }), [reoptimize, reoptIters, reoptMethod, dMin, cleaned]);
     const run = useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint });
 
     const ops = preview?.ops || [];
