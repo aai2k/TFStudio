@@ -186,7 +186,7 @@ for (const hook of ['onStart', 'onProgress']) {
 
 // ── 5. A target of Infinity ─────────────────────────────────────────────────
 {
-    const first = await runOnce({ ...SETTINGS, targetMF: Infinity });
+    const first = await runOnce({ ...SETTINGS, targetMF: Infinity, consolidate: false });
     ok('a target of Infinity ends the run at its first accepted step', first.result.stopReason === 'target'
         && first.rows.filter(r => r.type === 'needle' || r.type === 'refine').length === 1, first.rows.map(r => r.type).join(','));
 }

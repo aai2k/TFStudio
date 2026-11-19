@@ -17,7 +17,7 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 - **MF** and **OMF**: as in [Needle](/synthesis/needle/#computed-quantities). Gradual Evolution keeps the `MNT` and `MXT` rows in its MF, so a layer held below an `MNT` row costs merit.
 - **GE steps**: the structural steps taken so far, forced steps, freed layers and perturbations.
-- **Type** of a row in Accepted Improvements: **Start** or **Seed**, the starting design; **Needle**, a needle that stays as a layer of its own; **Refine**, a needle that joined a neighbour of its material and so only changed thicknesses, folded into the row before it when that row is the run's own Needle or Refine row; **GE**, a forced step as it left the design; **Clean**, parked layers dropped, a freed layer or the consolidation at the end; **Perturb**, a Deep search restart.
+- **Type** of a row in Accepted Improvements: **Start** or **Seed**, the starting design; **Needle**, a needle that stays as a layer of its own; **Refine**, a needle that joined a neighbour of its material and so only changed thicknesses, folded into the row before it when that row is the run's own Needle or Refine row, and also the consolidation at the end when it takes no layer out but its refine gives a lower MF; **GE**, a forced step as it left the design; **Clean**, parked layers dropped, a freed layer or the consolidation at the end; **Perturb**, a Deep search restart.
 - **ΔMF**, **TOT** and **Top Designs**: as in Needle. MF Trend marks the forced steps as triangles.
 
 ## Controls and settings
