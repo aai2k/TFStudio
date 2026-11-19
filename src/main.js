@@ -82,7 +82,7 @@ try {
   log('Data directory is writable');
 } catch (err) {
   log(`Failed to set up data directory: ${err.message}`);
-  // MP7: the exe dir is read-only (a locked USB, a network share), so the
+  // The exe dir is read-only (a locked USB, a network share), so the
   // portable AppData beside it is unwritable. Using it for userData anyway
   // would make settings / license / localStorage all fail silently. Fall back to
   // the OS per-user app-data directory instead of soldiering on with a dead dir.
@@ -105,7 +105,7 @@ flushLog();
 let mainWindow;
 let userPaths;
 
-// MP6: single-instance lock. Two instances would share the portable userData:
+// Single-instance lock. Two instances would share the portable userData:
 // the same Chromium profile, settings.json (last-writer-wins), the log file, and
 // load-folders writing fresh ids into copies the other instance has open. Hand
 // off to the already-running instance and exit before any further init runs.
@@ -351,7 +351,7 @@ app.whenReady().then(() => {
   }
   log('App ready');
   helpServer.startHelpServer({ isPackaged, srcDir: __dirname });
-  setupIpcHandlers();   // register once, not per-window (MP5 fix)
+  setupIpcHandlers();   // register once, not per-window
   createWindow();
 });
 

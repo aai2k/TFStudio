@@ -36,8 +36,6 @@
  *   layers      → per-template layer-stack construction
  *   generate    → generateARSeeds
  *   rank        → rankSeeds
- * This file re-exports their full surface so every existing importer
- * (components, tests) is unchanged.
  */
 
 export * from './seedGenerator/classify.js';

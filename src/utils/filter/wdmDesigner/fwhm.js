@@ -147,9 +147,6 @@ export function solveMirrorPairsFromFWHM({
  *
  * Cross-check vs Tikhonravov example: SF = 0.6/0.35 = 1.714 → q ≈ 4.7
  * → q = 5 (matches paper's "five or more").
- *
- * Replaces the previous lookup table that was far too aggressive
- * (e.g. it returned 5 cavities for SF=5 where Chebyshev says q=3 suffices).
  */
 export function suggestCavities(shapeFactor) {
     if (!(shapeFactor > 1) || !isFinite(shapeFactor)) return 1;
@@ -214,7 +211,7 @@ function buildCandidateRowsForSpacerOrder(m, params, indices) {
  * inverse, but we never go below k=4 or above k=18, and we never use
  * spacer order ≥ 4 (which creates ghost peaks in the stopband). This makes
  * it physically impossible for the wizard to suggest a degenerate prototype
- * like (k=1, m=7) that the previous version did.
+ * like (k=1, m=7).
  *
  *   row = {
  *     notationM, notationK,         // (m, k) notation for display

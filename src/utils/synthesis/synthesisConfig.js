@@ -27,8 +27,6 @@
  *                        SMART_SEED_DEFAULTS
  *   intraSamples      → SYNTHESIS_INTRA_SAMPLES (needle positions per layer)
  *   minGain           → SYNTHESIS_MIN_GAIN (the smallest merit fall counted as progress)
- * This file re-exports their full surface so every existing importer
- * (components, workers, tests) is unchanged.
  *
  * NOTE: adaptive merit sampling is ALWAYS ON and has no setting —
  * it's a correctness fix (the merit was blind to spectral features narrower than

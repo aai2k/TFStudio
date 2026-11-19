@@ -59,8 +59,8 @@ export function gauss(rng) {
 //
 // which preserves the stationary mean `mean` and stationary std `σ` for any Δt
 // and any correlation time τ.  As τ→0 the decay a→0 and the update collapses to
-// independent white draws  r = mean + σ·N(0,1)  — exactly the v1 behavior — so
-// callers that pass τ=0 (or omit it) are bit-identical to the old white model.
+// independent white draws  r = mean + σ·N(0,1)  of the sampled rate, so
+// callers that pass τ=0 (or omit it) get white noise.
 //
 // Reference: Gillespie, "Exact numerical simulation of the Ornstein-Uhlenbeck
 // process and its integral," Phys. Rev. E 54, 2084 (1996), Eq. (2.13).

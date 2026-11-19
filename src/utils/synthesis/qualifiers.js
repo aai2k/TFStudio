@@ -42,8 +42,6 @@
  *                    qualifiers" button: converts each qualifier into one or
  *                    more OPGT/OPLT operands (12.2.1), written into
  *                    design.meritOperands by the Specification window)
- * This file re-exports their full surface so every existing importer
- * (components, tests) is unchanged.
  */
 
 export * from './qualifiers/constants.js';

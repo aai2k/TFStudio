@@ -115,7 +115,7 @@ function useOptimizerCount() {
 // writes (real user/tool edits), NOT on the transient live-preview stream a
 // long-running optimizer emits. Synthesis windows snapshot this at run start
 // and re-read the design if it changed, so a manual thickness edit between
-// runs is picked up instead of optimizing a stale cached stack (M12).
+// runs is picked up instead of optimizing a stale cached stack.
 function useEditRevisions(activeId) {
     const seqRef = React.useRef({});
     const getDesignRevision = useCallback(

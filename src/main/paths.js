@@ -78,7 +78,7 @@ function writeTarget(filePath) {
 // is atomic on the same filesystem, so a crash/power-loss mid-write can never
 // leave a truncated or partially-written file — a truncated .tfs/.json is
 // silently skipped at load, which reads to the user as a "vanished" design or
-// lost settings (MP4). The temp is cleaned up if anything throws.
+// lost settings. The temp is cleaned up if anything throws.
 function writeFileAtomic(filePath, data, encoding) {
   const target = writeTarget(filePath);
   const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;

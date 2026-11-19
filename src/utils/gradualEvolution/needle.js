@@ -107,9 +107,9 @@ export async function tryAcceptOnSide(S, sd) {
     const queue = await scanSideQueue(S, sd, timing);
     if (queue.length === 0) return false;
 
-    // Cap how many K-batches we refine per step. The long tail of marginal
-    // P-candidates was the 9–21 s/gen stall cost (45–56 candidates = 6–7 rounds);
-    // OTF inserts the best few and moves on. When the capped batches don't
+    // Cap how many K-batches we refine per step: at most maxBatches batches are
+    // refined before a structural step, and the long tail of marginal
+    // P-candidates is left. When the capped batches don't
     // improve we fall through to forced-TOT (which re-scans) sooner.
     let _batchN = 0;
     for (let i = 0; i < queue.length && _batchN < S.maxBatches && alive(S); i += S.K, _batchN++) {

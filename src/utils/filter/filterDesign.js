@@ -1,10 +1,8 @@
 /**
  * Filter Design engine (narrow band-pass / WDM wizard).
  *
- * Reworked from the old `wdmDesigner.js` to follow a "Filter Design" six-step
- * procedure, whose key property is that it produces
- * **near-final designs immediately**. Three ideas, all absent in
- * the v1 generator, make that happen:
+ * Follows a "Filter Design" six-step procedure, whose key property is that it
+ * produces **near-final designs immediately**. Three ideas make that happen:
  *
  *   1. EMBEDDED DESIGN.  Steps 1–5 design the filter as if the incident medium
  *      had the SAME refractive index as the substrate ("Match medium = n_sub").
@@ -13,7 +11,7 @@
  *      (Global Integer Search: optimized assuming the
  *      refractive index of the incidence medium is equal to that of the
  *      substrate.)  Verified: the embedded LEC25D9 N=4 prototype has peak
- *      T = 1.0000 vs 0.9574 in air — the latter is what the old generator showed.
+ *      T = 1.0000 vs 0.9574 in air.
  *
  *   2. GLOBAL INTEGER SEARCH (step 5).  A discrete optimizer over per-mirror QW
  *      layer counts and per-spacer orders, minimizing the embedded merit

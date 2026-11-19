@@ -6,7 +6,7 @@
 // helper (httpGetBuffer) and the shared ZIP reader are only used by rii:update.
 const { unzipEntries } = require('../zip');
 
-// MP2: every remote fetch gets an inactivity timeout AND a size cap, so a
+// Every remote fetch gets an inactivity timeout AND a size cap, so a
 // stalled connection can't hang the awaiting renderer forever and a runaway
 // response can't exhaust main-process memory.
 const HTTP_TIMEOUT_MS  = 60000;
@@ -37,8 +37,7 @@ function httpGetBuffer(url, redirects = 0) {
   });
 }
 
-// Text fetch with the same guards + redirect following (fetch-yaml previously
-// followed none, inconsistent with httpGetBuffer).
+// Text fetch with the same guards + redirect following.
 function httpGetText(url, redirects = 0) {
   const https = require('https');
   return new Promise((resolve, reject) => {
@@ -93,7 +92,7 @@ async function handleFetchYaml(ctx, url) {
   const { log } = ctx;
   try {
     const yaml = require('js-yaml');
-    const text = await httpGetText(url);   // MP2: timeout + size cap + redirects
+    const text = await httpGetText(url);   // timeout + size cap + redirects
     const data = yaml.load(text);
     return { success: true, data, text };
   } catch (err) {
@@ -156,7 +155,7 @@ async function writeDatabaseEntry(ctx, staging, ent, state) {
   fs.mkdirSync(path.dirname(dst), { recursive: true });
   fs.writeFileSync(dst, ent.data);
   if (rel.startsWith('data/')) state.count++;
-  // MP8: ~4000 sync inflate+write entries would freeze ALL IPC (incl. the
+  // ~4000 sync inflate+write entries would freeze ALL IPC (incl. the
   // window controls) until done. Yield to the event loop every batch so the
   // main process stays responsive during the extract.
   if (++state.written % 64 === 0) await new Promise(r => setImmediate(r));
