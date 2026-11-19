@@ -700,7 +700,7 @@ async function stackViews(t, said) {
         new objects.IndexProfile(api.indexProfile(design, options)).saveCsv(file);
         return csvRows(fs.readFileSync(file, 'utf8'));
     });
-    ok('save_csv writes what saveCsv writes, on one side and on the whole part', canon((got.csv ?? []).map(csvRows)) === canon(csvThere) && csvThere[1][0].join() === 'region,z,n,k',
+    ok('save_csv writes what saveCsv writes, on one side and on the whole part', canon((got.csv ?? []).map(csvRows)) === canon(csvThere) && csvThere[1][0].join() === 'region,z,unit,n,k',
         String(got.csv?.[1]).slice(0, 200));
     const facts = ['front', 'back', 'total'].reduce((all, side) => [...all, api.designFacts(design, { side })], [api.designFacts(design)]);
     ok('total_thickness(), optical_thickness() and layer_counts() are designFacts\', with and without side', canon(got.facts) === canon(facts.map(f => [f.thickness, f.opticalThickness, f.layerCounts])),

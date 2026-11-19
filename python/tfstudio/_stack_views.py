@@ -38,12 +38,12 @@ def _table_rows(profile):
         if not layers:
             return []
         last = layers[-1]
-        return ([[_REGIONS[side], layer.start, layer.n, layer.k] for layer in layers]
-                + [[_REGIONS[side], last.end, last.n, last.k]])
+        return ([[_REGIONS[side], layer.start, "nm", layer.n, layer.k] for layer in layers]
+                + [[_REGIONS[side], last.end, "nm", last.n, last.k]])
 
-    bulk = [] if substrate is None else [[_REGIONS["substrate"], 0, substrate.n, substrate.k],
-                                         [_REGIONS["substrate"], substrate.thickness, substrate.n, substrate.k]]
-    return [["region", "z", "n", "k"]] + coat("front") + bulk + coat("back")
+    bulk = [] if substrate is None else [[_REGIONS["substrate"], 0, "mm", substrate.n, substrate.k],
+                                         [_REGIONS["substrate"], substrate.thickness, "mm", substrate.n, substrate.k]]
+    return [["region", "z", "unit", "n", "k"]] + coat("front") + bulk + coat("back")
 
 
 class IndexProfile:
@@ -174,8 +174,8 @@ class IndexProfile:
         the stretch of medium and substrate it draws at each end: a row for
         each step of n and k with the depth it starts at,
         z (nm), from the outer surface to the substrate, which the last row
-        gives. On the whole part the columns are region, z, n and k, each
-        part's depths counted from its start, the substrate's in mm. A file
+        gives. On the whole part the columns are region, z, unit, n and k, each
+        part's depths counted from its start, in nm and for the substrate in mm. A file
         that is there is written over.
 
         Args:
