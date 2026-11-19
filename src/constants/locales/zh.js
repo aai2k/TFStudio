@@ -1248,8 +1248,8 @@ export default {
     dragToMove: '拖动以移动窗口。使用“停靠”按钮放回布局',
     dropHere: '松开以停靠',
     empty: {
-      hint: '创建项目开始，或从左侧资源管理器选择现有设计。',
-      createProject: '创建项目',
+      hint: '创建设计开始，或从左侧资源管理器选择现有设计。',
+      createProject: '新建设计',
     },
   },
   // Unit symbols written beside a number, in the language's own script.
