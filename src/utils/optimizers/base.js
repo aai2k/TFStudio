@@ -1,7 +1,7 @@
 /**
  * Global-Refinement engine base class.
  *
- * The new optimization engines (Differential Evolution, Simulated Annealing,
+ * The optimization engines (Differential Evolution, Simulated Annealing,
  * Conjugate Gradient) all solve the SAME problem the DLS refiner solves:
  * minimize the merit function over the layer-thickness vector of a FIXED stack.
  * They do NOT change the layer count (that is synthesis — Needle / Gradual
@@ -104,7 +104,7 @@ export class EngineBase {
     }
 
     // No free variables → nothing any engine can optimize, so we are converged
-    // by definition (M15: otherwise isConverged stays false and the engine
+    // by definition (otherwise isConverged stays false and the engine
     // no-ops to maxIter).
     isConverged() { return this.freeIdx.length === 0 || this.mfBest < this.tol; }
 

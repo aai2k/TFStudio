@@ -198,12 +198,8 @@ export function deleteCatalogFile(catalogId, source, name = catalogId, options) 
         : Promise.resolve(null);
 }
 
-// Backfill a missing/blank material `id` from its map key. A catalog material's
-// key in `cat.materials` IS its id by contract, but some sources persisted
-// entries without an explicit `id` field (e.g. the legacy multipassband sample
-// catalog) — those rendered as dead grey rows that sorted to the top (empty id)
-// and crashed materialToDraft (`mat.id.replace`). Normalising here, at the one
-// registration boundary, heals existing AND future catalogs in place.
+// A material with a missing or blank `id` takes its map key as its id: a
+// catalog material's key in `cat.materials` IS its id by contract.
 //
 // A tabulated material also gets an explicit interpolation rule: the one it
 // names, or PCHIP for a catalog saved before the field existed.

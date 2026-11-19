@@ -64,9 +64,8 @@ export function bandRowCount(op) {
 
 // Continuous per-λ target line (TGT/RGT/AGT). Density-based default
 // (~AVG_STEP_NM, same grid as band averages) so a steep ramp / structured
-// spectral target is sampled finely enough that the RMS deviation is accurate —
-// the old flat 21-point default was ~15 nm spacing on a 300 nm band and
-// under-resolved steep edges. `op.rampPoints` (if ≥2) still overrides for a
+// spectral target is sampled finely enough that the RMS deviation is accurate.
+// `op.rampPoints` (if ≥2) still overrides for a
 // hand-tuned density, though never coarser than the row's flag asks.
 function _rangeTargetLambdas(op, range) {
     const n = bandRowCount(op);
@@ -160,7 +159,7 @@ function bandSampledLambdas(op) {
 }
 
 // Sorted unique union of every λ the enabled operands will sample. This is the
-// exact grid the worker pre-samples each material on (Approach A).
+// exact grid the worker pre-samples each material on.
 export function requiredLambdas(operands) {
     const set = new Set();
     for (const op of operands) {
@@ -170,7 +169,7 @@ export function requiredLambdas(operands) {
     return Array.from(set).sort((a, b) => a - b);
 }
 
-// Build the worker materials table (Approach A): sample each {id, mat} pair's
+// Build the worker materials table: sample each {id, mat} pair's
 // [n,k] on the exact λ grid. Shared by Refinement (DLS) and the synthesis
 // worker (needle/GE — must also pre-sample the candidate pool).
 // `pairs` = [{ id, mat }]; later duplicates of an id are ignored.

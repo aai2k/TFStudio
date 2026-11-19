@@ -2,8 +2,7 @@
  * Filter type catalog (design wizard) — categories, per-type field specs, and
  * operand generators.
  *
- * Depends only on the operand data model. optimizer.js re-exports this whole
- * surface so existing importers are unchanged.
+ * Depends only on the operand data model.
  */
 
 import { fractionFromLog, isLogPoint, logValue, makeOperand } from './operandModel.js';
@@ -58,11 +57,10 @@ function colorTargetOperands(type) {
         })));
 }
 
-// Operand type codes are polarization-AGNOSTIC now — polarization rides on
+// Operand type codes are polarization-AGNOSTIC — polarization rides on
 // op.pol (avg/s/p), set by the generators below. So:
 //   band-average → always {T|R|A}AV   (TAV/RAV/AAV, evaluated at op.pol)
 //   single-λ     → always {T|R|A}      (T/R/A, evaluated at op.pol)
-// (Previously these appended S/P, producing the now-removed RS/TS/… types.)
 function avgTypeCode(base /*, pol */)  { return base + 'AV'; }
 function discTypeCode(base /*, pol */) { return base; }
 
@@ -79,8 +77,8 @@ function aoiArray(common) {
 // The target is enforced PER-WAVELENGTH (not as a single band average): with
 // common.targetMode = 'continuous' (default) each channel becomes one flat
 // range-target operand (RGT/TGT) across [λStart, λEnd]; 'discrete' emits point
-// operands on a `common.stepNm` grid. TAV/RAV are pure averages now and are no
-// longer used for spectral targets (see spectralTargetOps).
+// operands on a `common.stepNm` grid. TAV/RAV are pure averages and are not
+// used for spectral targets (see spectralTargetOps).
 function rangeRT({ lamStart, lamEnd, rTarget, tTarget, rWeight = 1.0, tWeight = 1.0, common }) {
     const pol  = common.pol || 'avg';
     const mode = common.targetMode || 'continuous';
@@ -102,8 +100,8 @@ function rangeTargetCode(base) { return base + 'GT'; }
 //     Flat target ⇒ t1 = t0.
 //   • mode='discrete'   → N point operands (T/R/A or S/P) on a `stepNm` grid,
 //     each with the interpolated single target at its λ.
-// This is the shared engine for the beamsplitter and gradient wizards (item 5/7):
-// TAV/RAV are never used for spectral targets anymore — they are pure averages.
+// This is the shared engine for the beamsplitter and gradient wizards:
+// TAV/RAV are never used for spectral targets — they are pure averages.
 // Wavelengths from lamStart to lamEnd on a step of about `stepNm`: both ends,
 // equally spaced, never fewer than two.
 function stepGrid(lamStart, lamEnd, stepNm) {
@@ -264,7 +262,7 @@ export const FILTER_TYPES = {
     // ── Beamsplitter ─────────────────────────────────────────────────────────
     // Spectral targets via spectralTargetOps: continuous (one range-target
     // operand per channel/pol) or discrete (point operands at `common.stepNm`).
-    // Paired R+T keeps absorption penalized. No TAV/RAV "50→50" anymore.
+    // Paired R+T keeps absorption penalized.
     NEUTRAL_BS: {
         category: 'BS',
         supportsTargetMode: true,
@@ -440,7 +438,7 @@ export const FILTER_TYPES = {
     // ── Gradient ─────────────────────────────────────────────────────────────
     // Linear T target from tStart (at λStart) to tEnd (at λEnd), with the
     // complementary R ramp. Emitted as a continuous range-target operand
-    // (TGT/RGT) — no TAV/RAV "0→100" — or discrete point operands.
+    // (TGT/RGT), or discrete point operands.
     LINEAR_RAMP: {
         category: 'GRAD',
         supportsTargetMode: true,

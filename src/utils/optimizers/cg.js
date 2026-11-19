@@ -34,11 +34,10 @@ export class CGOptimizer extends EngineBase {
         // PERSISTENCE (opt-in). When true, CG won't quit at the first trapped
         // line search: it auto-restarts (steepest descent, no warm start) and,
         // on a plateau, auto-relaunches from the best point — emulating a
-        // manual "re-run CG ~5×" workflow. DEFAULT OFF so the validated
-        // SYNTHESIS inner-refiner (synthesisWorker → makeEngine('cg')) is byte-
-        // identical to before; every job of the optimizer worker (optimizerJob.js:
-        // Refinement, Structural proposals, Design Cleaner, Needle Manual) opts in
-        // with persistent:true.
+        // manual "re-run CG ~5×" workflow. DEFAULT OFF: the SYNTHESIS inner-refiner
+        // (synthesisWorker → makeEngine('cg')) runs without it; every job of the
+        // optimizer worker (optimizerJob.js: Refinement, Structural proposals,
+        // Design Cleaner, Needle Manual) opts in with persistent:true.
         this._persistent = opts.persistent ?? false;
         // Half-wave first probe of the line search (cg/lineSearch.js), opt-in:
         // the Refinement window sets it; synthesis keeps the long scan.
@@ -154,9 +153,8 @@ export class CGOptimizer extends EngineBase {
     isConverged() {
         if (this.freeIdx.length === 0) return true;
         if (!this._persistent) {
-            // Classic behavior (synthesis inner-refiner, validated): a few
-            // trapped line searches → converged. UNCHANGED from before the
-            // persistence work, so synthesis is byte-identical.
+            // Without persistence (the synthesis inner-refiner): three failed
+            // line searches → converged.
             return this.mfBest < this.tol || this._stall >= 3;
         }
         // Persistent (standalone Refinement): `_done` is set by step() once

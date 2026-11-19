@@ -82,13 +82,9 @@ export function insertNeedleIntra(design, cand, deltaNm, side = 'front') {
     const host   = layers[layerK];
     if (!host) return design;
     const dk = host.thickness || 0;
-    // M2: floor the split halves of the host at the same 1e-3 nm minimum that the
-    // scan oracle _perturbCtxIntra (scanners.js) uses — NOT at deltaNm. Callers
-    // pass deltaNm = dOpt (the optimized needle thickness, up to ~60 nm); flooring
-    // the host halves at dOpt injected phantom bulk (a 20 nm host split @0.5 became
-    // 60+needle+60 instead of 10+needle+10), so the inserted geometry no longer
-    // matched the one golden-section optimized. The needle layer itself keeps
-    // thickness = deltaNm below. (Matches Python needle_step's max(frac·d_k, D_MIN).)
+    // The host halves are floored at 1e-3 nm, as scanners/perturbCtx.js floors
+    // them, so the inserted geometry is the one the scan optimized. The needle
+    // layer itself keeps thickness = deltaNm below.
     const d1 = Math.max(frac * dk, 1e-3);
     const d2 = Math.max((1 - frac) * dk, 1e-3);
     const mkId = () => `n${Math.random().toString(36).slice(2, 10)}`;

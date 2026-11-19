@@ -20,7 +20,7 @@ import { _normalizeDegrees } from './angles.js';
 //
 //   • σ = 1 for every fraction-unit operand (T/R/A, TAV/RAV/AAV, TGT/RGT/AGT
 //     RMS, TIW/RIW/AIW, TMN…AMX) → every PURE-OPTICAL merit function is
-//     numerically UNCHANGED (no regression on existing designs).
+//     unscaled.
 //   • Math rows: the σ of the rows they read (residualScaleIn).
 //   • Argwave (λ in nm): σ = ARGWAVE_RESIDUAL_SCALE_NM. With 500, a 5 nm peak/
 //     edge miss weighs the same as a 1 % optical miss.
@@ -33,8 +33,8 @@ import { _normalizeDegrees } from './angles.js';
 //     stay σ = 1 ("hard"): a violated manufacturing bound should dominate and
 //     be fixed first, not be softened to optical scale.
 //
-// Applied in exactly two chokepoints — calcMF (the reported MF) and
-// DLSOptimizer._residuals (the LM step). The analytic Jacobian stays consistent
+// Applied in calcMF (the reported MF), DLSOptimizer._residuals (the LM step), the
+// operand contributions and the needle scans. The analytic Jacobian stays consistent
 // with it because every row builder divides its derivative by the same σ
 // (residualScaleIn): that is what lets the σ ≠ 1 operands with a worked-out
 // chain rule (Ψ, Δ, phase, GD, GDD, TOD, MXW*/MNW*, dB rows, math rows) take
@@ -42,10 +42,7 @@ import { _normalizeDegrees } from './angles.js';
 // differences _residuals and therefore inherits σ automatically. Either way the
 // gradient matches the residual. A new σ ≠ 1 operand needs its row builder to
 // carry the same division.
-//
-// TO REVERT to the old raw-nm behavior: set ARGWAVE_RESIDUAL_SCALE_NM = 1
-// (or make operandResidualScale always return 1 to disable normalization
-// entirely). Nothing else depends on it.
+
 export const ARGWAVE_RESIDUAL_SCALE_NM = 500;
 // Per-type characteristic scale for the phase/field operands (mixed units — see
 // the block above). Chosen so a "typical acceptable miss" weighs like a ~1 %

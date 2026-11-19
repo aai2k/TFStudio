@@ -70,8 +70,8 @@ export function meritGradient(eng, thk, freeIdxIn) {
     const g     = new Array(thk.length).fill(0);
     if (free.length === 0) return g;
 
-    // One evaluation at the base point serves the residuals and the Jacobian
-    // (M5). The gradient is the hot path for CG (default synthesis refiner)
+    // One evaluation at the base point serves the residuals and the Jacobian.
+    // The gradient is the hot path for CG (default synthesis refiner)
     // and Newton-CG, so this halves its TMM cost per call. Pure ⇒ bit-identical.
     const compBase = eng._evaluate(thk);
     const r   = eng._residuals(thk, compBase);

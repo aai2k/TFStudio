@@ -79,7 +79,7 @@ export class LSQEngine {
         this._coneNodes  = new Map();
         // Stress run temperatures, read by the STR operand through the context.
         this.stress      = design?.stress || null;
-        this.layerSide   = 'frontLayers';   // legacy field; callers may inspect
+        this.layerSide   = 'frontLayers';
 
         const front = design.frontLayers || [];
         // In symmetric mode the back stack is a mirror of the front, with no
@@ -199,8 +199,8 @@ export class LSQEngine {
     // the base point (e.g. step()/_newtonSystem/gradMF, which also need the
     // Jacobian at the same thk). evaluateOperands is pure & deterministic given
     // the (thk-derived) context, so reusing it is bit-identical and skips one
-    // full TMM operand sweep per step (M5). Omitted ⇒ evaluate here as before
-    // (perturbed FD points always recompute — they pass no compBase).
+    // full TMM operand sweep per step. Omitted ⇒ evaluated here (perturbed FD
+    // points always recompute — they pass no compBase).
     _residuals(thicknesses, compBase) {
         if (this._groups) return this._groups.residuals(thicknesses, compBase);
         const comp = compBase !== undefined
@@ -256,10 +256,10 @@ export class LSQEngine {
     // Returns null for unsupported merit-function term types so step()
     // can fall back to FD where the analytic chain rule isn't worked out.
     // `compBase` (optional) — precomputed evaluateOperands() for this exact thk,
-    // shared with the caller's _residuals() base eval (M5). Used only for the
+    // shared with the caller's _residuals() base eval. Used only for the
     // operand-level reduction (which λ* a band-extremum picked, ramp RMS, the
     // violated tests); the Jacobian's own TMM derivatives are computed separately
-    // via tmmJacEval. Omitted ⇒ evaluate here as before. Bit-identical either way.
+    // via tmmJacEval. Omitted ⇒ evaluated here.
     _analyticJacobian(thk, freeIdx, compBase) {
         if (this._groups) return this._groups.jacobian(thk, freeIdx, compBase);
         // Variable layout (which free vars exist) is set by surfaceMode; whether
@@ -329,7 +329,7 @@ export class LSQEngine {
     // Newton-CG / SQP run their own algorithm natively in EVERY surface mode
     // instead of silently reverting to the LM step. Returns a full symmetric H.
     _gaussNewtonSystem(thk, freeIdx) {
-        const compBase = this._evaluate(thk);   // shared base eval (M5)
+        const compBase = this._evaluate(thk);   // shared base eval
         const r0 = this._residuals(thk, compBase);
         const m  = r0.length, nFree = freeIdx.length;
         let J = this._analyticJacobian(thk, freeIdx, compBase);
@@ -396,8 +396,7 @@ export class LSQEngine {
         if (!this._fullNewtonSupported(sm, isSingleBack)) return this._gaussNewtonSystem(thk, freeIdx);
 
         // One base-point sweep shared by the Jacobian, the residuals AND the
-        // comp-Hessian operand reduction below (M5 — was three evaluateOperands
-        // on the same thk). Pure ⇒ bit-identical.
+        // comp-Hessian operand reduction below. Pure ⇒ bit-identical.
         const comp = evaluateOperands(this.operands, this._ctxFor(thk));
         const J = this._analyticJacobian(thk, freeIdx, comp);
         if (!J) return this._gaussNewtonSystem(thk, freeIdx);
@@ -428,11 +427,9 @@ export class LSQEngine {
     // second-order engines (NewtonOptimizer / SQPOptimizer) override step() to
     // dispatch to newtonStep()/sqpStep(), which run natively in every surface mode.
     // Code in a subclass that needs the LM step MUST call lmStep(), NOT this.step() — the latter re-dispatches
-    // through the subclass override and recurses until the stack overflows
-    // (real bug: Newton/SQP crashed on back_only/symmetric/both_independent and
-    // in "Try all" on any two-sided design). lmStep() reaches the
-    // base LM body directly, so it is correct regardless of subclass. The hot
-    // step() path itself is left byte-for-byte untouched (bit-identical guarantee).
+    // through the subclass override and recurses until the stack overflows.
+    // lmStep() reaches the base LM body directly, so it is correct regardless
+    // of subclass.
     lmStep() { LSQEngine.prototype.step.call(this); }
 
     // Second-order STEP STRATEGIES (Newton / Newton-CG / SQP) live in their own
@@ -508,7 +505,7 @@ export class LSQEngine {
 
         // Augmented least-squares system  [ J ; √(λ·diag) ] Δ ≈ [ −r ; 0 ].
         // Its normal equations are exactly (JᵀJ + λ·diag)Δ = −Jᵀr — the same
-        // damped step as before — but solved by QR (condition number κ(J),
+        // damped step — but solved by QR (condition number κ(J),
         // not κ(J)²).
         const aug = new Array(m + nFree);
         const rhs = new Array(m + nFree);

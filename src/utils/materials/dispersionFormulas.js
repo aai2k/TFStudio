@@ -159,7 +159,7 @@ function extended3(coeffs, lum) {
 // CONFIRMED forms — reverse-engineered by exact numerical agreement (Δn < 1e-6)
 // against the precomputed n-tables embedded in OptiLayer's own .lm/.sub files and
 // cross-checked against the formula shown in the OptiLayer "Formula" material
-// editor (docs/optilayer docs → edmat_formula.png):
+// editor page of the OptiLayer documentation:
 //   • Cauchy series:       n = Σ Aᵢ λ⁻²ⁱ  (OptiLayer writes three terms)   (file nType 5)
 //   • Sellmeier, general:  n² = A₀ + Σᵢ Bᵢλ²/(λ²−Cᵢ)  (Cᵢ in µm²)         (file nType 4)
 //   • OptiLayer Schott:    n² = A₀ + A₁λ² + A₂/λ² + A₃/λ⁴ + A₄/λ⁶ + A₅/λ⁸ + A₆λ⁴
@@ -219,7 +219,7 @@ function olSchott(coeffs, lum) {
 // The math below uses the classical / OptiLayer-documented forms with citations,
 // but the importer deliberately does NOT route any file to them yet — an
 // unrecognised nType falls back to the file's embedded sampled table instead
-// (see optilayerParser.js). Wire these in once a sample file pins the code down.
+// (see optilayerParser.js), so no file is routed to 104-106.
 
 /** 104 — Hartmann (classical): n = A₀ + A₁/(A₂ − λ)
  *  Hartmann, Astrophys. J. 8, 218 (1898). UNCONFIRMED OptiLayer coefficient order. */

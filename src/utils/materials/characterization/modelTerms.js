@@ -121,9 +121,8 @@ export function fitBestModel(context, rows, { parsimonious = true, seeds = null,
             // Do not stop at the first rejected count. The coefficient spaces
             // are nested, but each candidate is then refined through a
             // nonlinear TMM; one local solve can stall while a later term
-            // count escapes it. A six-term Cauchy fit to the 500 nm TiO2 export
-            // is the concrete case: four terms stalls, while six cuts the
-            // spectrum residual materially.
+            // count escapes it. A 500 nm TiO2 film measured in R and T is a
+            // case where four Cauchy terms stall and six do not.
         }
     }
     return best && { ...best, seeds: ladder, cold: !warmStart };

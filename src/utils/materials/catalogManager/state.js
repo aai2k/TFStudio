@@ -18,9 +18,8 @@ export function getRegistry() {
 }
 
 /**
- * Raw registry map with NO lazy-init side effect — used only where reading an
- * uninitialized (i.e. still-empty) registry is the intended, pre-existing
- * behavior (see generateMaterialId).
+ * Raw registry map with NO lazy-init side effect: it does not seed the built-in
+ * catalog, so a caller before initCatalogs sees the registry empty.
  */
 export function peekRegistry() {
     return _catalogs;
