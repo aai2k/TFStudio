@@ -3,7 +3,7 @@
 // Run: node tests/spectrum_table_import.mjs
 import {
     parseSpectrumTable, makeMeasuredCurve, curvesToCsv, tableToCsv,
-    parseNumber, sniffDelimiter, detectDecimal, detectXUnit, detectQuantity,
+    parseNumber, sniffLayout, detectDecimal, detectXUnit, detectQuantity,
     detectIsPercent, xToNm, nmToX, absorbanceToT, guessXUnitFromRange,
     measuredCurveData, X_UNITS,
 } from '../src/utils/io/spectrumTable.js';
@@ -23,12 +23,12 @@ ok('parseNumber text → NaN', Number.isNaN(parseNumber('abc')));
 ok('parseNumber thousands+comma', approx(parseNumber('1.234,5', ','), 1234.5));
 
 // ── delimiter sniff ───────────────────────────────────────────────────────────
-ok('sniff comma', sniffDelimiter(['380,4.2', '381,4.3']) === ',');
-ok('sniff tab', sniffDelimiter(['380\t4.2', '381\t4.3']) === '\t');
-ok('sniff semicolon', sniffDelimiter(['380;4,2', '381;4,3'], ',') === ';');
-ok('sniff semicolon with decimal X and Y', sniffDelimiter(['400,0;88,51', '401,0;88,62'], ',') === ';');
-ok('sniff tab with decimal X and Y', sniffDelimiter(['400,0\t88,51', '401,0\t88,62'], ',') === '\t');
-ok('sniff whitespace', sniffDelimiter(['380   4.2', '381   4.3']) === ' ');
+ok('sniff comma', sniffLayout(['380,4.2', '381,4.3']).delimiter === ',');
+ok('sniff tab', sniffLayout(['380\t4.2', '381\t4.3']).delimiter === '\t');
+ok('sniff semicolon', sniffLayout(['380;4,2', '381;4,3'], { decimal: ',' }).delimiter === ';');
+ok('sniff semicolon with decimal X and Y', sniffLayout(['400,0;88,51', '401,0;88,62'], { decimal: ',' }).delimiter === ';');
+ok('sniff tab with decimal X and Y', sniffLayout(['400,0\t88,51', '401,0\t88,62'], { decimal: ',' }).delimiter === '\t');
+ok('sniff whitespace', sniffLayout(['380   4.2', '381   4.3']).delimiter === ' ');
 
 // ── detectDecimal ───────────────────────────────────────────────────────────────
 ok('decimal comma detected', detectDecimal('380;4,2\n381;4,3') === ',');

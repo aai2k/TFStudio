@@ -29,9 +29,9 @@ const L = 'builtin:SiO2';
 const N = 6;
 
 // Storage order: front layers air first, back layers substrate first.
-function design(name = 'Mirror 6L') {
+function design(name = 'Mirror 6L', layers = N) {
     const front = [];
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < layers; i++) {
         front.push({ id: `f${i}`, material: i % 2 ? L : H, thickness: i % 2 ? 94.1 : 57.3 });
     }
     return {
@@ -112,6 +112,24 @@ const files = (output, opts = OPTS) => buildAllProcessFiles(design(), { ...opts,
     const first = lines(bare[0].content);
     ok(first.length === resRows(res[0].content).length && /^500,\d+\.\d{5}$/.test(first[0]),
        'no header writes numbers only, without column names');
+}
+
+// ── 3b. The importer reads the data under the layer-table header ────────────
+// The header holds a dotted layer table and a dd.mm.yyyy stamp; neither decides
+// the delimiter or the decimal mark of the numbers below it.
+{
+    const variants = [
+        { layers: 6, delimiter: ';', decimalMark: ',' },
+        { layers: 6, delimiter: '	', decimalMark: '.' },
+        { layers: 119, delimiter: ',', decimalMark: '.' },
+    ];
+    for (const v of variants) {
+        const file = buildAllProcessFiles(design('Mirror', v.layers), { ...OPTS, output: { ...CSV, header: 'layers', delimiter: v.delimiter, decimalMark: v.decimalMark } }).at(-1);
+        const back = parseSpectrumTable(file.content);
+        ok(back.ok && back.delimiter === v.delimiter && back.decimal === v.decimalMark
+            && back.nRows === 201 && back.x[0] === 500 && back.x[1] === 500.5,
+           `${JSON.stringify(v)}: the spectrum comes back from under the layer-table header`);
+    }
 }
 
 // ── 4. How the numbers are written ──────────────────────────────────────────

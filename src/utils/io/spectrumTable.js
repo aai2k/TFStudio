@@ -22,7 +22,8 @@
  */
 
 export { X_UNITS, X_UNIT_KEYS, QUANTITIES } from './spectrumTable/constants.js';
-export { parseNumber, sniffDelimiter, detectDecimal } from './spectrumTable/numberParsing.js';
+export { parseNumber, detectDecimal } from './spectrumTable/numberParsing.js';
+export { sniffLayout } from './spectrumTable/layoutSniff.js';
 export {
     detectXUnit,
     guessXUnitFromRange,

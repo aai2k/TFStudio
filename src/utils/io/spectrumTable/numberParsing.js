@@ -25,7 +25,7 @@ export function parseNumber(field, decimal = '.') {
     return parseFloat(s);
 }
 
-const DELIMITERS = [
+export const DELIMITERS = [
     { id: ',',  re: /,/g },
     { id: ';',  re: /;/g },
     { id: '\t', re: /\t/g },
@@ -35,39 +35,6 @@ const DELIMITERS = [
 export function splitFields(line, delimiter) {
     if (delimiter === ' ') return line.trim().split(/\s+/);
     return line.split(delimiter).map(f => f.trim());
-}
-
-// Reward rows whose fields are predominantly numeric, plus a consistent column
-// count. The numeric fraction matters: in a decimal-comma row such as
-// `400,0;88,51`, splitting on comma produces two numeric fragments out of three
-// fields, while splitting on semicolon produces two complete numeric fields.
-// Counting only "at least two numbers" makes those candidates tie.
-function scoreDelimiter(lines, delimiterId, decimal) {
-    let good = 0, numericFraction = 0, fieldCount = null, consistent = true;
-    for (const line of lines) {
-        if (!line.trim()) continue;
-        const fields = splitFields(line, delimiterId);
-        const nums = fields.filter(f => Number.isFinite(parseNumber(f, decimal)));
-        if (nums.length < 2) continue;
-        good++;
-        numericFraction += nums.length / fields.length;
-        if (fieldCount == null) fieldCount = fields.length;
-        else if (fields.length !== fieldCount) consistent = false;
-    }
-    return good === 0 ? 0 : numericFraction + (consistent ? 0.25 : 0);
-}
-
-/**
- * Decide the column delimiter by scanning candidate data lines and picking the
- * delimiter that yields the most consistent (>=2)-numeric-column split.
- */
-export function sniffDelimiter(lines, decimal = '.') {
-    let best = { id: ' ', score: -1 };
-    for (const cand of DELIMITERS) {
-        const score = scoreDelimiter(lines, cand.id, decimal);
-        if (score > best.score) best = { id: cand.id, score };
-    }
-    return best.id;
 }
 
 /**

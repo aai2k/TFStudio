@@ -2,13 +2,17 @@
 // this backs).
 
 import { X_UNITS } from './constants.js';
-import { parseNumber, splitFields, sniffDelimiter, detectDecimal } from './numberParsing.js';
+import { parseNumber, splitFields } from './numberParsing.js';
+import { sniffLayout } from './layoutSniff.js';
 import { detectXUnit, guessXUnitFromRange, detectQuantity, detectIsPercent, isAbsorbanceHeader } from './headerHeuristics.js';
 import {
     detectHeaderLayout, isDataMarkerLine, uniqueColumnNames,
 } from './headerLayout.js';
 import { buildColumn, columnDescriptors, columnXUnit, primaryXIndex } from './columnModel.js';
 import { columnsUnderConditions } from './rowConditions.js';
+
+// How many non-empty lines are read to find the delimiter and the decimal mark.
+const SNIFF_LINES = 2000;
 
 // Failure/empty result shape shared by every early exit of parseSpectrumTable.
 function emptyTable(error, extra = {}) {
@@ -186,11 +190,11 @@ export function parseSpectrumTable(text, opts = {}) {
     }
 
     const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
-    const decimal = opts.decimal || detectDecimal(text);
 
-    // Sample non-empty lines for delimiter sniffing.
-    const sample = rawLines.filter(l => l.trim()).slice(0, 200);
-    const delimiter = opts.delimiter || sniffDelimiter(sample, decimal);
+    // Non-empty lines to read the delimiter and the decimal mark from; the
+    // data block can start below a header of a hundred lines.
+    const sample = rawLines.filter(l => l.trim()).slice(0, SNIFF_LINES);
+    const { delimiter, decimal } = sniffLayout(sample, opts);
 
     const { firstData, allowTag } = locateData(rawLines, delimiter, decimal);
     if (firstData < 0) {
