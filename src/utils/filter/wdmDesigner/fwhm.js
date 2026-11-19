@@ -54,7 +54,7 @@ export const WDM_M_SPACER_MAX = 3;
 
 /**
  * Rough analytic FWHM estimate for a single-half-wave (SHW) Fabry-Perot
- * with H-spacer or L-spacer.  Macleod 5th ed. Eq. (7.27).
+ * with H-spacer or L-spacer.  Macleod 5th ed. Eq. (8.24-8.25).
  *
  *   For an H-spacer:   Δλ_FWHM / λ₀ ≈ (4·n_L^(2k-1) · n_sub) / (π·m·n_H^(2k+1))
  *   For an L-spacer:   Δλ_FWHM / λ₀ ≈ (4·n_L^(2k+1)) / (π·m·n_H^(2k) · n_sub)
@@ -83,10 +83,10 @@ export function estimateFWHM_nm({
     return Math.max(0, ratio * lambda0_nm);
 }
 
-// ── Inverse Macleod Eq. 7.27 — solve for k (QW pairs) from target FWHM ────────
+// ── Inverse Macleod Eq. 8.24-8.25 — solve for k (QW pairs) from target FWHM ────────
 
 /**
- * Given a desired SINGLE-CAVITY FWHM, solve Macleod Eq. 7.27 for the number
+ * Given a desired SINGLE-CAVITY FWHM, solve Macleod Eq. 8.24-8.25 for the number
  * of QW pairs `k` in each mirror (returned as a real number; round to int
  * for the actual design).
  *
@@ -110,7 +110,7 @@ export function solveMirrorPairsFromFWHM({
     if (!(nH > nL && nH > 0 && nL > 0 && nS > 0)) return null;
 
     const m = Math.max(1, spacerOrder);
-    // From the L-spacer form of Eq. 7.27:
+    // From the L-spacer form of Eq. 8.24-8.25:
     //   Δλ/λ₀ = (4·n_L^(2k+1)) / (π·m·n_H^(2k)·n_sub)
     //         = (4·n_L / (π·m·n_sub)) · (n_L/n_H)^(2k)
     // So: (n_L/n_H)^(2k) = (Δλ·π·m·n_sub) / (4·λ₀·n_L)

@@ -1,6 +1,7 @@
 /**
  * Variator helpers — pure functions (no React, no global state) so they can
- * be unit-tested. Used by `src/components/windows/optimization/Variator.js`.
+ * be unit-tested. Used by `src/components/windows/optimization/variator/` and
+ * `src/utils/physics/systematicDeviations/perturb.js`.
  *
  * For dispersive materials, n,k variations are applied as constant offsets
  * added to the spectral n(λ), k(λ) — that's what wrapMaterial implements. k is

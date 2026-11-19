@@ -8,11 +8,6 @@
 const { removedAgfFiles, setAgfFilesRemoved } = require('../seed');
 const { deleteFile } = require('../recycleBin');
 
-// Read a text file, honoring the byte-order mark. Some Zemax .agf catalogs
-// (e.g. 4M200, colorglass, opal) are written as UTF-16 LE with a BOM; reading
-// them as UTF-8 interleaves NUL bytes into every line so the renderer's agfParser
-// matches no records and imports 0 glasses. BOM-sniff and decode correctly; plain
-// ASCII / UTF-8 (the common case, incl. SCHOTT/HOYA) falls through unchanged.
 function register(ipcMain, ctx) {
   ipcMain.handle('catalog:import-agf', async () => handleImportAgf(ctx));
   ipcMain.handle('catalog:import-material-files', async () => handleImportMaterialFiles(ctx));
