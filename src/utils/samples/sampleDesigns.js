@@ -3,28 +3,21 @@
 // A small library of textbook starter designs the welcome screen can drop into
 // the project tree so a brand-new user has something to explore immediately.
 //
-// These are NOT claimed-optimal or validated reference designs — they are
-// classic nominal-quarter-wave starting points (Macleod, Thin-Film Optical
-// Filters, 5th ed., Ch. 3 single-layer AR / Ch. 6 quarter-wave stacks) that the
-// user then refines with the optimizer. Each layer thickness is the geometric
-// quarter-wave optical thickness (QWOT) at the reference wavelength λ0:
+// These are NOT claimed-optimal or validated reference designs: they are
+// classic quarter-wave starting points (Macleod, Thin-Film Optical Filters,
+// 5th ed., Ch. 4 single-layer AR / Ch. 6 quarter-wave stacks) that the user
+// then refines with the optimizer. Each layer thickness is the geometric
+// quarter-wave thickness at the reference wavelength λ0:
 //
 //        d = λ0 / (4 · n(λ0))
 //
-// using the nominal index n0 noted per material below. Because the materials in
-// the catalog are dispersive, n0 is approximate at λ0 = 550 nm; the resulting
-// design is a faithful *nominal* QW construction, explicitly a starting point.
+// with n(λ0) the index of the catalog material itself, so the layers are
+// quarter waves at λ0 in the Design Editor.
 
-// Nominal refractive indices at λ0 = 550 nm for the QWOT computation.
-// (Approximate catalog values; used only to seed geometric thicknesses.)
-const N0 = {
-    MgF2: 1.385,   // Dodge 1984
-    SiO2: 1.460,   // Malitson (fused silica)
-    TiO2: 2.400,   // anatase, nominal
-};
+import { getMaterial } from '../materials/materialDatabase.js';
 
-// Quarter-wave geometric thickness (nm) for material `mat` at λ0 (nm).
-const qwot = (mat, lam0) => lam0 / (4 * N0[mat]);
+// Quarter-wave geometric thickness (nm) for catalog material `mat` at λ0 (nm).
+const qwot = (mat, lam0) => lam0 / (4 * getMaterial(mat).getNK(lam0)[0]);
 
 let _uid = 0;
 const layer = (material, thickness) => ({
@@ -54,17 +47,18 @@ function baseDesign(name, frontLayers, lam0 = 550) {
 
 // ── The samples ────────────────────────────────────────────────────────────────
 //
-// Each entry: { key, name, description, build() -> design }.  `name` /
+// Each entry: { key, name, description, build(designName?) -> design }.  `name` /
 // `description` are English fallbacks; the welcome screen localizes display text
-// via t.welcome.samples[key] when present.
+// via t.welcome.samples[key] when present, and passes its name to build() to name
+// the design in the user's language.
 
 export function buildSampleDesigns() {
     return [
         {
             key: 'singleAR',
             name: 'Single-layer AR (MgF₂ on BK7)',
-            description: 'Classic quarter-wave MgF₂ antireflection layer on a BK7 substrate — the textbook single-layer AR (Macleod Ch. 3).',
-            build: () => baseDesign('Single-layer AR (MgF2)', [
+            description: 'Classic quarter-wave MgF₂ antireflection layer on a BK7 substrate: the textbook single-layer AR (Macleod Ch. 4).',
+            build: designName => baseDesign(designName || 'Single-layer AR (MgF2)', [
                 layer('MgF2', qwot('MgF2', 550)),
             ]),
         },
@@ -72,7 +66,7 @@ export function buildSampleDesigns() {
             key: 'qwStack',
             name: 'QW high reflector (TiO₂/SiO₂)¹¹',
             description: 'Eleven-layer quarter-wave stack (TiO₂ high / SiO₂ low) on BK7 — a textbook dielectric mirror centred at 550 nm (Macleod Ch. 6).',
-            build: () => {
+            build: designName => {
                 // (H L)×5 H, starting with H (TiO2) adjacent to the substrate.
                 const layers = [];
                 for (let i = 0; i < 5; i++) {
@@ -80,7 +74,7 @@ export function buildSampleDesigns() {
                     layers.push(layer('SiO2', qwot('SiO2', 550)));
                 }
                 layers.push(layer('TiO2', qwot('TiO2', 550)));
-                return baseDesign('QW high reflector', layers);
+                return baseDesign(designName || 'QW high reflector', layers);
             },
         },
     ];

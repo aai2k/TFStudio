@@ -124,7 +124,7 @@ export function useWelcomeAndTutorials({
     const welcomeOpenSample = (sample) => {
         closeWelcome();
         try {
-            addItemFromDesign(sample.build());
+            addItemFromDesign(sample.build(t.welcome?.samples?.[sample.key]?.name));
             openTool('design-editor');
         } catch (_) {}
     };
