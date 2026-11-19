@@ -8,7 +8,7 @@ import { hasEnvironments } from '../../../../utils/environments/environments.js'
 import { rowsOfEnvironmentsOn } from '../../../../utils/environments/environmentMerit.js';
 
 // ── Surface-mode-aware active synthesis side ────────────────────────────────────
-// For both_independent the UI selector (when added) drives this; default 'front'.
+// On a two-sided design this resolves to the front.
 export const sideKeyFor = (d) =>
     resolveScanSide(d?.surfaceMode || 'front_only', 'front') === 'back'
         ? 'backLayers' : 'frontLayers';
@@ -135,8 +135,17 @@ export function buildARSeedCandidates({ design, pool, maxLayers = Infinity }) {
         frontLayers: (design?.frontLayers || []).map(l => ({ ...l })),
         backLayers:  (design?.backLayers  || []).map(l => ({ ...l })),
     }];
+    // Templates are front stacks, stored air to substrate. On a design coated on
+    // the back alone the template goes on the back, substrate to exit, which is
+    // the same stack reversed, and the front coating stays as it is. On any
+    // other design the template is the front stack and the back stays as the
+    // design has it.
+    const backOnly = design?.surfaceMode === 'back_only';
+    const own = layers => (layers || []).map(l => ({ ...l }));
     for (const s of seeds) {
-        out.push({ name: s.name, frontLayers: s.frontLayers, backLayers: s.design.backLayers || [] });
+        out.push(backOnly
+            ? { name: s.name, frontLayers: own(design.frontLayers), backLayers: [...s.frontLayers].reverse() }
+            : { name: s.name, frontLayers: s.frontLayers, backLayers: own(design?.backLayers) });
     }
     return out;
 }

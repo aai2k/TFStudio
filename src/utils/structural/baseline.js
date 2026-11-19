@@ -7,12 +7,14 @@ import { alive } from './runState.js';
 import { designFor, refineJob } from './refine.js';
 import { refineGuarded } from './workers.js';
 
-function smartSeedDesign(S, candidate) {
+// A template is a front stack, air to substrate; a back stack runs substrate to
+// exit, so a template used on the back goes in reversed.
+export function smartSeedDesign(S, candidate) {
     const activeLayers = candidate.name === 'current'
         ? S.curDes[S.layerKey]
         : (S.layerKey === 'frontLayers'
             ? candidate.frontLayers
-            : (candidate.backLayers.length ? candidate.backLayers : candidate.frontLayers));
+            : (S.surfaceMode === 'back_only' ? candidate.backLayers : [...candidate.frontLayers].reverse()));
     return designFor(S, activeLayers, S.curDes[S.otherKey]);
 }
 
