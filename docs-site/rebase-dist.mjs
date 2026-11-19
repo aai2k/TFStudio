@@ -59,6 +59,17 @@ function processHtml(filePath) {
   }
 }
 
+// Stylesheets reference their fonts (KaTeX's) as url(/_astro/...). A relative
+// url() resolves against the stylesheet, so it is right for every page.
+function processCss(filePath) {
+  const original = readFileSync(filePath, 'utf-8');
+  const out = original.replace(/\burl\((["']?)\/(?!\/)/g, `url($1${relPrefix(filePath)}`);
+  if (out !== original) {
+    writeFileSync(filePath, out, 'utf-8');
+    count++;
+  }
+}
+
 function walk(dir) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -66,9 +77,11 @@ function walk(dir) {
       walk(full);
     } else if (full.endsWith('.html')) {
       processHtml(full);
+    } else if (full.endsWith('.css')) {
+      processCss(full);
     }
   }
 }
 
 walk(distDir);
-console.log(`docs rebase: rewrote ${count} HTML file(s) in dist/ for file:// compatibility`);
+console.log(`docs rebase: rewrote ${count} HTML and CSS file(s) in dist/ for file:// compatibility`);

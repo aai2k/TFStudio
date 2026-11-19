@@ -1,6 +1,21 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { satteri } from '@astrojs/markdown-satteri';
+import katex from 'katex';
+
+// Formulas are written in LaTeX, $...$ inline and $$...$$ on their own lines,
+// and rendered to HTML by KaTeX at build time, so the offline help needs no
+// script. A formula KaTeX cannot parse fails the build.
+const katexMath = {
+  name: 'katex-math',
+  math(node, ctx) {
+    ctx.replaceNode(node, { type: 'html', value: katex.renderToString(node.value, { displayMode: true, throwOnError: true }) });
+  },
+  inlineMath(node, ctx) {
+    ctx.replaceNode(node, { type: 'html', value: katex.renderToString(node.value, { displayMode: false, throwOnError: true }) });
+  },
+};
 
 // In the packaged desktop app the site is served from file:// inside
 // resources/help/, so links and assets must be relative. Astro's `base: './'`
@@ -10,6 +25,9 @@ export default defineConfig({
   site: 'https://docs.tfstudio.xyz',
   base: '/',
   trailingSlash: 'always',
+  markdown: {
+    processor: satteri({ features: { math: true }, mdastPlugins: [katexMath] }),
+  },
   integrations: [
     starlight({
       title: 'TFStudio Docs',
@@ -32,7 +50,7 @@ export default defineConfig({
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/aai2k/TFStudio' },
       ],
-      customCss: ['./src/styles/tfstudio.css'],
+      customCss: ['katex/dist/katex.min.css', './src/styles/tfstudio.css'],
       components: {
         // Custom title that prepends the in-app ribbon icon when the page
         // frontmatter sets `ribbonIcon: <toolId>` (see ribbon-icons.js).
