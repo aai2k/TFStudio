@@ -62,6 +62,9 @@ function effectiveSide(design, requestedSide) {
 
 const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 
+// `value` when it is a finite number, else `fallback`.
+const finiteOr = (value, fallback) => (Number.isFinite(value) ? value : fallback);
+
 // Run the inner refinement loop with throttled tick progress; returns the
 // optimizer. `side` selects which layer array the tick previews stream; the
 // optimizer itself is already surface-mode-aware via design.surfaceMode.
@@ -75,7 +78,9 @@ const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 // warm-started, near-optimal design after a thin-needle insert does not run the
 // full `maxIter` (dlsIter). Big or early changes still iterate fully.
 const CONV_PATIENCE = 6;       // window (iterations) over which to measure progress
-function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine, post) {
+// `run` holds the refine's settings: { operands, dMin, maxIter, jobId, side, engine }.
+function runDls(run, design, resolveMat, post) {
+    const { operands, dMin, maxIter, jobId, side, engine } = run;
     const dls = makeEngine(engine || 'dls', operands, design, resolveMat, { dMin, maxIter });
     const key = sideKey(side);
     let last = now();
@@ -120,7 +125,7 @@ function handleScan(job, resolveMat, post) {
 // The job's refiner for parkedLayers.js: refine `d` with `maxIter` iterations
 // on the job's engine, streaming ticks for `side`, and return the engine.
 const refinerFor = (job, resolveMat, side, post) => (d, maxIter) =>
-    runDls(job.operands, d, resolveMat, job.dMin, maxIter, job.jobId, side, job.engine || 'dls', post);
+    runDls({ operands: job.operands, dMin: job.dMin, maxIter, jobId: job.jobId, side, engine: job.engine || 'dls' }, d, resolveMat, post);
 
 // { design, mf, omf } of a refined design and its engine: the merit is the engine's.
 const scored = ({ design, eng }) => ({ design, mf: eng.mf, omf: eng.mfOpticalAt(eng.thicknesses) });
@@ -224,7 +229,7 @@ function handleSeedDls(job, resolveMat, post) {
     const { operands, design, dMin, dlsIter, jobId, engine = 'dls' } = job;
     const side = effectiveSide(design, job.side);
     const key  = sideKey(side);
-    const dls = runDls(operands, design, resolveMat, dMin, dlsIter, jobId, side, engine, post);
+    const dls = runDls({ operands, dMin, maxIter: dlsIter, jobId, side, engine }, design, resolveMat, post);
     const applied = dls.applyToDesign(design);
     post({ type: 'result', kind: 'seedDls', side,
         layers: applied[key],
@@ -288,9 +293,9 @@ function handleGeStep(job, resolveMat, post) {
 // worsen beyond `tol`. Streams progress; returns the consolidated full design.
 function handleRemovePass(job, resolveMat, post) {
     const { design, dMin, jobId } = job;
-    const tol      = Number.isFinite(job.tol)      ? job.tol      : 0.02;
-    const minLayers= Number.isFinite(job.minLayers)? job.minLayers: 1;
-    const maxIter  = Number.isFinite(job.maxIter)  ? job.maxIter  : 40;
+    const tol = finiteOr(job.tol, 0.02);
+    const minLayers = finiteOr(job.minLayers, 1);
+    const maxIter = finiteOr(job.maxIter, 40);
     const side = effectiveSide(design, job.side);
     const key  = sideKey(side);
     let last = now();
