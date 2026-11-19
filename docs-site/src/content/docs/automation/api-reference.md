@@ -7142,7 +7142,7 @@ for profile in design.index_profile(env="all"):
 | ---------- | ------ |
 | `profile.saveCsv(path)` | `profile.save_csv(path)` |
 
-Writes the profile to a CSV file, the table the window exports less the stretch of medium and substrate it draws at each end: a row for each step of n and k with the depth it starts at, `z (nm)`, from the outer surface to the substrate, which the last row gives. On the whole part the columns are `region`, `z`, `n` and `k`, each part's depths counted from its start, the substrate's in mm. A file that is there is written over.
+Writes the profile to a CSV file, the table the window exports less the stretch of medium and substrate it draws at each end: a row for each step of n and k with the depth it starts at, `z (nm)`, from the outer surface to the substrate, which the last row gives. On the whole part the columns are `region`, `z`, `unit`, `n` and `k`, each part's depths counted from its start, in nm and for the substrate in mm. A file that is there is written over.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |

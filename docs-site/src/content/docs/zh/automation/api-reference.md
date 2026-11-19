@@ -2628,8 +2628,8 @@ print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
 
 | 方法 | 窗口 | 页面 |
 | --- | --- | --- |
-| `needle` | 针法自动 | [针式变化](/zh/synthesis/needle/) |
-| `ge` | 渐变演化 | [渐进演化（GE）](/zh/synthesis/gradual-evolution/) |
+| `needle` | 针法自动 | [针法变异](/zh/synthesis/needle/) |
+| `ge` | 渐变演化 | [渐变演化（GE）](/zh/synthesis/gradual-evolution/) |
 | `structural` | 结构优化器 | [结构优化器](/zh/synthesis/structural-optimizer/) |
 
 #### `run.stopReason` / `run.stop_reason`
@@ -7142,7 +7142,7 @@ for profile in design.index_profile(env="all"):
 | ---------- | ------ |
 | `profile.saveCsv(path)` | `profile.save_csv(path)` |
 
-把分布写入 CSV 文件，内容为窗口导出的表格，去掉窗口在两端画出的介质和基底段：n 和 k 的每一级台阶一行，带有它开始处的深度 `z (nm)`，从外表面到基底，最后一行给出基底。对于整个元件，各列为 `region`、`z`、`n` 和 `k`，每部分的深度从该部分的起点算起，基底的以 mm 为单位。已存在的文件会被覆盖。
+把分布写入 CSV 文件，内容为窗口导出的表格，去掉窗口在两端画出的介质和基底段：n 和 k 的每一级台阶一行，带有它开始处的深度 `z (nm)`，从外表面到基底，最后一行给出基底。对于整个元件，各列为 `region`、`z`、`unit`、`n` 和 `k`，每部分的深度从该部分的起点算起，单位为 nm，基底的为 mm。已存在的文件会被覆盖。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |

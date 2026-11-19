@@ -162,9 +162,9 @@ export class IndexProfile {
      * the stretch of medium and substrate it draws at each end: a row for
      * each step of n and k with the depth it starts at,
      * `z (nm)`, from the outer surface to the substrate, which the last row
-     * gives. On the whole part the columns are `region`, `z`, `n` and `k`,
-     * each part's depths counted from its start, the substrate's in mm. A
-     * file that is there is written over.
+     * gives. On the whole part the columns are `region`, `z`, `unit`, `n` and
+     * `k`, each part's depths counted from its start, in nm and for the
+     * substrate in mm. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example
