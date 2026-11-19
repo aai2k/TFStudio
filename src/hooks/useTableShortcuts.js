@@ -1,12 +1,12 @@
 // Shared Excel-like row-shortcut hook for any tabular row list
 // (Design Editor layer table, Merit Function Editor operand table,
-// Specification qualifier table, etc.). See PLAN.md §12.10.
+// Specification qualifier table, etc.).
 //
 // Keys handled (when the host container has DOM focus):
 //   Insert        — insert a new row ABOVE the focused row
 //   Shift+Insert  — insert a new row BELOW the focused row
-//   Delete        — delete the focused row(s); no-op if all selected rows
-//                   are locked, with optional onBlockedDelete() flash
+//   Delete        — delete the focused row(s); no-op if the focused row is
+//                   locked, with optional onBlockedDelete() flash
 //   Ctrl+D        — duplicate the focused row(s) BELOW
 //   Arrow keys    — optional host-provided row/column navigation
 //   Shift+Arrow   — same, extending the selection instead of replacing it
@@ -80,7 +80,7 @@ function duplicateRowKey(e, { focusIdx, onDuplicate }) {
 //   onInsertBelow(focusIdx)
 //   onDelete(focusIdx)                // host decides single vs multi-select
 //   onDuplicate(focusIdx)
-//   onBlockedDelete()  : optional     // called when all selected rows locked
+//   onBlockedDelete()  : optional     // called when the focused row is locked
 //   enabled         : optional bool   (default true)
 export function useTableShortcuts(opts) {
     const {

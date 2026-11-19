@@ -124,8 +124,8 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
         style: {
             display: 'flex', alignItems: 'center', gap: LAYER_TABLE.gap,
             padding: '2px 4px',
-            // Fixed height (border-box) so the virtualized list can compute row
-            // positions exactly — see LAYER_ROW_H in LayerList.
+            // Fixed height (border-box) so every row lines up with the header and
+            // with the drag hit-test.
             height: LAYER_ROW_H, minWidth: LAYER_TABLE_MIN_WIDTH, boxSizing: 'border-box',
             backgroundColor: isMaterialMissing ? c.error + '18'
                 : (isSelected ? c.accent + '22' : 'transparent'),
