@@ -2661,7 +2661,7 @@
     }
   },
   "deepReheat": {
-    "applied": 1,
+    "applied": 2,
     "base": {
       "back": [],
       "front": [
@@ -3432,7 +3432,7 @@
     }
   },
   "stopThenRun": {
-    "applied": 6,
+    "applied": 7,
     "base": {
       "back": [],
       "front": [
@@ -3783,7 +3783,7 @@
     }
   },
   "stopEditRun": {
-    "applied": 5,
+    "applied": 6,
     "base": {
       "back": [],
       "front": [
@@ -4827,7 +4827,7 @@
     }
   },
   "malformedMidRun": {
-    "applied": 2,
+    "applied": 3,
     "base": {
       "back": [],
       "front": [

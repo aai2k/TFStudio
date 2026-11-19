@@ -5,6 +5,7 @@ import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
+import { showAcceptedDesign } from '../synthesisShared/showAcceptedDesign.js';
 import { STRUCTURAL_DEFAULTS } from '../../../../utils/structural/settings.js';
 import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';
 import { startWindowRun } from './windowRun.js';
@@ -107,6 +108,16 @@ export function loadDesignSwitch(ctx) {
     ctx.setStatusMsg('');
 }
 
+// After a Stop of a run, the design the next Run goes on from, unless the
+// design was edited while the run was going. The readout reported with the base
+// design stands in for a history row: a later press's refined starting design
+// is reported with its merit but is no row.
+function showAcceptedAfterStop(wasRunning, { designRef, baseRevRef, getDesignRevision, baseReadoutRef, ...shown }) {
+    if (!wasRunning || getDesignRevision?.(designRef.current?.id) !== baseRevRef.current) return;
+    const reported = baseReadoutRef.current;
+    showAcceptedDesign({ ...shown, readout: reported?.base === shown.baseDesignRef.current ? reported : null });
+}
+
 // Drop a cached optimizer base after a real editor write. Optimizer previews are
 // transient and do not bump the design revision, so Stop -> Run still resumes
 // the open block when the user has not edited the stack.
@@ -166,6 +177,7 @@ export function useStructuralOptimizer({
     const operandsRef  = useRef([]);
     const savedDesignRef = useRef(null);
     const baseDesignRef  = useRef(null);
+    const baseReadoutRef = useRef(null);   // the merit reported with the base design (windowRun.js)
     const baseRevRef     = useRef(0);
     const gensRef      = useRef([]);
     const runsRef      = useRef([]);     // run blocks — see synthesisShared/runBlocks.js
@@ -224,10 +236,14 @@ export function useStructuralOptimizer({
     const stopOpt = useCallback((message) => {
         const wasRunning = runningRef.current;
         teardownRun({ runningRef, activeRunRef, abortRef });
+        showAcceptedAfterStop(wasRunning, {
+            designRef, baseRevRef, getDesignRevision, baseReadoutRef,
+            baseDesignRef, updateDesignRef, rowsRef: gensRef, setMf, setOmf, setLayerCount,
+        });
         setRunning(false);
         setTemp(null);
         setStatusMsg(message != null ? message : (wasRunning ? ts.statusStopped : ''));
-    }, [ts]);
+    }, [ts, getDesignRevision]);
 
     const reconcileBaseWithEdits = useCallback(() => {
         reconcileStructuralBaseWithEdits({ designRef, baseDesignRef, baseRevRef, runOpenRef }, getDesignRevision);
@@ -236,7 +252,7 @@ export function useStructuralOptimizer({
     const runOpt = useCallback(() => {
         startWindowRun({
             cfgRef, runningRef, activeRunRef, abortRef, designRef, operandsRef,
-            savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
+            savedDesignRef, baseDesignRef, baseReadoutRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
             updateDesignRef, checkpointRef, selectedCatsRef, excludedMatsRef,
             saveCache, stopOpt, reconcileBaseWithEdits, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,

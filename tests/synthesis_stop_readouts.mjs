@@ -1,7 +1,8 @@
 /**
- * After Stop, the MF, OMF and layer-count readouts of Needle Automatic and
- * Gradual Evolution belong to the design the screen shows, the last one the run
- * accepted, not to the in-flight candidate a worker previewed last.
+ * After Stop, the MF, OMF and layer-count readouts of Needle Automatic,
+ * Gradual Evolution and the Structural Optimizer belong to the design the
+ * screen shows, the last one the run accepted, not to the in-flight candidate a
+ * worker previewed last.
  *
  *   1. With an accepted row in the history, Stop shows that row's values.
  *   2. With no row of that design, even when the history has rows of others (a
@@ -24,7 +25,9 @@ const { makeOperand } = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const needle = await import('./_needleWindow.mjs');
 const ge = await import('./_geWindow.mjs');
+const structural = await import('./_structuralWindow.mjs');
 const { startWindowRun: startNeedle } = await import('../src/components/windows/optimization/needleVariation/windowRun.js');
+const { startWindowRun: startStructural } = await import('../src/components/windows/optimization/structuralOptimizer/windowRun.js');
 const { startWindowRun: startGe } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 
 const pool = ['TiO2', 'SiO2'].map(id => ({ id, name: id, mat: getMaterial(id) }));
@@ -54,6 +57,23 @@ const windows = {
         start: startGe, rows: win => win.ctx.cyclesRef, waitingPool: ge.makeWaitingPool, withSettings: ge.withWindowSettings,
         storage: {},
     },
+    'Structural Optimizer': {
+        make: () => {
+            const win = structural.makeWindow({
+                design: { ...design, referenceWavelength: 550 }, ops: [{ ...ops[0], id: 'readouts-op', enabled: true }], normalMf: [0.6],
+                cfg: {
+                    maxIter: 3, targetMF: 0, T0: 0.08, jitterPct: 0.15, refineIter: 5, dMin: 1, addMaxNm: 120,
+                    maxLayers: 20, kinds: ['perturb'], deepMode: false, deepMaxMin: 0, seed: 7,
+                },
+            }, 'readouts');
+            structural.useWindow(win);
+            return win;
+        },
+        start: startStructural, rows: win => win.ctx.gensRef, withSettings: structural.withWindowSettings, storage: {},
+        // The structural run refines its starting design a turn after it starts.
+        waitingPool: structural.makeWaitingWorker, makePool: (win, pools, w) => { win.ctx.makeWorker = () => { const p = w.waitingPool(); pools.push(p); return p; }; },
+        ready: async pools => { for (let i = 0; i < 200 && !pools[0]?.onmessage; i++) await new Promise(r => setTimeout(r, 0)); },
+    },
 };
 
 for (const [name, w] of Object.entries(windows)) {
@@ -61,9 +81,11 @@ for (const [name, w] of Object.entries(windows)) {
         const withRow = history === 'the design shown';
         const win = w.make();
         const pools = [];
-        win.ctx.makeWorkerPool = () => { const p = w.waitingPool(); pools.push(p); return p; };
+        if (w.makePool) w.makePool(win, pools, w);
+        else win.ctx.makeWorkerPool = () => { const p = w.waitingPool(); pools.push(p); return p; };
         await w.withSettings(w.storage, async () => {
             const run = w.start(win.ctx);
+            if (w.ready) await w.ready(pools);
             if (history !== 'none') w.rows(win).current = history === 'the design shown' ? [otherRow, row] : [otherRow];
             pools[0].tick(9.9);
             assert.equal(win.shown.mf, 9.9, `${name}: setup, the candidate's MF is on show`);

@@ -1,5 +1,5 @@
 /**
- * After Stop, Needle Automatic and Gradual Evolution show the last design the
+ * After Stop, Needle Automatic, Gradual Evolution and the Structural Optimizer show the last design the
  * run accepted, the one the next Run goes on from.
  *
  * A worker's in-flight candidate is written to the screen as a transient
@@ -32,6 +32,7 @@ globalThis.React = R;
 const { DesignContext } = await import('../src/state/DesignContext.js');
 const { useNeedleVariation } = await import('../src/components/windows/optimization/needleVariation/useNeedleVariation.js');
 const { useGradualEvolution } = await import('../src/components/windows/optimization/gradualEvolution/useGradualEvolution.js');
+const { useStructuralOptimizer } = await import('../src/components/windows/optimization/structuralOptimizer/useStructuralOptimizer.js');
 const { showAcceptedDesign } = await import('../src/components/windows/optimization/synthesisShared/showAcceptedDesign.js');
 const { makeOperand } = await import('../src/utils/physics/optimizer.js');
 const { default: EN } = await import('../src/constants/locales/en.js');
@@ -83,6 +84,7 @@ const windows = {
         return () => R.run(() => useNeedleVariation(EN));
     },
     'Gradual Evolution': (ctx) => () => R.run(() => useGradualEvolution({ ...ctx, t: EN })),
+    'Structural Optimizer': (ctx) => () => R.run(() => useStructuralOptimizer({ ...ctx, t: EN })),
 };
 
 for (const [name, windowOf] of Object.entries(windows)) {

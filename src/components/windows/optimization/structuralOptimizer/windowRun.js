@@ -123,6 +123,9 @@ function showProgress(ctx, patch, clock) {
     if (patch.design) {
         ctx.updateDesignRef.current(patch.design, { transient: true });
         ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch.design };
+        ctx.baseReadoutRef.current = {
+            base: ctx.baseDesignRef.current, mf: patch.mf ?? null, omf: patch.omf ?? null, layerCount: patch.layerCount,
+        };
     }
     for (const [key, setter] of SHOWN) if (key in patch) ctx[setter]?.(key === 'mfBest' ? historyBest(ctx, patch[key]) : patch[key]);
     if (patch.trend) showTrend(ctx, patch.trend, patch.redraw);
