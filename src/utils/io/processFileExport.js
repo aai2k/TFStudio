@@ -122,18 +122,7 @@ function seriesOf(spec, q) {
 //                          (index 0 = first deposited = substrate-side)
 // stepK                  — how many layers have been deposited (1..N).
 //                          Layers 1..k are at full thickness; k+1..N at 0.
-// quantity               'R' | 'T', the column written
-// theta_deg, polarization
-// spectralParams         — { lambdaStart, lambdaEnd, lambdaStep }
-// substrate              — { material, thickness }   resolved material objects
-// incidentMat / exitMat  — material objects
-// otherSideLayers        — back/front layers (in DEPOSITION ORDER FOR THAT SIDE)
-//                          at full thickness, or [] if bare.
-//                          NOTE: this array is converted to TFStudio storage
-//                          order INSIDE the spectrum call.
-// activeSide             — 'front' | 'back'
 // controlLambda          — control wavelength in nm
-// designName             — string
 
 function buildLayerTable(allLayers, stepK, controlLambda) {
     const N = allLayers.length;

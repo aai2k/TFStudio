@@ -1,9 +1,10 @@
 /**
  * Zemax OpticStudio COATING.DAT reader / writer.
  *
- * Pure ESM, no app dependencies — every conversion takes the wavelength grid /
- * refractive-index resolver it needs as a parameter, so this module is unit-
- * testable in isolation (tests/zemax_coating_roundtrip.mjs).
+ * Pure ESM, with no app dependencies beyond the wavelength grid
+ * (physics/thinFilmMath.js) and the PCHIP interpolation (materials/pchip.js) —
+ * every conversion takes the wavelength grid / refractive-index resolver it
+ * needs as a parameter, so this module is unit-testable in isolation (tests/zemax_coating_roundtrip.mjs).
  *
  * ── Format (authoritative: Zemax OpticStudio 2024 R1 Help, "Coating File Data
  *    Syntax", "The MATE Data Section", "The COAT Data Section") ────────────────

@@ -5,8 +5,8 @@
  * convergence, and the Levenberg–Marquardt (DLS) `step()`. The second-order
  * STEP STRATEGIES live in their own subclass files (newton.js / newtonCG.js /
  * sqp.js, each `extends LSQEngine`); they reuse this engine's system assemblers
- * (`_newtonSystem`, `_gaussNewtonSystem`, `_thicknessBounds`, `_projectBestToBox`)
- * and the LM fallback (`lmStep`).
+ * (`_newtonSystem`, `_gaussNewtonSystem`) and the LM step (`lmStep`); sqp.js
+ * defines its own `_thicknessBounds` and `_projectBestToBox`.
  *
  * `DLSOptimizer` (the plain DLS/LM refiner, and the evaluator wrapped by the
  * EngineBase CG/DE/SA optimizers) is `LSQEngine` with the inherited LM `step()`.
@@ -49,7 +49,8 @@ function cachedAt(entry, thk, freeIdx) {
 // ── DLS Optimizer (Levenberg-Marquardt) ───────────────────────────────────────
 //
 // Reference: Sullivan & Dobrowolski, Appl. Opt. 35, 5484-5492 (1996).
-// Jacobian computed via central finite differences over all operands.
+// The Jacobian is analytic, with a central finite-difference fallback for a
+// term the analytic rows decline.
 
 export class LSQEngine {
     constructor(operands, design, resolveMat, opts = {}) {
@@ -315,31 +316,8 @@ export class LSQEngine {
         return J;
     }
 
-    // ── Newton system: H·Δ = −Jᵀr, H = JᵀJ + S ───────────────────────────────
-    // Assembles the TRUE merit-function Hessian for second-order (Newton)
-    // refinement. Minimizing MF = √(SSR/ΣW) ≡ minimizing SSR = Σ rₚ²; the
-    // Newton step solves H_SSR·Δ = −∇SSR with ∇SSR = 2·Jᵀr and
-    //   H_SSR = 2·(JᵀJ + S),  S[a][b] = Σₚ rₚ·∂²rₚ/∂dₐ∂d_b
-    // (the factor 2 cancels). Gauss–Newton / LM keeps only JᵀJ and drops S; the
-    // S curvature term is what gives genuine quadratic convergence near the
-    // minimum (Tikhonov–Tikhonravov–Trubetskov 1993). Per-residual ∂²rₚ uses the
-    // analytic comp-Hessian, tmmcore hessian
-    // (FD-validated, tests/hessian_fd_validation.mjs).
-    //
-    // Scope: a merit scored on one surface, front_only or back_only with
-    // mfEvalMode='side' (_fullNewtonSupported). Every other merit takes the
-    // Gauss-Newton system below: another surface/eval mode, an active cone, a
-    // math, argwave, ellipsometry, EFMX or curve-block row (no curvature worked
-    // out, newtonAssembly/curvature.js), a row with σ ≠ 1 (its curvature is not
-    // divided by σ), or an analytic Jacobian that declines (EFMX, a curve block
-    // a math row reads whole, and the math rows reading either).
-    // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
-    // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
-    // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows
-    // and the worst-case min/max rows contribute zero curvature (curvature.js
-    // says why for min/max). Returns { H, Jtr } (nFree×nFree, nFree).
     // Gauss-Newton system { H = JᵀJ, Jtr = Jᵀr } for the cases the FULL analytic
-    // Newton Hessian (below) does not cover: full-system MF scoring (evalFullSystem
+    // Newton Hessian (_newtonSystem) does not cover: full-system MF scoring (evalFullSystem
     // = both_independent / symmetric, or a single side with "ignore the other side"
     // off / mfEvalMode='total') and math/argwave/σ≠1 operands. The Jacobian is the
     // EXACT analytic Jacobian (valid in every surface mode — single-surface direct
@@ -376,6 +354,29 @@ export class LSQEngine {
         return this.operands.every(_operandSupportsFullNewton);
     }
 
+    // ── Newton system: H·Δ = −Jᵀr, H = JᵀJ + S ───────────────────────────────
+    // Assembles the TRUE merit-function Hessian for second-order (Newton)
+    // refinement. Minimizing MF = √(SSR/ΣW) ≡ minimizing SSR = Σ rₚ²; the
+    // Newton step solves H_SSR·Δ = −∇SSR with ∇SSR = 2·Jᵀr and
+    //   H_SSR = 2·(JᵀJ + S),  S[a][b] = Σₚ rₚ·∂²rₚ/∂dₐ∂d_b
+    // (the factor 2 cancels). Gauss–Newton / LM keeps only JᵀJ and drops S; the
+    // S curvature term is what gives genuine quadratic convergence near the
+    // minimum (Tikhonov–Tikhonravov–Trubetskov 1993). Per-residual ∂²rₚ uses the
+    // analytic comp-Hessian, tmmcore hessian
+    // (FD-validated, tests/hessian_fd_validation.mjs).
+    //
+    // Scope: a merit scored on one surface, front_only or back_only with
+    // mfEvalMode='side' (_fullNewtonSupported). Every other merit takes the
+    // Gauss-Newton system (_gaussNewtonSystem): another surface/eval mode, an active cone, a
+    // math, argwave, ellipsometry, EFMX or curve-block row (no curvature worked
+    // out, newtonAssembly/curvature.js), a row with σ ≠ 1 (its curvature is not
+    // divided by σ), or an analytic Jacobian that declines (EFMX, a curve block
+    // a math row reads whole, and the math rows reading either).
+    // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
+    // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
+    // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows
+    // and the worst-case min/max rows contribute zero curvature (curvature.js
+    // says why for min/max). Returns { H, Jtr } (nFree×nFree, nFree).
     _newtonSystem(thk, freeIdx) {
         // FULL Newton (Gauss-Newton JᵀJ + analytic second-order curvature S) is
         // assembled whenever the MF is scored on a SINGLE surface — front_only or
@@ -425,9 +426,8 @@ export class LSQEngine {
 
     // Stable, never-overridden handle to the Levenberg–Marquardt step. The
     // second-order engines (NewtonOptimizer / SQPOptimizer) override step() to
-    // dispatch to newtonStep()/sqpStep(); those fall back to the LM step for any
-    // unsupported case (non-front_only surface mode, operands without analytic rows).
-    // The fallback MUST call lmStep(), NOT this.step() — the latter re-dispatches
+    // dispatch to newtonStep()/sqpStep(), which run natively in every surface mode.
+    // Code in a subclass that needs the LM step MUST call lmStep(), NOT this.step() — the latter re-dispatches
     // through the subclass override and recurses until the stack overflows
     // (real bug: Newton/SQP crashed on back_only/symmetric/both_independent and
     // in "Try all" on any two-sided design). lmStep() reaches the
@@ -437,8 +437,8 @@ export class LSQEngine {
 
     // Second-order STEP STRATEGIES (Newton / Newton-CG / SQP) live in their own
     // subclass files (newton.js / newtonCG.js / sqp.js, each `extends LSQEngine`);
-    // they reuse this engine's `_newtonSystem` / `_thicknessBounds` (SQP) and the
-    // `lmStep` fallback. The LM `step()` below is the engine's default strategy.
+    // they reuse this engine's `_newtonSystem` and `lmStep`; sqp.js defines its own
+    // `_thicknessBounds`. The LM `step()` below is the engine's default strategy.
 
     // Central-difference Jacobian J[m × nFree] of the residuals, used when the
     // analytic Jacobian declines a merit term (meritGradient.js).

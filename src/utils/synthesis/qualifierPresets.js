@@ -6,7 +6,7 @@
  * apply (replacing or appending to their current qualifier list).
  *
  * Built-ins live here; saved user presets live on disk under
- * Documents\TFStudio\Qualifiers\<name>.tfsq (see main.js qualifiers:* IPC).
+ * Documents\TFStudio\Qualifiers\<name>.tfsq (see src/main/ipc/qualifiers.js).
  *
  * Reference: standard coating specs from Macleod 5th ed. Ch.3–7; ITU-T G.694.1
  * for DWDM grid; CIE 15:2004 for photopic / D65.

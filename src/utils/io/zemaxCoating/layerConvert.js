@@ -8,7 +8,6 @@ import { sanitizeZemaxName } from './names.js';
  *   @param {(zemaxName:string)=>(string|null)} resolve.materialId  Zemax name → TFStudio material id
  *   @param {(zemaxName:string, lamNm:number)=>number} resolve.realIndex  real n of a Zemax material at λ
  *   @param {number} resolve.refWavelengthUm   λ₀ for relative thicknesses (default 0.55)
- *   @param {(zemaxName:string)=>boolean} [resolve.isMedium]  treat as ambient/medium (skip as a layer)
  * @returns {{layers:Array<{material:string,thickness:number,locked:boolean}>, warnings:string[]}}
  *   thickness in nm.  Layer order is preserved as written in the file
  *   (Zemax COAT order = incident-medium-side → substrate-side).

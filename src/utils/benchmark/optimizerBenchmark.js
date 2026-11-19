@@ -11,7 +11,7 @@
  * run (utils/refinement/runRefinement.js) with its own bounds and budgets, each
  * optimizer job on the calling thread. The Needle and GE drivers take the
  * `resolveMat(id) → material` resolver as a parameter and are ports of the
- * canonical loops (NeedleVariation / GradualEvolution components) using the
+ * canonical loops (utils/needle and utils/gradualEvolution) using the
  * SAME validated primitives from optimizer.js. The Structural driver runs the
  * Structural Optimizer window's own runner (structuralRun.js), refining on the
  * calling thread.
@@ -62,7 +62,8 @@ export function describePool(resolveMat, lamNm = 550) {
 export const LOCAL_METHODS  = ['dls', 'cg', 'newton', 'newton-cg', 'sqp'];
 export const GLOBAL_METHODS = ['de', 'sa'];
 // Inner LOCAL refiners a synthesis tool (Needle/GE/Structural) can use to polish
-// each candidate — mirrors SYNTHESIS_INNER_ENGINES / the synthesis "engine" dropdown.
+// each candidate. These are the ones benchmarked here: SYNTHESIS_INNER_ENGINES
+// also offers trust-region, the Needle default.
 export const SYNTH_ENGINES  = ['dls', 'cg', 'newton', 'newton-cg', 'sqp'];
 export const REFINE_MAXITERS = [60, 200, 500];
 export const DMIN_SWEEP = [1, 40];
@@ -708,10 +709,10 @@ export async function runJob(job, resolveMat, { onTick } = {}) {
     // whether the d ≥ mnt constraint was actually honored.
     //
     // FIDELITY to the real tools: Needle STRIPS thickness constraints by design
-    // (NeedleVariation.js: densifyForRun(enabled.filter(op => !isConstraint(...)))),
+    // (needle/setup.js: densifyForRun(enabled.filter(op => !isConstraint(...)))),
     // since an active MNT penalty wipes out every improving needle candidate, so
     // Needle always runs optical-only and IGNORES MNT. GE keeps the constraint
-    // (GradualEvolution.js does NOT filter constraints; its DLS refine applies the
+    // (gradualEvolution/setup.js does NOT filter constraints; its DLS refine applies the
     // penalty, even though the needle SCAN sub-step is optical) and so does
     // Refinement. Structural (the window's runner) raises its Min thickness to
     // the MNT value and refines without the constraint rows. Hence Needle shows

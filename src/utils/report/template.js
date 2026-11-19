@@ -172,20 +172,6 @@ function generatedLine({ tr, meta, designs }) {
     + (meta.generatedAt ? ` · ${meta.generatedAt}` : '');
 }
 
-/**
- * Compose the full report document.
- *
- * @param {object} args
- *   lang      'en' | 'ru' | 'zh' | 'it'  (sets <html lang>)
- *   tr        t.report locale object
- *   brand     { company, line2, accent, footer, designer, logoDataUrl }
- *   doc       { title, customer, docNo, revision, date, designer }
- *   paper     'A4' | 'Letter'
- *   blocks    ordered blocks [{ id, type, on, settings }]
- *   designs   [{ design, data }], data from gatherDesignData for the same blocks
- *   meta      { appName, version, generatedAt }
- * @returns {string} full HTML document
- */
 // The designs as the composer sees them: a display name, a color and, in a
 // comparison, the letter the tables and legends refer to it by.
 function designItems(designs) {
@@ -211,6 +197,20 @@ function blockSections(block, items, tr) {
   }));
 }
 
+/**
+ * Compose the full report document.
+ *
+ * @param {object} args
+ *   lang      'en' | 'ru' | 'zh' | 'it'  (sets <html lang>)
+ *   tr        t.report locale object
+ *   brand     { company, line2, accent, footer, designer, logoDataUrl }
+ *   doc       { title, customer, docNo, revision, date, designer }
+ *   paper     'A4' | 'Letter'
+ *   blocks    ordered blocks [{ id, type, on, settings }]
+ *   designs   [{ design, data }], data from gatherDesignData for the same blocks
+ *   meta      { appName, version, generatedAt }
+ * @returns {string} full HTML document
+ */
 export function composeReport(args) {
   const { lang = 'en', tr = {}, brand = {}, doc = {}, paper = 'A4', blocks = [],
           designs = [], meta = {} } = args;

@@ -16,8 +16,8 @@ export function prepare(design, operands, pool) {
     const ops = densifyForRun(synthesisRows(design, operands), design);
     if (ops.length === 0) return { failed: 'noOperands' };
     // Sides to scan per cycle. For both_independent we scan BOTH front and back
-    // and pick the global best needle (regardless of side); for forced modes we
-    // scan one side. Seed refines and candidate refines in both_independent
+    // in turn, the smaller side first, each side accepting its own best
+    // candidate; for forced modes we scan one side. Seed refines and candidate refines in both_independent
     // vary BOTH sides simultaneously regardless.
     const scanSides = (design.surfaceMode || 'front_only') === 'both_independent' ? ['front', 'back'] : [activeSide(design)];
     if (!pool.length) return { failed: 'noMaterials' };

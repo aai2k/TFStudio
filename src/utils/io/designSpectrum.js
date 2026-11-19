@@ -3,9 +3,10 @@
  *
  * Computes the active design's T/R/A spectrum over a λ grid + AOI list (honoring
  * the surface evaluation mode) and turns it into named columns for tableToCsv.
- * Shared by the Measured Spectra window's "Export design spectrum" panel so the
- * export does not depend on the Optical Evaluation window being open, and uses
- * the SAME TMM entry points as Optical Evaluation (bit-identical curves).
+ * computeDesignSpectrum computes the preview of the design import dialog, on the
+ * same TMM entry points as Optical Evaluation but without a cone of incidence.
+ * The Measured Spectra window's "Export design spectrum" panel names its columns
+ * with designSpectrumColumns.
  *
  * computeDesignSpectrum is impure (resolves materials from the catalog); the
  * column builder designSpectrumColumns is pure and unit-tested.
