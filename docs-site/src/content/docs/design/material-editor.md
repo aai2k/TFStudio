@@ -116,6 +116,8 @@ An AGF glass's internal transmittance τ over thickness d becomes, at each tabul
 k(λ) = −λ / (4π d) · ln τ(λ)
 ```
 
+A τ of 0 in the run of rows that opens the glass's data at the short-wave end is its UV cut-off: it is read as τ = 0.0005 over that row's thickness, half the last printed digit: the least absorption the printed 0 allows, so a piece thinner than the catalog's still passes some light there. A τ of 0 anywhere else, such as the 1.06 µm rows of some older Schott glasses, means no data and the row is left out.
+
 ## References
 
 - M. N. Polyanskiy, refractiveindex.info (public-domain dispersion data).

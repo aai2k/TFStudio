@@ -41,7 +41,7 @@ const cat = parseAGF(text, 'schott2025');
 
 eq(cat.id, 'schott2025', 'catalog id preserved from catalogId arg');
 eq(Object.keys(cat.materials).length, 366, 'all glasses parsed');
-eq(fingerprint(cat), 779850973, 'full-parse fingerprint stable');
+eq(fingerprint(cat), 714987293, 'full-parse fingerprint stable');
 
 // N-BK7 spot-check — dispersion coefficients and derived k-table.
 const bk = cat.materials['N-BK7'];

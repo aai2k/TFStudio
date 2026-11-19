@@ -124,6 +124,26 @@ function accumulateIT(itData, tokens) {
     return false;
 }
 
+// Internal transmittance a row printed as zero stands for, in the catalog's
+// three decimals: half the last printed digit.
+const OPAQUE_IT = 5e-4;
+
+// The k-table of a glass from its IT rows. A zero row in the run that starts
+// the data at the short-wave end, with transmittance printed after it, is the
+// UV cut-off: the glass is opaque there, so k comes from OPAQUE_IT at that row's
+// thickness. Any other zero row, such as the 1.06 um rows of the obsolete
+// glasses, is a gap in the data and is left out.
+function kTableFromIT(itData) {
+    const rows = [...itData].sort((a, b) => a.lam_um - b.lam_um);
+    const firstTransmitting = rows.findIndex(pt => pt.T > 0);
+    const kept = [];
+    rows.forEach((pt, i) => {
+        if (pt.T > 0) kept.push(pt);
+        else if (firstTransmitting > 0 && i < firstTransmitting) kept.push({ ...pt, T: OPAQUE_IT });
+    });
+    return kept.map(pt => ({ lam_um: pt.lam_um, k: kFromIT(pt.T, pt.lam_um, pt.thick_mm) }));
+}
+
 // Finalize an open glass: derive its Beer–Lambert k-table from the accumulated
 // IT rows (sorted by wavelength) and register it in the materials map.
 //
@@ -137,9 +157,7 @@ function commitGlass(open, itData, materials, rejected) {
         rejected.push({ name: cur.name, formula: formulaToken });
         return;
     }
-    cur.kTable = itData
-        .map(pt => ({ lam_um: pt.lam_um, k: kFromIT(pt.T, pt.lam_um, pt.thick_mm) }))
-        .sort((a, b) => a.lam_um - b.lam_um);
+    cur.kTable = kTableFromIT(itData);
     if (cur.kTable.length) cur.interp = TABULATED_INTERPOLATION;
     // Three of the constants the stress model reads come out of an AGF file:
     // the modulus and Poisson's ratio of the MD line, and the -30/70 °C
