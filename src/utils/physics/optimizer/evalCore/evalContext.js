@@ -79,6 +79,9 @@ export function buildEvalContext(design, resolveMat) {
                         : surfaceMode === 'back_only'
                             ? backThicks
                             : frontThicks,
+        // Which of those layers are locked, in the same order.
+        fullLocked:  (surfaceMode === 'both_independent' ? [...front, ...back]
+                        : surfaceMode === 'back_only' ? back : front).map(l => !!l.locked),
     };
 }
 

@@ -28,7 +28,7 @@
  */
 import { initWasmForTest } from './_wasmInit.mjs';
 import { makeEngine } from '../src/utils/optimizers/index.js';
-import { makeOperand } from '../src/utils/physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext, calcMF } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import * as boxQP from '../src/utils/physics/optimizer/linalg.js';
 
@@ -207,6 +207,38 @@ function kktError(H, g, d, lo, hi) {
     }
     ok(cauchy && qpValue(H, g, cauchy) <= best + 1e-9, `Cauchy point is the first minimizer on the path (${cauchy && qpValue(H, g, cauchy)} vs scan ${best})`);
     ok(full?.delta && qpValue(H, g, full.delta) <= qpValue(H, g, cauchy ?? [0, 0, 0]) + 1e-12, 'the QP solution is at least as low as the Cauchy point');
+}
+
+// ── 5. MNT and MXT bound the layers a run can move ──────────────────────────────
+// A locked 2 nm Cr adhesion layer next to the substrate, and the 10 nm MNT row
+// the merit wizard writes over every layer. The row reads the free layers
+// alone: read on the Cr it would stay 8 nm short whatever the run does, with
+// its slope on no free layer, and the free layers would be free to thin down to
+// 2 nm. The editor's value, from the design, is the engine's.
+{
+    const design = {
+        incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1 },
+        frontLayers: [
+            { id: 'a', material: 'SiO2', thickness: 90, locked: false }, { id: 'b', material: 'TiO2', thickness: 4, locked: false },
+            { id: 'c', material: 'SiO2', thickness: 120, locked: false }, { id: 'd', material: 'Cr', thickness: 2, locked: true },
+        ],
+        backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
+    };
+    const mnt = makeOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: 1000, target: 10, weight: 1 });
+    const mxt = makeOperand({ type: 'MXT', lambdaStart: 1, lambdaEnd: 1000, target: 100, weight: 1 });
+    const rows = [...antireflection, mnt, mxt];
+    const shown = evaluateOperands(rows, buildEvalContext(design, resolveMat));
+    ok(shown[1] === 4 && shown[2] === 120, `MNT and MXT read the free layers: ${shown[1]} and ${shown[2]} nm`);
+    const lockedThick = withThicknesses(design, [90, 4, 120, 150]);
+    ok(evaluateOperands(rows, buildEvalContext(lockedThick, resolveMat))[2] === 120, 'a locked layer above an MXT bound does not pin it');
+    const eng = makeEngine('dls', rows, design, resolveMat, { maxIter: 300 });
+    ok(Math.abs(eng.mf - calcMF(rows, shown)) < 1e-12, `the engine starts from the editor's merit (${eng.mf} vs ${calcMF(rows, shown)})`);
+    for (let i = 0; i < 300 && !eng.isConverged(); i++) eng.step();
+    eng.restoreBest();
+    // DLS holds MNT as a penalty, so the layer may end short of 10 nm; read on
+    // the Cr, the row let it thin with no penalty down to 2 nm.
+    ok(eng.thicknesses[1] > 5, `the MNT penalty holds the free TiO2 layer, not the locked Cr (${eng.thicknesses[1].toFixed(2)} nm)`);
+    ok(eng.thicknesses[3] === 2, 'the locked Cr layer stays at 2 nm');
 }
 
 if (fails === 0) { console.log('PASS: refiners at the thickness bounds'); process.exit(0); }

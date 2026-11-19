@@ -189,6 +189,7 @@ export class LSQEngine {
             frontThicks, frontMats,
             backThicks,  backMats,
             fullThicks:           thk,    // constraints act on the full optimization vector
+            fullLocked:           this.lockedMask,
         };
     }
 

@@ -30,8 +30,13 @@ export function constraintRangeIndices(op, surfaceMode, nFront, length) {
     return indices;
 }
 
-// The same positions for an evaluation context.
+// The same positions for an evaluation context, less the locked layers: a
+// thickness bound holds the layers a run can move, and a locked layer outside
+// it would leave the row violated whatever the run does. `ctx.fullLocked`, when
+// it lines up with `fullThicks`, marks them.
 export function contextConstraintIndices(op, ctx) {
     const all = ctx.fullThicks || ctx.frontThicks || [];
-    return constraintRangeIndices(op, ctx.surfaceMode, ctx.frontThicks?.length ?? 0, all.length);
+    const indices = constraintRangeIndices(op, ctx.surfaceMode, ctx.frontThicks?.length ?? 0, all.length);
+    const locked = ctx.fullLocked;
+    return locked?.length === all.length ? indices.filter(i => !locked[i]) : indices;
 }
