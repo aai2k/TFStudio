@@ -27,7 +27,7 @@ const layer = (material, thickness) => ({
     locked: false,
 });
 
-// Shared base — a BK7 substrate in air, identical conventions to makeDefaultDesign.
+// Shared base: a BK7 substrate in air, identical conventions to makeDefaultDesign.
 function baseDesign(name, frontLayers, lam0 = 550) {
     const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     return {
@@ -65,7 +65,7 @@ export function buildSampleDesigns() {
         {
             key: 'qwStack',
             name: 'QW high reflector (TiO₂/SiO₂)¹¹',
-            description: 'Eleven-layer quarter-wave stack (TiO₂ high / SiO₂ low) on BK7 — a textbook dielectric mirror centred at 550 nm (Macleod Ch. 6).',
+            description: 'Eleven-layer quarter-wave stack (TiO₂ high / SiO₂ low) on BK7: a textbook dielectric mirror centred at 550 nm (Macleod Ch. 6).',
             build: designName => {
                 // (H L)×5 H, starting with H (TiO2) adjacent to the substrate.
                 const layers = [];
