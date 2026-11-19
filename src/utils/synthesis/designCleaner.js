@@ -9,7 +9,11 @@
  *      Gradual Evolution forced a thin segment between two equal halves.
  *
  *   2. **Remove layers below a thickness threshold**
- *      `[A 100 nm, B 0.3 nm, C 80 nm]` → `[A 100 nm, C 80 nm]`
+ *      `[A 100 nm, B 0.3 nm, C 80 nm]` → `[A 100 nm + B's, C 80 nm]`
+ *      The removed layer's optical thickness at the design's reference
+ *      wavelength goes to the unlocked neighbour with the closer index, so
+ *      the total optical thickness is kept. Only between layers with n > k
+ *      there; a metal is taken out alone.
  *      Useful for the *Thin Layer Removal* use case — list of
  *      sub-N nm layers and a one-click drop. The merit function typically
  *      degrades slightly after removal, so the *Re-optimize* option runs a
@@ -19,6 +23,7 @@
  * Locked layers are always preserved:
  *   - never merged into a neighbor
  *   - never removed
+ *   - never given the thickness a removed layer hands over
  *
  * The function returns BOTH a cleaned design AND a structured report so the
  * UI can preview the operations before applying them.
@@ -29,6 +34,9 @@
  */
 
 import { mirrorLayers } from '../physics/optimizer/layerOps.js';
+import { designMaterialLookup } from '../materials/designMaterials.js';
+
+const DEFAULT_REFERENCE_NM = 550;   // nm, the reference wavelength of a design that sets none
 
 // Each operation in the report:
 //   { side: 'front'|'back', kind: 'remove'|'merge', srcIdx, dstIdx?, materialId, thickness, mergedInto? }
@@ -61,26 +69,82 @@ function mergePass(stage, side, ops) {
     return merged;
 }
 
-// One remove pass — drops every unlocked layer below `dMin`.
-function removePass(stage, side, ops, dMin) {
-    const kept = [];
-    for (const layer of stage) {
-        if (!layer.locked && layer.thickness < dMin) {
-            ops.push({
-                side, kind: 'remove',
-                srcIdx: layer._origIdx,
-                materialId: layer.material,
-                thickness: layer.thickness,
-            });
-        } else {
-            kept.push(layer);
+// The index a removal is judged on: the real part of the material's index at
+// the design's reference wavelength, or null for a material that has none to
+// hand on, whose layer is then taken out without handing its thickness on, or
+// is not given one. That is a material the design cannot resolve and a metal:
+// where n does not exceed k, n d is not the phase thickness of the layer.
+function indexReader(design) {
+    const lookup = designMaterialLookup(design);
+    const lambda = design.referenceWavelength || DEFAULT_REFERENCE_NM;
+    return (id) => {
+        try {
+            const [n, k] = lookup(id).getNK(lambda);
+            return n > k && n > 0 ? n : null;
+        } catch (_) {
+            return null;
         }
+    };
+}
+
+// The place in `stage` of the thinnest unlocked layer below `dMin` (the first
+// of equally thin ones), or -1.
+function thinnestBelow(stage, dMin) {
+    let at = -1;
+    stage.forEach((layer, i) => {
+        if (!layer.locked && layer.thickness < dMin && (at < 0 || layer.thickness < stage[at].thickness)) at = i;
+    });
+    return at;
+}
+
+// Where the layer at `i` hands its optical thickness: the unlocked neighbour
+// whose index is closer to its own (the one before it when they are equally
+// close, which makes no optical difference). Returns { at, add } with the
+// thickness `add` nm that neighbour gains (d n_removed / n_neighbour), or null
+// when no neighbour can take it.
+function receiverOf(stage, i, indexOf) {
+    const n = indexOf(stage[i].material);
+    if (n == null) return null;
+    let best = null;
+    for (const at of [i - 1, i + 1]) {
+        if (at < 0 || at >= stage.length || stage[at].locked) continue;
+        const nNeighbour = indexOf(stage[at].material);
+        if (nNeighbour == null) continue;
+        const gap = Math.abs(nNeighbour - n);
+        if (!best || gap < best.gap) best = { at, gap, add: stage[i].thickness * n / nNeighbour };
+    }
+    return best;
+}
+
+// One remove pass: takes out every unlocked layer below `dMin`, the thinnest
+// first; a layer that took a neighbour's thickness stays if that lifts it to
+// `dMin`. Following Tikhonravov, Trubetskov and DeBell, Appl. Opt. 46, 704
+// (2007), p. 706, a layer goes with its optical thickness kept: a neighbour
+// takes it (receiverOf), so the stack's total optical thickness at the
+// reference wavelength is unchanged.
+function removePass(stage, side, ops, dMin, indexOf) {
+    let kept = stage;
+    for (let i = thinnestBelow(kept, dMin); i >= 0; i = thinnestBelow(kept, dMin)) {
+        const layer = kept[i];
+        ops.push({
+            side, kind: 'remove',
+            srcIdx: layer._origIdx,
+            materialId: layer.material,
+            thickness: layer.thickness,
+        });
+        const to = receiverOf(kept, i, indexOf);
+        const next = kept.filter((_, j) => j !== i);
+        if (to) {
+            const at = to.at > i ? to.at - 1 : to.at;
+            next[at] = { ...next[at], thickness: next[at].thickness + to.add };
+        }
+        kept = next;
     }
     return kept;
 }
 
 function cleanupOneSide(layers, side, opts) {
-    const { dMin, mergeAdjacent } = opts;
+    const { dMin, mergeAdjacent, indexOf } = opts;
     const ops = [];
 
     // Cycle merge → remove until stable. A single pair (merge, remove) is
@@ -93,7 +157,7 @@ function cleanupOneSide(layers, side, opts) {
     for (let i = 0; i < 4 && stage.length !== lastLen; i++) {
         lastLen = stage.length;
         if (mergeAdjacent) stage = mergePass(stage, side, ops);
-        const afterRemove = removePass(stage, side, ops, dMin);
+        const afterRemove = removePass(stage, side, ops, dMin, indexOf);
         if (afterRemove.length === stage.length) {
             // No removals this pass → no further chance of new adjacency
             stage = afterRemove;
@@ -151,8 +215,9 @@ export function cleanupDesign(design, opts = {}) {
     const frontIn = front.length;
     const backIn  = back.length;
 
+    const indexOf = indexReader(design);
     const clean = (layers, side) => (sides[side]
-        ? cleanupOneSide(layers, side, { dMin, mergeAdjacent })
+        ? cleanupOneSide(layers, side, { dMin, mergeAdjacent, indexOf })
         : { cleaned: layers.map(l => ({ ...l })), ops: [] });
     const frontRes = clean(front, 'front');
     const backRes = clean(back, 'back');

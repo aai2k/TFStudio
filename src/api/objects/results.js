@@ -1110,8 +1110,9 @@ export class CleanReport {
      * before the cleanup, 1 next to the substrate, as design.layers and
      * design.backLayers numbered it then; material its material, by id;
      * thickness, nm, for a layer taken out its thickness then, which counts
-     * any layer merged into it before, and for a merge what it adds to the
-     * layer it is merged into; mergedInto, for a merge, the number of that
+     * any layer merged into it before and any thickness a layer taken out
+     * before it handed to it, and for a merge what it adds to the layer it is
+     * merged into; mergedInto, for a merge, the number of that
      * layer, numbered as number is, and null for a layer taken out.
      *
      * @example

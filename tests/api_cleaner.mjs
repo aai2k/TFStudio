@@ -54,6 +54,7 @@ import { fixtureFile, manifest } from './_apiCorpus.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const api = await import('../src/api/index.js');
 const { cleanupDesign } = await import('../src/utils/synthesis/designCleaner.js');
+const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { mirrorLayers, makeOperand, withDesignSampleCounts } = await import('../src/utils/physics/optimizer.js');
 const { DEFAULT_REFINE_METHOD } = await import('../src/utils/optimizers/index.js');
 const { densifyForRun } = await import('../src/utils/refinement/workerInputs.js');
@@ -199,8 +200,15 @@ ok('layers were taken out and merged on each side in every mode, a symmetric des
     const named = operations.every(op => editorLayer(op.side, op.number)?.material === op.material && editorLayer(op.side, op.number)?.thickness === op.thickness
         && (op.kind === 'remove' || editorLayer(op.side, op.mergedInto)?.material === op.material));
     ok('the layer at each number in the design given has the operation\'s material and thickness, and the one it is merged into its material', named);
-    ok('and the cleaned stack holds the merged layers\' sum', cleaned.frontLayers.map(l => l.thickness).join() === '100,80,20'
-        && cleaned.backLayers.map(l => l.thickness).join() === '65,60', JSON.stringify([cleaned.frontLayers, cleaned.backLayers].map(side => side.map(l => l.thickness))));
+    // The thin Ta2O5 layer goes to the SiO2 pair merged to 80 nm, the neighbour of closer index, and the thin MgF2
+    // layer to the TiO2 next to it, each by d n_removed / n_neighbour at the 550 nm reference wavelength.
+    const n550 = id => getMaterial(id).getNK(550)[0];
+    const [frontD, backD] = [cleaned.frontLayers, cleaned.backLayers].map(side => side.map(l => l.thickness));
+    const wantFront = [100, 80 + 2 * n550('Ta2O5') / n550('SiO2'), 20];
+    const wantBack = [65, 60 + 1.5 * n550('MgF2') / n550('TiO2')];
+    const within = (got, want) => got.length === want.length && got.every((d, i) => Math.abs(d - want[i]) < 1e-9);
+    ok('and the cleaned stack holds the merged layers\' sum, with each layer taken out handing its optical thickness to a neighbour',
+        within(frontD, wantFront) && within(backD, wantBack), JSON.stringify([frontD, backD]));
     // Two 2 nm SiO2 layers merged into one of 4 nm, which is then taken out.
     const chain = { ...api.newDesign({ name: 'Chain' }), frontLayers: [layer('c0', 'TiO2', 60), layer('c1', 'SiO2', 2), layer('c2', 'SiO2', 2), layer('c3', 'TiO2', 50)] };
     const takenOut = api.cleanDesign(chain).operations.find(op => op.kind === 'remove');

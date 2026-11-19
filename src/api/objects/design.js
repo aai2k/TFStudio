@@ -409,10 +409,13 @@ export class Design {
      * Cleans the stack as the Design Cleaner window does: adjacent layers of
      * one material merged into one, and layers thinner than `minThickness`
      * taken out, in passes, since taking a layer out can leave two layers of
-     * one material touching. Locked layers are never merged or taken out.
-     * `side` cleans one side and leaves the other exactly as it was, and a
-     * symmetric design's back follows its front. The design then holds the
-     * cleaned layers.
+     * one material touching. A layer taken out hands its optical thickness at
+     * the design's reference wavelength to the unlocked neighbour with the
+     * closer index, so the total optical thickness is kept; only layers with n
+     * above k there take part, and a metal layer is taken out alone. Locked
+     * layers are never merged, taken out or given thickness. `side` cleans one side and
+     * leaves the other exactly as it was, and a symmetric design's back
+     * follows its front. The design then holds the cleaned layers.
      *
      * The merit usually worsens a little, since the stack changed. To do what
      * the window's Re-optimize does, add an MNT row at `minThickness` and

@@ -1802,9 +1802,10 @@ class CleanReport:
         "remove" or "merge"; number the layer's number on its side before the cleanup, 1 next to
         the substrate, as design.layers and design.back_layers numbered it then; material its
         material, by id; thickness, nm, for a layer taken out its thickness then, which counts
-        any layer merged into it before, and for a merge what it adds to the layer it is merged
-        into; merged_into, for a merge, the number of that layer, numbered as number is, and None
-        for a layer taken out.
+        any layer merged into it before and any thickness a layer taken out before it handed to
+        it, and for a merge what it adds to the layer it is merged into; merged_into, for a
+        merge, the number of that layer, numbered as number is, and None for a layer taken
+        out.
 
         Example::
 

@@ -11,7 +11,7 @@ ribbonIcon: design-cleaner
 
 ![Flow chart of Design Cleaner. On each side cleaned, neighbours of one material are merged and unlocked layers thinner than Remove below are removed; this repeats while a pass removes something, up to four passes, and a last merge follows. The window previews the result. Apply optionally refines the cleaned design with the chosen method, no layer below the threshold, and writes it as one undo step.](/diagrams/design-cleaner.svg)
 
-Locked layers are never merged or removed, and a symmetric design gets the cleaned front mirrored onto its back.
+Locked layers are never merged, removed or given thickness, and a symmetric design gets the cleaned front mirrored onto its back.
 
 ## Computed quantities
 
@@ -24,7 +24,7 @@ Locked layers are never merged or removed, and a symmetric design gets the clean
 
 **Side**: on a design coated on both sides, which side is cleaned. **Front** or **Back** leaves the other side exactly as it is, **Both** (the default) cleans both. A design coated on one side, or a symmetric one, has no Side choice.
 
-**Remove below**: layers thinner than this many nanometres are removed. 5 nm by default; raise it to your manufacturing minimum for the final pass.
+**Remove below**: layers thinner than this many nanometres are removed, each handing its optical thickness to a neighbour. 5 nm by default; raise it to your manufacturing minimum for the final pass.
 
 **Merge same material**: combine neighbouring layers of one material into one. On by default.
 
@@ -51,6 +51,7 @@ R, T and the MF are therefore the same before and after a merge. Only removals m
 $$
 \begin{aligned}
 & \text{removed:} && \text{unlocked layer } j \text{ with } d_j < \text{Remove below} \\
+& \text{taken by:} && \text{the unlocked neighbour } m \text{ with } n_m > k_m \text{ and } n_m \text{ closest to } n_j,\quad d_m \leftarrow d_m + d_j\,\frac{n_j}{n_m} \\
 & \text{passes:} && \text{merge, remove; again while a pass removes a layer, at most 4; then merge} \\
 & \text{refinement:} && \text{Method, at most Max iter steps,}\quad d_j \ge \max(\text{Remove below},\ 1\ \text{nm})
 \end{aligned}
@@ -58,7 +59,7 @@ $$
 
 The refinement uses every row of the merit function, its band rows sampled as a Refinement run samples them at launch, and no layer may go below the larger of the threshold and 1 nm, so a layer the cleaner kept cannot be refined back under it.
 
-Tikhonravov et al. take a thin layer out by giving it the index of a neighbour, which keeps the total optical thickness; their design cleaning takes out one layer at a time, the one whose removal raises the merit least, until an allowed rise is used. Design Cleaner deletes every layer under the threshold with its thickness, without looking at the merit, and the refinement after it restores as much thickness as the merit wants. [Gradual Evolution](/synthesis/gradual-evolution/)'s **Consolidate on finish** is the one-layer-at-a-time removal judged by the merit.
+Tikhonravov et al. take a thin layer out by giving it the index of a neighbour, which keeps the total optical thickness, and Design Cleaner does the same. Here $n$ is the real part of the index at the design's reference wavelength: the removed layer's optical thickness $n_j d_j$ goes to the unlocked neighbour whose index is closer, which grows by $d_j n_j / n_m$. Only a layer with $n > k$ hands its thickness over, and only to a neighbour with $n > k$: for a metal $n d$ is not the phase thickness. A metal layer, and a layer with no such unlocked neighbour, is taken out alone. Their design cleaning takes out one layer at a time, the one whose removal raises the merit least, until an allowed rise is used. Design Cleaner removes every layer under the threshold, the thinnest first, without looking at the merit, and the refinement after it recovers what the merit wants. [Gradual Evolution](/synthesis/gradual-evolution/)'s **Consolidate on finish** is the one-layer-at-a-time removal judged by the merit.
 
 ## References
 

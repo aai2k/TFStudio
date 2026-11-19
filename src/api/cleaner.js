@@ -38,9 +38,16 @@ function cleanedSide(design, side, cleanBack, fallback) {
  * cleans it: adjacent layers of one material merged into one, and layers
  * thinner than a minimum taken out, in passes, since taking a layer out can
  * leave two layers of one material touching, which the next pass merges.
- * Locked layers are never merged or taken out. `side` cleans one side and
- * leaves the other exactly as it was. A symmetric design's front is cleaned
- * and its back made the mirror of it. The design given is left as it was.
+ * A layer taken out hands its optical thickness at the design's reference
+ * wavelength to the unlocked neighbour with the closer index, which gains
+ * d n_removed / n_neighbour (real parts of the indices), so the total optical
+ * thickness is kept. Only layers with n above k there hand thickness over or
+ * take it; a metal layer, or a layer with no such unlocked neighbour, is taken
+ * out alone.
+ * Locked layers are never merged, taken out or given thickness. `side` cleans
+ * one side and leaves the other exactly as it was. A symmetric design's front
+ * is cleaned and its back made the mirror of it. The design given is left as
+ * it was.
  *
  * The merit usually worsens a little, since the stack changed. To do what
  * the window's Re-optimize does, add an MNT row at `minThickness` to the
@@ -65,7 +72,7 @@ function cleanedSide(design, side, cleanBack, fallback) {
  * @property operations[].kind `'remove'` or `'merge'`.
  * @property operations[].number The layer's number on its side in the design given, 1 next to the substrate, as the Design Editor numbers it.
  * @property operations[].material The layer's material, by id.
- * @property operations[].thickness For a layer taken out, its thickness then, nm, which counts any layer merged into it before; for a merge, what it adds to the layer it is merged into.
+ * @property operations[].thickness For a layer taken out, its thickness then, nm, which counts any layer merged into it before and any thickness a layer taken out before it handed to it; for a merge, what it adds to the layer it is merged into.
  * @property operations[].mergedInto For a merge, the number of the layer it is merged into, numbered as `number` is; null for a layer taken out.
  * @property layersBefore `{ front, back }`, how many layers each side had.
  * @property layersAfter `{ front, back }`, how many it has now.

@@ -958,8 +958,8 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     const read = report.operations.map(op => [op.side, op.kind, op.number, op.mergedInto, layerOf(op.side, op.number).material,
         layerOf(op.side, op.number).thickness, layerOf(op.side, op.mergedInto).material, op.material, op.thickness]);
     ok('each operation names its layer by its number in the design before, as design.layers and design.backLayers number them, on both sides',
-        canon(read) === canon([['front', 'merge', 2, 3, 'SiO2', 30, 'SiO2', 'SiO2', 30], ['front', 'remove', 6, null, 'Al2O3', 3, undefined, 'Al2O3', 3],
-            ['front', 'remove', 4, null, 'Ta2O5', 2, undefined, 'Ta2O5', 2],
+        canon(read) === canon([['front', 'merge', 2, 3, 'SiO2', 30, 'SiO2', 'SiO2', 30], ['front', 'remove', 4, null, 'Ta2O5', 2, undefined, 'Ta2O5', 2],
+            ['front', 'remove', 6, null, 'Al2O3', 3, undefined, 'Al2O3', 3],
             ['back', 'merge', 2, 1, 'Al2O3', 25, 'Al2O3', 'Al2O3', 25], ['back', 'remove', 4, null, 'MgF2', 1.5, undefined, 'MgF2', 1.5]]), canon(read));
     const optioned = before.copy();
     const backOnly = optioned.clean({ minThickness: 1.8, merge: false, back: true });
