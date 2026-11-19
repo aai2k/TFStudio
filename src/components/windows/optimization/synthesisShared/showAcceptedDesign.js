@@ -10,6 +10,12 @@ const deep = x => JSON.parse(JSON.stringify(x));
 const sameLayers = (a = [], b = []) =>
     a.length === b.length && a.every((layer, i) => layer.material === b[i].material && layer.thickness === b[i].thickness);
 
+// The last history row whose design is `frontLayers` with `backLayers`, or null.
+export function lastRowOf(rows, frontLayers, backLayers) {
+    return [...rows].reverse()
+        .find(row => sameLayers(row.frontSnap, frontLayers) && sameLayers(row.backSnap, backLayers)) || null;
+}
+
 /**
  * `rowsRef` holds the window's history rows, which outlive a run: Restore, or
  * an edit, can leave the run starting from a design none of them describes.
@@ -25,8 +31,7 @@ export function showAcceptedDesign({ baseDesignRef, updateDesignRef, rowsRef, se
     if (base.backLayers) patch.backLayers = deep(base.backLayers);
     updateDesignRef.current(patch, { transient: true });
 
-    const last = [...rowsRef.current].reverse()
-        .find(row => sameLayers(row.frontSnap, base.frontLayers) && sameLayers(row.backSnap, base.backLayers)) || null;
+    const last = lastRowOf(rowsRef.current, base.frontLayers, base.backLayers);
     setMf(last?.mf ?? null);
     setOmf(last?.omf ?? null);
     setLayerCount(last?.layerCount ?? (base[sideKeyFor(base)] || []).length);

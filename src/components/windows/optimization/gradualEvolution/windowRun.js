@@ -14,6 +14,7 @@ import {
 } from '../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { minOmfOf } from '../synthesisShared/synthesisMath.js';
+import { lastRowOf } from '../synthesisShared/showAcceptedDesign.js';
 import { activeBaseline, activeRunNum, openRunBlock } from '../synthesisShared/runBlocks.js';
 import { cacheRun } from './geStateHelpers.js';
 
@@ -180,6 +181,8 @@ function endRun(ctx, result, run) {
         return;
     }
     showDesign(ctx, result, true);
+    ctx.setMf(result.mf);
+    ctx.setOmf(lastRowOf(ctx.cyclesRef.current, result.frontLayers, result.backLayers)?.omf ?? null);
     ctx.setMfBest(result.mf);
     ctx.setLayerCount(result.frontLayers.length + result.backLayers.length);
     cacheRun(ctx);
