@@ -7,6 +7,7 @@ ribbonIcon: ri-profiler
 The Refractive Index Profile draws the refractive index n and the extinction coefficient k as a step function of depth through the coating, at one wavelength. It shows the index contrast between layers at a glance, and confirms the stack is built from the materials you meant.
 
 <!-- shot: ri-profiler | protected silver mirror, n and k both drawn, the silver's k standing out against the oxide overcoat -->
+![Refractive Index Profile](/screenshots/ri-profiler.png)
 
 ## Computed quantities
 

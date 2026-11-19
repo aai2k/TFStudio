@@ -7,6 +7,7 @@ ribbonIcon: mono-simulator
 单色监控模拟器是一个七页的向导，在镀膜机内的单波长光学监控下沉积设计。它与[宽带监控模拟器](/zh/simulation/bbm-simulator/)共用设置和回放；不同之处在于每层都在一个监控波长上，按三种终止策略之一切断。第 1 到 5 页设定条件和逐层计划，第 6 页运行一次实验，第 7 页给出结果。
 
 <!-- shot: mono-simulator | one simulated deposition of the quarter-wave mirror cut on turning points at the design wavelength, on Resulting Performance: the as-built reflectance against the design -->
+![单色监控模拟器](/screenshots/mono-simulator-zh.png)
 
 ## 计算的量
 

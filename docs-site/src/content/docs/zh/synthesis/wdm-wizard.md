@@ -13,6 +13,7 @@ Substrate | M₁ S₁ M₂ S₂ … Mq Sq M(q+1) | (optional AR)
 每个 Mᵢ 是一个四分之一波反射镜块，每个 Sᵢ 是 k 个半波的间隔层。从基底数起，整个膜系 H 和 L 交替，因此层数为偶数的反射镜会结束在另一种材料上，使它两侧的间隔层材料不同。两个外侧反射镜比内侧的弱，内侧反射镜把相邻的腔耦合起来：正是这一点使通带顶部变平。
 
 <!-- shot: filter-design | the Global Integer Search step after Start on a four-cavity DWDM target: the candidate list with the seed row, and the embedded preview with the scored points drawn over it -->
+![滤光片设计](/screenshots/filter-design-zh.png)
 
 ![滤光片设计的各步骤：材料、参数、腔数、原型、全局整数搜索和调整到入射介质，然后得到带评价函数行的新设计，供精炼使用。第 2 到第 5 步把滤光片嵌入基底中设计。第 5 步内部，以所选原型为种子，对反射镜整数层数和间隔层阶次做下降搜索，保留每一个降低评价函数的移动，并从扰动后的起点重复。](/diagrams/filter-design-zh.svg)
 

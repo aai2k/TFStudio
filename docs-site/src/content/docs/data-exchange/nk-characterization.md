@@ -7,6 +7,7 @@ ribbonIcon: nk-characterization
 n,k Characterization works out the optical constants of **one film on a known substrate** from a measurement of it: R and T from a spectrophotometer, or Ψ and Δ from an ellipsometer. The thickness is held at a value you know or fitted with the constants. The result is a material for designs that describes the film **your process deposits**, which is not a handbook material of the same chemical name.
 
 <!-- shot: nk-characterization | n, k and thickness of a TiO2 film on 1 mm BK7 extracted with the Cauchy model from its transmittance and reflectance -->
+![n,k Characterization](/screenshots/nk-characterization.png)
 
 ## Computed quantities
 

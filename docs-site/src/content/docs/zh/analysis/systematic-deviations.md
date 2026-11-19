@@ -7,6 +7,7 @@ ribbonIcon: systematic-dev
 系统偏差回答每一层同时朝同一方向漂移时的假设问题：所有膜层都厚 2 %，镀膜机每层都多镀 5 nm，或某种材料的折射率高了 0.05。与[蒙特卡洛](/zh/analysis/error-analysis/)不同，这里的误差是相关的：在整个设计上施加同一个偏移，而不是对每层独立随机抽取。设计本身从不改变。
 
 <!-- shot: systematic-dev | 550 nm bandpass, Sweep mode, every layer scaled 0.98 to 1.02 in 41 steps, transmittance as a heat map -->
+![系统偏差](/screenshots/systematic-dev-zh.png)
 
 ## 计算的量
 

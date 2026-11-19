@@ -14,6 +14,7 @@ Hi Lo Hi Lo Med    自定义符号
 ```
 
 <!-- shot: stack-formula | (H L)^8 H typed over the open quarter-wave mirror, the 17 layers listed with QWOT and thickness, T and R drawn, before Replace -->
+![膜系公式](/screenshots/stack-formula-zh.png)
 
 ## 计算的量
 

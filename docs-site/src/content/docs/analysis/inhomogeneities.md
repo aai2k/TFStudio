@@ -7,6 +7,7 @@ ribbonIcon: inhomogeneities
 Deposition never makes a perfectly abrupt boundary between two materials. Inhomogeneities inserts a graded transition at any interface you pick and overlays the spectrum with the transitions against the spectrum of the design as it is. The design itself is not changed.
 
 <!-- shot: inhomogeneities | 550 nm bandpass with every interface graded over 5 nm, Interfaces strip open, graded curves over the abrupt ones -->
+![Inhomogeneities & Interlayers](/screenshots/inhomogeneities.png)
 
 ## Computed quantities
 

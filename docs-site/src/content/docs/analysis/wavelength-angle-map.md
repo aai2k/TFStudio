@@ -7,6 +7,7 @@ ribbonIcon: wavelength-angle-map
 Wavelength vs Angle answers **how far the coating drifts when the light stops arriving straight on**. It computes one quantity over a wavelength range and an angle range together and draws it as a color map, so a passband edge that walks 30 nm between 0° and 45° is one picture rather than ten overlaid spectra. The map recomputes whenever the design changes.
 
 <!-- shot: wavelength-angle-map | quarter-wave mirror, R over 0-60° in 0.5° steps as a 3D surface, turned so the stopband's walk shows -->
+![Wavelength vs Angle](/screenshots/wavelength-angle-map.png)
 
 ## Computed quantities
 

@@ -7,6 +7,7 @@ ribbonIcon: process-sim
 工艺导出器逐层回放镀膜：第 1 层完成后的光谱、第 2 层完成后的光谱，直到完整的设计，让你看到镀膜机内的分光光度计在膜堆生长过程中将读到什么。它把每层结束时的目标光谱导出为监控软件使用的 `.res` 沉积文件，每层一个，或导出为 CSV 或文本表格。光谱使用标称材料，不含噪声；要预测实际镀出的结果，请使用[宽带](/zh/simulation/bbm-simulator/)或[单色](/zh/simulation/mono-simulator/)监控模拟器。
 
 <!-- shot: process-sim | the quarter-wave mirror deposited layer by layer on the part, held at its last layer, with the transmittance after every step drawn over the uncoated baseline -->
+![工艺导出器](/screenshots/process-sim-zh.png)
 
 ## 计算的量
 

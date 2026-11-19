@@ -7,6 +7,7 @@ ribbonIcon: zemax-coatings
 Zemax Coatings reads and writes OpticStudio `COATING.DAT` files: a text database of `MATE` (material) and `COAT` (layer stack) records, beside the `IDEAL`, `IDEAL2`, `TABLE`, `TAPR` and `ENCRYPTED` coating models. It imports a stack and its materials into a design or the [Coating Library](/design/coating-library/), and exports the active design as a `COAT` stack with its `MATE` records. **Coatings**, **Materials** and **Export** are tabs in one row with the reference wavelength; the result of the last action shows at its right end.
 
 <!-- shot: zemax-coatings | OpticStudio's own COATING.DAT read, its 12-layer 400-900 nm AR picked from the coatings list and imported onto the bare BK7 design -->
+![Zemax Coatings](/screenshots/zemax-coatings.png)
 
 ## Computed quantities
 

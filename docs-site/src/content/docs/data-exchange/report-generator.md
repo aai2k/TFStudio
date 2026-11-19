@@ -7,6 +7,7 @@ ribbonIcon: report-gen
 Report builds the document you hand to a customer or file with a design: the block list on the left, the page on the right, following the design as you edit it. Every number comes from the same calculations as the analysis windows, so the report shows what the app shows. It opens from **Report** on the **Production** tab of the ribbon.
 
 <!-- shot: report-gen | the design record of the 8-layer 400-1000 nm AR: block list on the left, the first page on the right -->
+![Report](/screenshots/report-gen.png)
 
 ## Computed quantities
 

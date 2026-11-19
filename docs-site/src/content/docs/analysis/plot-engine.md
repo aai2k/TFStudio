@@ -7,6 +7,7 @@ ribbonIcon: plot-engine
 The Plot Engine draws the numbers the other analysis windows compute against whatever you change. **2D** overlays any number of curves, each with its own settings: T at 0° in s beside T at 45° in p, the GDD of a chirped mirror against one layer's thickness, or Ψ against Δ as a layer grows. **Heatmap** and **3D** map one quantity over two variables, the merit function over two layer thicknesses among them. Each design keeps its own plots.
 
 <!-- shot: plot-engine | merit function of the 4-layer visible AR over the thicknesses of layers 1 and 3, as a heatmap with its minimum in the middle -->
+![Plot Engine](/screenshots/plot-engine.png)
 
 ## Computed quantities
 

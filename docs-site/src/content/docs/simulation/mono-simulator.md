@@ -7,6 +7,7 @@ ribbonIcon: mono-simulator
 The Monochromatic Monitoring Simulator is a seven-page wizard that deposits the design under an in-chamber single-wavelength optical monitor. It shares the setup and playback of the [Broadband Monitoring Simulator](/simulation/bbm-simulator/); the difference is that each layer is cut at one monitoring wavelength by one of three termination strategies. Pages 1 to 5 set the conditions and the per-layer plan, page 6 runs one experiment, page 7 gives the result.
 
 <!-- shot: mono-simulator | one simulated deposition of the quarter-wave mirror cut on turning points at the design wavelength, on Resulting Performance: the as-built reflectance against the design -->
+![Monochromatic Monitoring Simulator](/screenshots/mono-simulator.png)
 
 ## Computed quantities
 

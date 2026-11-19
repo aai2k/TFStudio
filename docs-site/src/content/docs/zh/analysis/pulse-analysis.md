@@ -7,6 +7,7 @@ ribbonIcon: pulse-analysis
 脉冲分析让一个短激光脉冲在镀膜上反射或穿过镀膜，并画出输出，旁边是**傅里叶变换极限脉冲（FLP）**：同一光谱所能形成的最短脉冲，所有频率同时到达。色散镜好坏就看其输出与这个脉冲有多接近。仅凭 GDD 曲线看不出这一点：曲线上看似很小的纹波，正是在短脉冲一侧形成结构的原因。
 
 <!-- shot: pulse-analysis | chirped mirror in reflection, 20 fs Gaussian at 800 nm with the GDD from target, time view with the delay removed, output over the FLP -->
+![脉冲分析](/screenshots/pulse-analysis-zh.png)
 
 ## 计算的量
 

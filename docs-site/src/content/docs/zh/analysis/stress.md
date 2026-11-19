@@ -9,6 +9,7 @@ ribbonIcon: stress
 **没有任何应力模型能达到光学模型的水准。** 薄膜应力取决于沉积工艺，而不只取决于材料，因此这些常数需要你自己测量，这些数字用于比较不同设计，而不是绝对地预测某个工件。
 
 <!-- shot: stress | quarter-wave TiO2/SiO2 mirror on a 1 mm, 25 mm BK7 disc, deposited at 200 °C and read at 20 °C -->
+![应力](/screenshots/stress-zh.png)
 
 ## 计算的量
 

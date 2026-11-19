@@ -7,6 +7,7 @@ ribbonIcon: roughness
 真实界面从来不是完全光滑的。粗糙度 / 散射把设计中每个粗糙界面替换为一个薄过渡层，把由此得到的镜面 R 和 T 与光滑设计的 R 和 T 并列显示，并给出从镜面光束中损失的光。
 
 <!-- shot: roughness | quarter-wave mirror with 1 nm of long-range roughness on every interface, rough R and T over smooth, specular loss in ppm -->
+![粗糙度 / 散射](/screenshots/roughness-zh.png)
 
 ## 计算的量
 

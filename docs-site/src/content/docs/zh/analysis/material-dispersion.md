@@ -7,6 +7,7 @@ ribbonIcon: material-dispersion
 材料色散计算光脉冲单次穿过给定厚度的块状材料时所受的影响：相位、群延迟和各色散项。用它来计算光路中的基底、窗口或其他玻璃，与镀膜分开；镀膜的色散由 [GD / GDD 窗口](/zh/analysis/gd-gdd/)给出。本窗口不需要设计。
 
 <!-- shot: material-dispersion | GDD of 1 mm of fused silica from 400 to 1100 nm -->
+![材料色散](/screenshots/material-dispersion-zh.png)
 
 ## 计算的量
 

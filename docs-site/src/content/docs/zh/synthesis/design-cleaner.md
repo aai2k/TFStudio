@@ -7,6 +7,7 @@ ribbonIcon: design-cleaner
 **设计清理器（Design Cleaner）** 清理综合过程留下的东西：相邻的同材料层，以及薄到镀膜机做不出来的层。它合并这些相邻层，去掉薄层，并重复这一过程直到设计稳定，因为去掉中间一层后，两层同材料的膜层可能会相接。随后它可以精炼结果，找回结构改变损失的评价函数。
 
 <!-- shot: design-cleaner | a synthesized multilayer design with thin layers: Pending operations listing removals and merges, Before and After layer counts, MF before and MF after, and the Thin layers panel -->
+![设计清理器](/screenshots/design-cleaner-zh.png)
 
 ![设计清理器的流程图。在每个被清理的面上，合并相邻的同材料层，并去掉薄于“移除小于”所设值的未锁定层；只要一遍中有去除就重复，最多四遍，最后再合并一次。窗口预览结果。应用时可选地用所选方法精炼清理后的设计，任何层都不低于阈值，并作为一步撤销写入。](/diagrams/design-cleaner-zh.svg)
 

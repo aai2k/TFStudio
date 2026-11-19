@@ -7,6 +7,7 @@ ribbonIcon: ellipsometry
 椭偏窗口计算当前设计的椭偏角 Ψ 和 Δ，也就是椭偏仪报告的两个数。用它可以**预测仪器应当看到的结果**，或与测量结果比较。只模拟各向同性样品的反射；透射、广义椭偏和穆勒矩阵椭偏不在其范围内。
 
 <!-- shot: ellipsometry | 100 nm SiO2 on silicon at 65°, spectral sweep 400-800 nm, Ψ and Δ on -->
+![椭偏仪评估](/screenshots/ellipsometry-zh.png)
 
 ## 计算的量
 

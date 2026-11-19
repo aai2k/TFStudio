@@ -7,6 +7,7 @@ ribbonIcon: layer-thicknesses
 膜层厚度把镀膜画成每层一个条形，按材料着色。它显示列表看不出的厚度序列形状：啁啾镜的渐变、针法运行插入的薄层，或经优化后比相邻层厚得多的某一层。
 
 <!-- shot: layer-thicknesses | chirped mirror in QW at its 700 nm reference wavelength, the chirp reading as a taper -->
+![膜层厚度](/screenshots/layer-thicknesses-zh.png)
 
 ## 计算的量
 

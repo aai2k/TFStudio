@@ -7,6 +7,7 @@ ribbonIcon: roughness
 Real interfaces are never perfectly smooth. Roughness / Scattering replaces every rough interface of the design with a thin transition layer and shows the specular R and T that result beside those of the smooth design, with the light lost from the specular beams.
 
 <!-- shot: roughness | quarter-wave mirror with 1 nm of long-range roughness on every interface, rough R and T over smooth, specular loss in ppm -->
+![Roughness / Scattering](/screenshots/roughness.png)
 
 ## Computed quantities
 

@@ -14,6 +14,7 @@ Hi Lo Hi Lo Med    your own symbols
 ```
 
 <!-- shot: stack-formula | (H L)^8 H typed over the open quarter-wave mirror, the 17 layers listed with QWOT and thickness, T and R drawn, before Replace -->
+![Stack Formula](/screenshots/stack-formula.png)
 
 ## Computed quantities
 

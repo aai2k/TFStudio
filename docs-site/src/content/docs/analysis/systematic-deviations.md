@@ -7,6 +7,7 @@ ribbonIcon: systematic-dev
 Systematic Deviations answers what-if questions where every layer drifts the same way at once: all layers 2 % thick, the coater 5 nm long on every layer, or a material's index up by 0.05. Unlike [Monte Carlo](/analysis/error-analysis/), the error is correlated: one offset applied across the design, not an independent random draw per layer. The design itself is never changed.
 
 <!-- shot: systematic-dev | 550 nm bandpass, Sweep mode, every layer scaled 0.98 to 1.02 in 41 steps, transmittance as a heat map -->
+![Systematic Deviations](/screenshots/systematic-dev.png)
 
 ## Computed quantities
 

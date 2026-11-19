@@ -7,6 +7,7 @@ ribbonIcon: error-analysis
 Monte Carlo answers a practical question: if your coater deposits every layer with a realistic random error, how much does the spectrum move, and how often does the result still pass your Specification? Each trial is a copy of the design with fresh random errors in every layer; the window draws the spread of the trials and, against a specification, the yield.
 
 <!-- shot: error-analysis | 200 trials of 1 % thickness error on the 8-layer 400-1000 nm AR, seed 1, the corridor and the yield against its specification, Errors strip folded -->
+![Monte Carlo](/screenshots/error-analysis.png)
 
 ## Computed quantities
 

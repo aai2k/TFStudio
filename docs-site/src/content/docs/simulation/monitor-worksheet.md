@@ -7,6 +7,7 @@ ribbonIcon: monitor-worksheet
 The Monitor Worksheet answers the question before a deposition run: **can this design be monitored at all**. For every layer it shows how much signal the monitor has to stop on, where the stop sits between the turning points around it, and how far the thickness moves if the reading is wrong. A design that cannot be terminated reliably cannot be made repeatably, whatever its spectrum. The [Monochromatic Monitoring Simulator](/simulation/mono-simulator/) runs an experiment; this window reports the controllability of the plan itself.
 
 <!-- shot: monitor-worksheet | the 550 nm bandpass on witness chips of three layers, one monitoring wavelength per chip picked by Auto λ, with the signal the monitor would see and the cut of every layer -->
+![Monitor Worksheet](/screenshots/monitor-worksheet.png)
 
 ## Computed quantities
 

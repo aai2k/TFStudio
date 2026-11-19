@@ -7,6 +7,7 @@ ribbonIcon: design-editor
 The Design Editor is where a coating is built: its layers, their materials and thicknesses, the substrate and media, and the surface being designed. Every other window reads this one design, so a change here shows everywhere at once. A design carries a **Front coating** on the incident side and a **Back coating** on the exit side; in both tabs the layer touching the substrate is listed first.
 
 <!-- shot: design-editor | the 27-layer chirped mirror: its layer table with the four thickness columns, and the stack geometry strip under it -->
+![Design Editor](/screenshots/design-editor.png)
 
 ## Computed quantities
 

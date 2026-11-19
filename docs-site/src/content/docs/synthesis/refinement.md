@@ -7,6 +7,7 @@ ribbonIcon: refinement
 **Refinement** moves the layer thicknesses to lower the merit function, with the method you pick. It never adds or removes layers. The layers that move are those of the surface mode set in the [Design Editor](/design/design-editor/), shown by the **Optimize** and **Eval** badges; locked layers stay put. How each method takes its steps, with a figure of each, is on [Optimization Methods](/synthesis/optimization-methods/).
 
 <!-- shot: refinement | a finished SQP run on a multilayer design: the readout with MF, best and init, the "no further improvement" pill, the MF trend strip, and two runs in Design History -->
+![Refinement](/screenshots/refinement.png)
 
 ## Computed quantities
 

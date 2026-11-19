@@ -7,6 +7,7 @@ ribbonIcon: spectrum-exchange
 实测光谱把设计与分光光度计联系起来。从仪器文件**导入**实测的 R、T 或 A 曲线，在[光学评价](/zh/analysis/optical-evaluation/)上与设计比较，并把设计的膜层厚度**拟合**到它；**导出**把计算的设计光谱或导入的曲线写入文件。典型用途是检查一次镀膜：实测曲线偏离预测曲线之处表明镀膜与设计的差别，拟合则把这一差别换算为镀膜机实际镀出的厚度。
 
 <!-- shot: spectrum-exchange | a measured transmittance file being imported, the parse panel with its detected unit, column and scale, and the incoming curve previewed over the design's spectrum at its angle -->
+![实测光谱](/screenshots/spectrum-exchange-zh.png)
 
 ## 计算的量
 

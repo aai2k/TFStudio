@@ -7,6 +7,7 @@ ribbonIcon: structural
 **结构优化器（Structural Optimizer）** 改变设计的结构：它添加、移除、分裂、合并或扰动膜层，精炼每一个改变后的设计，并用模拟退火规则选出从哪一个继续。更差的设计也可能被采用，其机会随运行降温而减小，正是这一点让它能离开局部极小值。因为它能改变膜层的数量和顺序，它可以达到保持结构不变的[精炼](/zh/synthesis/refinement/)以及只会加层的[针法](/zh/synthesis/needle/)和[渐变演化](/zh/synthesis/gradual-evolution/)可能达不到的设计。屏幕上的设计始终是找到的最好设计。
 
 <!-- shot: structural | a finished Structural Optimizer run on a multilayer antireflection target: the control bar with Iter, T, Acc and Best, MF Trend with the best and current curves, Accepted Improvements with Add, Split and Remove rows, and Top Designs -->
+![结构优化器](/screenshots/structural-zh.png)
 
 ![结构优化器一次运行的流程图。按下运行后，准备评价函数行并精炼起始设计。每次迭代重新采样波段行并设定温度，提出 K 个提议（针层插入和随机变异），精炼并评分每一个，然后在最低的移动优于最好设计时把链移到它，否则移到第一个通过 Metropolis 检验的移动。当最好的 MF 低于目标评价函数、迭代次数用完，或 P 次迭代都没有新的最好设计时，运行结束；开启深度搜索时则从最好设计重新加热并继续。](/diagrams/structural-optimizer-zh.svg)
 

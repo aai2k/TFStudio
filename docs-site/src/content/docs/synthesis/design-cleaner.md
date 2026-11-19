@@ -7,6 +7,7 @@ ribbonIcon: design-cleaner
 **Design Cleaner** tidies what synthesis leaves behind: neighbouring layers of one material, and layers too thin for a coater to make. It merges the neighbours, removes the thin layers and repeats until the design is stable, since a removed middle layer can leave two layers of one material touching. It can then refine the result to win back merit the change cost.
 
 <!-- shot: design-cleaner | a synthesized multilayer design with thin layers: Pending operations listing removals and merges, Before and After layer counts, MF before and MF after, and the Thin layers panel -->
+![Design Cleaner](/screenshots/design-cleaner.png)
 
 ![Flow chart of Design Cleaner. On each side cleaned, neighbours of one material are merged and unlocked layers thinner than Remove below are removed; this repeats while a pass removes something, up to four passes, and a last merge follows. The window previews the result. Apply optionally refines the cleaned design with the chosen method, no layer below the threshold, and writes it as one undo step.](/diagrams/design-cleaner.svg)
 

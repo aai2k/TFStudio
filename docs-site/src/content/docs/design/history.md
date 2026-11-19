@@ -7,6 +7,7 @@ ribbonIcon: history
 History lists every recorded state of the active design, newest first, and jumps the design to the row you click. It is the timeline that Ctrl+Z and Ctrl+Y (also F3 and Ctrl+F3) step through, so after a jump undo and redo carry on from the state you picked.
 
 <!-- shot: history | the broadband AR's states from a bare substrate through target set, Gradual Evolution, Best and Refinement, layer count rising and MF falling up the list -->
+![History](/screenshots/history.png)
 
 ## Computed quantities
 

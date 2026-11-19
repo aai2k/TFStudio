@@ -7,6 +7,7 @@ ribbonIcon: coating-library
 镀膜库把镀膜与设计分开保存。一个镀膜包括膜层堆栈、设计时所用的基底和入射介质、所针对的波段、入射角和偏振，以及它所满足的规格；其中任何一个都可以放到打开的设计的前表面或后表面上。**内置**中是随 TFStudio 提供的起始设计，**我的镀膜**中是你自己保存的镀膜。
 
 <!-- shot: coating-library | the 150-layer flat-top DWDM filter picked from the built-in band-pass shelf, the detail pane scrolled to its spectrum with the properties and specification under it -->
+![镀膜库](/screenshots/coating-library-zh.png)
 
 ## 计算的量
 

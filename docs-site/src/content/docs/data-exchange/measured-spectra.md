@@ -7,6 +7,7 @@ ribbonIcon: spectrum-exchange
 Measured Spectra connects the design to the spectrophotometer. **Import** a measured R, T or A curve from an instrument file, compare it with the design on [Optical Evaluation](/analysis/optical-evaluation/), and **fit** the design's thicknesses to it; **Export** writes the computed design spectrum or the imported curves to a file. A typical use is checking a deposition run: where the measured trace leaves the predicted one shows how the coating departs from the design, and the fit turns that into the thicknesses that came out of the chamber.
 
 <!-- shot: spectrum-exchange | a measured transmittance file being imported, the parse panel with its detected unit, column and scale, and the incoming curve previewed over the design's spectrum at its angle -->
+![Measured Spectra](/screenshots/spectrum-exchange.png)
 
 ## Computed quantities
 

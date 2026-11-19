@@ -7,6 +7,7 @@ ribbonIcon: plot-engine
 绘图引擎把其他分析窗口计算的数值对你改变的任意参数作图。**2D** 叠加任意多条曲线，每条各有自己的设置：0° s 偏振的 T 旁边放 45° p 偏振的 T，啁啾镜的 GDD 对某一膜层的厚度，或 Ψ 对 Δ 随膜层增厚的变化。**热图**和 **3D** 把一个物理量绘制在两个变量上，其中包括评价函数在两层厚度上的分布。每个设计保留自己的图。
 
 <!-- shot: plot-engine | merit function of the 4-layer visible AR over the thicknesses of layers 1 and 3, as a heatmap with its minimum in the middle -->
+![绘图引擎](/screenshots/plot-engine-zh.png)
 
 ## 计算的量
 

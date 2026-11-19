@@ -7,6 +7,7 @@ ribbonIcon: measured-ellipsometry
 实测椭偏把光谱椭偏仪测得的 Ψ 与 Δ 带入设计：**导入**从仪器文件读取这一对曲线并保存在设计上，**导出**把导入的曲线或设计计算出的 Ψ 与 Δ 写成 CSV。这些曲线与[实测光谱](/zh/data-exchange/measured-spectra/)中的光度曲线分开保存，因为它们没有百分比刻度，也没有偏振可选，没有入射角就毫无意义，而且 Δ 的符号因仪器而异。在这里导入的一对曲线正是 [n,k 表征](/zh/data-exchange/nk-characterization/)所读取的数据。
 
 <!-- shot: measured-ellipsometry | Ψ and Δ at 70° of an as-built 500 nm TiO2 film on BK7 read from CSV and added to the design -->
+![实测椭偏](/screenshots/measured-ellipsometry-zh.png)
 
 ## 计算的量
 

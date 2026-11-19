@@ -7,6 +7,7 @@ ribbonIcon: merit-function
 The Merit Function Editor holds what the optimizers drive toward: a list of operands, each one number with a target, a weight and a comparison. The merit function (MF) is how far the design misses them all, and Refinement, Needle, Gradual Evolution and the Structural Optimizer move layer thicknesses to bring it down. Every operand type, its arguments and how it scores are on the [Operand Reference](/design/operands/); this page is the window.
 
 <!-- shot: merit-function | the wizard's broadband AR target over 450-700 nm on bare BK7, generated with no minimum layer thickness, the rows in the table under it -->
+![Merit Function Editor](/screenshots/merit-function.png)
 
 ## Computed quantities
 

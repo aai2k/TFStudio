@@ -7,6 +7,7 @@ ribbonIcon: layer-thicknesses
 Layer Thicknesses draws a coating as one bar per layer, colored by material. It shows the shape of a thickness sequence that a list hides: the taper of a chirped mirror, the thin layers a needle run has inserted, or one layer that refinement made far thicker than its neighbours.
 
 <!-- shot: layer-thicknesses | chirped mirror in QW at its 700 nm reference wavelength, the chirp reading as a taper -->
+![Layer Thicknesses](/screenshots/layer-thicknesses.png)
 
 ## Computed quantities
 

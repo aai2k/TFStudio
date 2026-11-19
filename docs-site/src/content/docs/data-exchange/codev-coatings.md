@@ -7,6 +7,7 @@ ribbonIcon: codev-coatings
 CODE V Coatings moves a coating between TFStudio and CODE V. It reads a CODE V MULTILAYER (`MUL`) coating, the `.seq` command file that enters the stack or the `.mul` file CODE V saves from it, and writes one side of the active design as a `.seq` that CODE V runs to make the `.mul`. Import and Export are tabs in one row; at its right end a warning badge holds what the last read or export noted.
 
 <!-- shot: codev-coatings | a CODE V command file for a 15-layer TiO2 / SiO2 mirror at 45° read, its media, wavelengths, angles and layers shown, then imported as the mirror design's front coating -->
+![CODE V Coatings](/screenshots/codev-coatings.png)
 
 ## Computed quantities
 

@@ -6,6 +6,7 @@ description: 将 TFCalc（.tfd）、Essential Macleod（.dds）和 OptiLayer（.
 功能区“设置”选项卡“项目”组中的**导入**读取 TFCalc（`.tfd`）、Essential Macleod（`.dds`）和 OptiLayer（`.dsg`）保存的镀膜设计，并把它们作为 TFStudio 设计加入某个项目文件夹。可以一次选取任意数量、来自任一程序的文件；每个文件成为一个设计。
 
 <!-- shot: import-designs | two Essential Macleod designs and a TFCalc mirror picked at once, the three-cavity narrowband filter highlighted with its stack, materials and spectrum -->
+![设计导入](/screenshots/import-designs-zh.png)
 
 ## 计算的量
 

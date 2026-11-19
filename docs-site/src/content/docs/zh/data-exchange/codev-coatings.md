@@ -7,6 +7,7 @@ ribbonIcon: codev-coatings
 CODE V 镀膜在 TFStudio 与 CODE V 之间传递镀膜。它读取 CODE V MULTILAYER（`MUL`）镀膜，即输入膜层堆栈的 `.seq` 命令文件或 CODE V 由其保存的 `.mul` 文件，并把当前设计的一面写成 `.seq`，CODE V 运行它即可生成 `.mul`。导入与导出是同一行中的两个标签页；该行右端的警告徽标列出上一次读取或导出所记录的问题。
 
 <!-- shot: codev-coatings | a CODE V command file for a 15-layer TiO2 / SiO2 mirror at 45° read, its media, wavelengths, angles and layers shown, then imported as the mirror design's front coating -->
+![CODE V 镀膜](/screenshots/codev-coatings-zh.png)
 
 ## 计算的量
 

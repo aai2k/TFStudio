@@ -7,6 +7,7 @@ ribbonIcon: integral-values
 Integral Values condenses a spectrum into the weighted averages spec sheets quote: visible transmittance, solar reflectance and so on. Each row averages T, R or A over a band, weighting every wavelength by a light source times a detector response. The figures follow the design's [evaluation mode](/design/evaluation-modes/); for the usual whole-part figures, evaluate the design as the total system.
 
 <!-- shot: integral-values | ZnS/Ag/ZnS heat mirror over 300-2500 nm, Tsol selected with T(λ) drawn against the AM1.5G weighting -->
+![Integral Values & Characteristics](/screenshots/integral-values.png)
 
 ## Computed quantities
 

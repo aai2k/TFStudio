@@ -7,6 +7,7 @@ ribbonIcon: report-gen
 报告窗口生成你交付给客户或与设计一起归档的文档：左侧是区块列表，右侧是页面，页面随你编辑设计而更新。每个数字都来自与分析窗口相同的计算，因此报告显示的就是应用显示的内容。它从功能区**生产**选项卡上的**报告**打开。
 
 <!-- shot: report-gen | the design record of the 8-layer 400-1000 nm AR: block list on the left, the first page on the right -->
+![报告](/screenshots/report-gen-zh.png)
 
 ## 计算的量
 

@@ -7,6 +7,7 @@ ribbonIcon: history
 历史窗口按最新优先列出活动设计的每一个已记录状态，单击某一行即可把设计跳转到该状态。它就是 Ctrl+Z 与 Ctrl+Y（以及 F3 与 Ctrl+F3）逐步经过的时间线，因此跳转之后，撤销与重做从你选中的状态继续。
 
 <!-- shot: history | the broadband AR's states from a bare substrate through target set, Gradual Evolution, Best and Refinement, layer count rising and MF falling up the list -->
+![历史](/screenshots/history-zh.png)
 
 ## 计算的量
 

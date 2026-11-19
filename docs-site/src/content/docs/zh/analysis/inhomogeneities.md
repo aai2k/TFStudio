@@ -7,6 +7,7 @@ ribbonIcon: inhomogeneities
 沉积永远不会在两种材料之间形成完全突变的边界。不均匀性窗口在你选定的任意界面处插入一个渐变过渡层，并把带过渡层的光谱与设计原样的光谱叠加比较。设计本身不会被改变。
 
 <!-- shot: inhomogeneities | 550 nm bandpass with every interface graded over 5 nm, Interfaces strip open, graded curves over the abrupt ones -->
+![不均匀性与过渡层](/screenshots/inhomogeneities-zh.png)
 
 ## 计算的量
 

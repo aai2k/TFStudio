@@ -7,6 +7,7 @@ ribbonIcon: optical-eval
 Optical Evaluation plots **how your coating transmits, reflects and absorbs light across a wavelength range**. It is the window to check after every design change, and it draws the merit targets over the spectrum so you can see what the design is being optimized toward.
 
 <!-- shot: optical-eval | 4-layer visible AR, R only against its 420-680 nm target band, vertical axis on Auto -->
+![Optical Evaluation](/screenshots/optical-eval.png)
 
 ## Computed quantities
 

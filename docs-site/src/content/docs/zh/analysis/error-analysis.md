@@ -7,6 +7,7 @@ ribbonIcon: error-analysis
 蒙特卡洛回答一个实际问题：如果你的镀膜机以现实的随机误差沉积每一层，光谱会偏移多少，结果又有多大概率仍通过你的规格？每次试验都是设计的一个副本，每层带有新抽取的随机误差；窗口画出各次试验的分散，并在有规格时给出良率。
 
 <!-- shot: error-analysis | 200 trials of 1 % thickness error on the 8-layer 400-1000 nm AR, seed 1, the corridor and the yield against its specification, Errors strip folded -->
+![蒙特卡洛](/screenshots/error-analysis-zh.png)
 
 ## 计算的量
 

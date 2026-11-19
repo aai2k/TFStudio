@@ -7,6 +7,7 @@ ribbonIcon: gradual
 **Gradual Evolution** grows a design the way [Needle Variation](/synthesis/needle/) does and adds one thing: when no needle helps any more, it changes the structure on purpose and carries on. Its main move, the **forced step**, puts a thin layer at the entrance or the exit of the stack; the merit usually rises for a moment, and the needles that follow use the extra thickness to take it lower than before. That is how it gets out of a local minimum that needles alone cannot leave. It keeps the best design it has seen and ends on it.
 
 <!-- shot: gradual | a finished Gradual Evolution run on a multilayer target: the readout with GE steps, MF Trend with the forced steps as triangles, Accepted Improvements with Needle, GE and Clean rows, and Top Designs -->
+![Gradual Evolution (GE)](/screenshots/gradual.png)
 
 ![Flow chart of a Gradual Evolution run. After Run, the merit rows are prepared and the starting design is scored or refined. Each cycle resamples the band rows and runs a needle phase on each scanned side; a candidate that beats the working design is accepted. When none does, the design without its parked layers is kept if it is a new best; otherwise the run takes a structural step: a forced floor-thick layer at either end, freeing a layer, or with Deep search a perturbation of the best design. The run ends when the best MF is below Target MF, when the GE steps are used up, or when nothing is left to try, and the best design is then consolidated.](/diagrams/gradual-evolution.svg)
 

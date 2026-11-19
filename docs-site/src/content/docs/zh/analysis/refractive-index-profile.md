@@ -7,6 +7,7 @@ ribbonIcon: ri-profiler
 折射率剖面在单一波长下，把折射率 n 和消光系数 k 画成随深度变化的阶梯函数。它一眼就能看出层间的折射率差，并确认膜系使用的是你想要的材料。
 
 <!-- shot: ri-profiler | protected silver mirror, n and k both drawn, the silver's k standing out against the oxide overcoat -->
+![折射率分布](/screenshots/ri-profiler-zh.png)
 
 ## 计算的量
 

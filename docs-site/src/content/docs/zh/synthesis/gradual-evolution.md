@@ -7,6 +7,7 @@ ribbonIcon: gradual
 **渐变演化（Gradual Evolution）** 以与[针法变异](/zh/synthesis/needle/)相同的方式扩展设计，并多做一件事：当没有针层再能起作用时，它有意改变膜系结构，然后继续。它的主要手段是**强制步骤**：在膜系的入射端或出射端加一层薄层；评价函数通常会暂时上升，随后的针层利用增加的厚度，把它降到比之前更低。正是这样，它才能跳出单靠针层无法离开的局部极小值。它记录见过的最好设计，并以它结束。
 
 <!-- shot: gradual | a finished Gradual Evolution run on a multilayer target: the readout with GE steps, MF Trend with the forced steps as triangles, Accepted Improvements with Needle, GE and Clean rows, and Top Designs -->
+![渐变演化（GE）](/screenshots/gradual-zh.png)
 
 ![渐变演化一次运行的流程图。按下运行后，准备评价函数行，并对起始设计评分或精炼。每个循环重新采样波段行，并在每个被扫描的面上进行针法阶段；优于工作设计的候选被接受。若没有，去掉停在下限上的层后的设计若是新的最好设计则保留；否则运行进行一次结构步骤：在任一端加入一层下限厚度的强制层、腾出一层，或在深度搜索下扰动最好设计。当最好的 MF 低于目标评价函数、渐变演化步数用完或没有可尝试的步骤时，运行结束，随后合并最好设计的膜层。](/diagrams/gradual-evolution-zh.svg)
 

@@ -7,6 +7,7 @@ ribbonIcon: efield
 电场窗口在单一波长和入射角下绘制镀膜内部电场随深度的分布。它显示**电场在膜系中集中在哪里**，这正是激光损伤分析所需要的：承受最高电场的层通常就是在高功率光束下最先损坏的层。
 
 <!-- shot: efield | quarter-wave mirror at its reference wavelength, depth axis in QWOT, avg polarization -->
+![电场评估](/screenshots/efield-zh.png)
 
 ## 计算的量
 

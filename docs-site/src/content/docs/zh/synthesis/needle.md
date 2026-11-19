@@ -9,6 +9,7 @@ ribbonIcon: needle
 ## <span id="needle-automatic"></span>针法自动（Needle Automatic）
 
 <!-- shot: needle | a finished Needle Automatic run on a multilayer target: the readout, MF Trend falling over the generations, Accepted Improvements and Top Designs -->
+![针法变异](/screenshots/needle-zh.png)
 
 ![针法自动一次运行的流程图。按下运行后，先准备评价函数行，勾选时选出智能起始设计。每个循环重新采样波段行，检查是否还能加层，扫描 P 函数，按批精炼 K 个候选，并在去掉停在下限上的层试过之后，接受使 MF 降低 0.01% 的最好者。运行在达到目标评价函数、达到最大膜层数，或第二次达到针法最优时结束；第一次达到针法最优时，它从设计的更厚副本继续。](/diagrams/needle-automatic-zh.svg)
 
@@ -17,6 +18,7 @@ ribbonIcon: needle
 ## <span id="needle-manual"></span>针法手动（Needle Manual）
 
 <!-- shot: needle-manual | P-function profile of a multilayer design with two pool materials, a point below zero picked, the Insertion Preview with d_new and the OMF now and after -->
+![针法变异](/screenshots/needle-manual-zh.png)
 
 点击零线以下的一个点，即选中其位置和材料。**应用插入**以 **d_new** 插入针层，d_new 的初值由与针法自动相同的线搜索给出。开启**插入后精炼**时，随后用序列二次规划（SQP）精炼膜系，最多**精炼迭代**步，并遵守 `MNT` 和 `MXT` 行。图中显示计算出的每一个点，包括那些会使某层的一部分低于**最小厚度**的拆分点。
 

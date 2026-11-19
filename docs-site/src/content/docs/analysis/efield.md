@@ -7,6 +7,7 @@ ribbonIcon: efield
 The Electric Field window plots the field inside the coating against depth at one wavelength and angle. It shows **where the field concentrates in the stack**, which is what laser-damage work needs: the layer carrying the highest field is usually the one that fails first under a high-power beam.
 
 <!-- shot: efield | quarter-wave mirror at its reference wavelength, depth axis in QWOT, avg polarization -->
+![Electric Field Evaluation](/screenshots/efield.png)
 
 ## Computed quantities
 

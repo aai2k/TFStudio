@@ -7,6 +7,7 @@ ribbonIcon: specification
 The Specification holds what the coating must meet, as pass/fail checks such as "T ≥ 99 % averaged over 450–650 nm" or "no more than 30 layers". It is the requirement sheet, kept apart from the [merit function](/design/merit-function-editor/) the optimizers minimize; **Generate MF** turns the sheet into a merit function so a run aims at exactly what was specified. The checks are saved with the design.
 
 <!-- shot: specification | the 8-layer AR's own spec plus the Photopic AR preset appended and a layer count ≤ 8, every row passing and the banner green -->
+![Specification](/screenshots/specification.png)
 
 ## Computed quantities
 

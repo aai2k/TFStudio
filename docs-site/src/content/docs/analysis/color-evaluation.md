@@ -7,6 +7,7 @@ ribbonIcon: color-eval
 Color Evaluation turns a coating's spectrum into the color the eye sees: the tint of an antireflection film, the hue of a decorative mirror, or how a filter's color shifts with viewing angle. It weights R or T across 380–780 nm by an illuminant and a standard observer, plots the result on a CIE diagram, one point per angle joined in order, and gives every common color value.
 
 <!-- shot: color-eval | refined four-layer AR in reflection, D65 and the 2° observer, angles 0 to 60° every 10° as a path on the x, y diagram, lines under the diagram showing each angle -->
+![Color Evaluation](/screenshots/color-eval.png)
 
 ## Computed quantities
 

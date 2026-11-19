@@ -7,6 +7,7 @@ ribbonIcon: coating-library
 The Coating Library keeps coatings apart from designs. A coating is a layer stack with the substrate and incident medium it was designed on, the band, angle and polarization it is meant for, and the specification it meets; any of them can go onto the front or back of the open design. **Built-in** holds the starting designs that ship with TFStudio, **My coatings** the ones you saved.
 
 <!-- shot: coating-library | the 150-layer flat-top DWDM filter picked from the built-in band-pass shelf, the detail pane scrolled to its spectrum with the properties and specification under it -->
+![Coating Library](/screenshots/coating-library.png)
 
 ## Computed quantities
 

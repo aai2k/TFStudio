@@ -7,6 +7,7 @@ ribbonIcon: specification
 规格保存镀膜必须满足的要求，形式为合格/不合格检查，例如“在 450–650 nm 上平均 T ≥ 99 %”或“不超过 30 层”。它是要求清单，与优化器最小化的[评价函数](/zh/design/merit-function-editor/)分开；**生成评价函数**把清单转为评价函数，使运行恰好瞄准所规定的内容。检查随设计保存。
 
 <!-- shot: specification | the 8-layer AR's own spec plus the Photopic AR preset appended and a layer count ≤ 8, every row passing and the banner green -->
+![规格](/screenshots/specification-zh.png)
 
 ## 计算的量
 

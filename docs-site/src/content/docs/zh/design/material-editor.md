@@ -15,6 +15,7 @@ ribbonIcon: material-editor
 | **此设计** | 打开的设计所用的材料；随设计文件带来、而本机没有任何目录包含的材料只列在这里。 | 只读，**复制到我的目录…** |
 
 <!-- shot: material-editor | silver on its n & k page: the n and k chart over the data table -->
+![材料编辑器](/screenshots/material-editor-zh.png)
 
 ## 计算的量
 

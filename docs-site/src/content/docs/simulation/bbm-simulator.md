@@ -7,6 +7,7 @@ ribbonIcon: bbm-simulator
 The Broadband Monitoring Simulator is a six-page wizard that deposits the design under an in-chamber broadband spectrophotometer: layer by layer, with rate jitter, index drift and signal noise, letting the simulated monitor decide when to cut each layer. It ends on the as-built spectrum beside the design, so you see how well the design survives production. Pages 1 to 4 set the conditions, page 5 runs one experiment and plays it back, page 6 gives the result.
 
 <!-- shot: bbm-simulator | one simulated deposition of the 550 nm bandpass with the default rates and signal noise, on Resulting Performance: the as-built transmittance against the design -->
+![Broadband Monitoring Simulator](/screenshots/bbm-simulator.png)
 
 ## Computed quantities
 

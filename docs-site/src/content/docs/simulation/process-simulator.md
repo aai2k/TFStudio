@@ -7,6 +7,7 @@ ribbonIcon: process-sim
 The Process Exporter plays the coating back one layer at a time, the spectrum after layer 1, after layer 2 and so on to the finished design, so you see what the in-chamber spectrophotometer will read as the stack grows. It exports the target spectrum at the end of every layer as `.res` deposition files for monitoring software, one per layer, or as CSV or text tables. The spectra use nominal materials with no noise; for an as-built prediction use the [Broadband](/simulation/bbm-simulator/) or [Monochromatic](/simulation/mono-simulator/) simulator.
 
 <!-- shot: process-sim | the quarter-wave mirror deposited layer by layer on the part, held at its last layer, with the transmittance after every step drawn over the uncoated baseline -->
+![Process Exporter](/screenshots/process-sim.png)
 
 ## Computed quantities
 

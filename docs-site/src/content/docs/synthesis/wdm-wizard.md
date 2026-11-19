@@ -13,6 +13,7 @@ Substrate | M₁ S₁ M₂ S₂ … Mq Sq M(q+1) | (optional AR)
 Each Mᵢ is a quarter-wave mirror block and each Sᵢ a spacer of k half waves. The whole stack alternates H and L counting from the substrate, so a mirror with an even layer count ends on the other material and puts the spacers on its two sides in different materials. The two outer mirrors are weaker than the inner ones, which couple neighbouring cavities: that is what flattens the top of the passband.
 
 <!-- shot: filter-design | the Global Integer Search step after Start on a four-cavity DWDM target: the candidate list with the seed row, and the embedded preview with the scored points drawn over it -->
+![Filter Design](/screenshots/filter-design.png)
 
 ![The Filter Design steps: materials, parameters, cavity count, prototype, global integer search and adjustment to the incident medium, then a new design with its merit rows for Refinement. Steps 2 to 5 design the filter embedded in the substrate. Inside step 5, the chosen prototype seeds a descent over the integer mirror counts and spacer orders that keeps every move that lowers the merit, repeated from perturbed restarts.](/diagrams/filter-design.svg)
 

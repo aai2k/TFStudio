@@ -7,6 +7,7 @@ ribbonIcon: monitor-worksheet
 监控工作表回答镀膜之前要问的问题：**这个设计到底能不能监控**。它对每一层给出监控仪可用于停切的信号有多少、停切点位于前后两个极值点之间的什么位置，以及读数出错时厚度会偏多少。无法可靠停切的设计，无论光谱如何都无法稳定地重复制造。[单色监控模拟器](/zh/simulation/mono-simulator/)运行一次实验；本窗口报告的是方案本身的可控性。
 
 <!-- shot: monitor-worksheet | the 550 nm bandpass on witness chips of three layers, one monitoring wavelength per chip picked by Auto λ, with the signal the monitor would see and the cut of every layer -->
+![监控工作表](/screenshots/monitor-worksheet-zh.png)
 
 ## 计算的量
 

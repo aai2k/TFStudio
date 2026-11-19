@@ -7,6 +7,7 @@ ribbonIcon: bbm-simulator
 宽带监控模拟器是一个六页的向导，在镀膜机内的宽带分光光度计监控下沉积设计：逐层沉积，带有速率抖动、折射率漂移和信号噪声，并由模拟的监控仪决定何时切断每一层。最后给出与设计并列的实际镀出光谱，让你看到设计在生产中能保持得多好。第 1 到 4 页设定条件，第 5 页运行一次实验并回放，第 6 页给出结果。
 
 <!-- shot: bbm-simulator | one simulated deposition of the 550 nm bandpass with the default rates and signal noise, on Resulting Performance: the as-built transmittance against the design -->
+![宽带监控模拟器](/screenshots/bbm-simulator-zh.png)
 
 ## 计算的量
 

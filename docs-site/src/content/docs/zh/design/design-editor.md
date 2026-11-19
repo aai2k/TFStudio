@@ -7,6 +7,7 @@ ribbonIcon: design-editor
 设计编辑器是构建镀膜的地方：膜层、膜层的材料和厚度、基底和介质，以及正在设计的表面。其他所有窗口都读取这一个设计，因此这里的修改会立即反映到各处。一个设计带有入射侧的**正面镀膜**和出射侧的**背面镀膜**；在两个标签页中，紧贴基底的膜层都列在第一行。
 
 <!-- shot: design-editor | the 27-layer chirped mirror: its layer table with the four thickness columns, and the stack geometry strip under it -->
+![设计编辑器](/screenshots/design-editor-zh.png)
 
 ## 计算的量
 

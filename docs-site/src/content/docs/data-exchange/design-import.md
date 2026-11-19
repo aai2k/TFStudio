@@ -6,6 +6,7 @@ description: Read TFCalc (.tfd), Essential Macleod (.dds) and OptiLayer (.dsg) d
 **Import**, in the Project group of the Setup tab, reads coating designs saved by TFCalc (`.tfd`), Essential Macleod (`.dds`) and OptiLayer (`.dsg`) and adds them to a project folder as TFStudio designs. Any number of files from any of the programs can be picked at once; each file becomes one design.
 
 <!-- shot: import-designs | two Essential Macleod designs and a TFCalc mirror picked at once, the three-cavity narrowband filter highlighted with its stack, materials and spectrum -->
+![Design Import](/screenshots/import-designs.png)
 
 ## Computed quantities
 

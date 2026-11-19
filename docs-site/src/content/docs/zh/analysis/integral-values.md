@@ -7,6 +7,7 @@ ribbonIcon: integral-values
 积分值把光谱浓缩为规格书中引用的加权平均值：可见光透射率、太阳光反射率等。每一行在一个波段上对 T、R 或 A 求平均，每个波长按光源乘以探测器响应加权。这些数值遵循设计的[计算方式](/zh/design/evaluation-modes/)；对于常见的整件数值，请按整体系统计算设计。
 
 <!-- shot: integral-values | ZnS/Ag/ZnS heat mirror over 300-2500 nm, Tsol selected with T(λ) drawn against the AM1.5G weighting -->
+![积分值与特性](/screenshots/integral-values-zh.png)
 
 ## 计算的量
 

@@ -7,6 +7,7 @@ ribbonIcon: optical-eval
 光学评价绘制**你的镀膜在一段波长范围内如何透射、反射和吸收光**。每次修改设计后都应查看这个窗口；它还会把评价函数目标画在光谱上，让你看到设计正朝着什么优化。
 
 <!-- shot: optical-eval | 4-layer visible AR, R only against its 420-680 nm target band, vertical axis on Auto -->
+![光学评价](/screenshots/optical-eval-zh.png)
 
 ## 计算的量
 

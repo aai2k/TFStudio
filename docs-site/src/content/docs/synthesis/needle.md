@@ -9,6 +9,7 @@ ribbonIcon: needle
 ## Needle Automatic
 
 <!-- shot: needle | a finished Needle Automatic run on a multilayer target: the readout, MF Trend falling over the generations, Accepted Improvements and Top Designs -->
+![Needle Variation](/screenshots/needle.png)
 
 ![Flow chart of a Needle Automatic run. After Run, the merit rows are prepared and, if ticked, the smart starting design is chosen. Each cycle resamples the band rows, checks that a layer can still be added, scans the needle function, refines batches of K candidates and accepts the best one that lowers the MF by 0.01 %, after trying it without the layers parked on the floor. The run ends at Target MF, at Max layers, or when it is needle-optimal a second time; the first time, it goes on from a thicker copy of the design.](/diagrams/needle-automatic.svg)
 
@@ -17,6 +18,7 @@ A generation counts only when it lowers the MF by at least 0.01 %, the fall at w
 ## Needle Manual
 
 <!-- shot: needle-manual | P-function profile of a multilayer design with two pool materials, a point below zero picked, the Insertion Preview with d_new and the OMF now and after -->
+![Needle Variation](/screenshots/needle-manual.png)
 
 Click a point below zero to pick its position and material. **Apply insertion** puts the needle in at **d_new**, which starts where the same line search as Needle Automatic puts it. With **Refine after insert** on, SQP then refines the stack for up to **Refine iterations** steps, with the `MNT` and `MXT` rows in force. The plot shows every point it computed, including splits that would leave part of a layer below **Min thickness**.
 

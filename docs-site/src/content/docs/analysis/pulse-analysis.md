@@ -7,6 +7,7 @@ ribbonIcon: pulse-analysis
 Pulse Analysis sends a short laser pulse off or through the coating and draws what comes out, beside the **Fourier-limited pulse (FLP)**: the shortest pulse the same spectrum can make, with every frequency arriving together. A dispersive mirror is judged by how close its output comes to that pulse. A GDD curve cannot show this on its own: ripple that looks small on the curve is what puts structure on the side of a short pulse.
 
 <!-- shot: pulse-analysis | chirped mirror in reflection, 20 fs Gaussian at 800 nm with the GDD from target, time view with the delay removed, output over the FLP -->
+![Pulse Analysis](/screenshots/pulse-analysis.png)
 
 ## Computed quantities
 

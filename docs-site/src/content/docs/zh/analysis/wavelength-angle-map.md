@@ -7,6 +7,7 @@ ribbonIcon: wavelength-angle-map
 波长与角度回答**当光不再垂直入射时，膜系偏移了多少**。它在一个波长范围与一个角度范围上同时计算某个物理量并画成色图，于是一条在 0° 与 45° 之间移动 30 nm 的通带边缘就是一张图，而不是十条叠加的光谱曲线。设计一改变，色图就重新计算。
 
 <!-- shot: wavelength-angle-map | quarter-wave mirror, R over 0-60° in 0.5° steps as a 3D surface, turned so the stopband's walk shows -->
+![波长与角度](/screenshots/wavelength-angle-map-zh.png)
 
 ## 计算的量
 

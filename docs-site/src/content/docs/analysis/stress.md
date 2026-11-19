@@ -9,6 +9,7 @@ A coating pulls on the part it is deposited on. If the substrate is thin enough 
 **No stress model is as good as the optical one.** Film stress depends on the deposition process, not only on the material, so the constants are yours to measure, and the numbers compare one design against another rather than predict a part in absolute terms.
 
 <!-- shot: stress | quarter-wave TiO2/SiO2 mirror on a 1 mm, 25 mm BK7 disc, deposited at 200 °C and read at 20 °C -->
+![Stress](/screenshots/stress.png)
 
 ## Computed quantities
 

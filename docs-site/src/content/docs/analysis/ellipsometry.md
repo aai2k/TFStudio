@@ -7,6 +7,7 @@ ribbonIcon: ellipsometry
 The Ellipsometry window computes the ellipsometric angles Ψ and Δ of the active design, the two numbers an ellipsometer reports. Use it to **predict what your instrument should see** for a coating, or to compare against a measurement. Only reflection off an isotropic sample is modelled; transmission, generalized and Mueller-matrix ellipsometry are outside it.
 
 <!-- shot: ellipsometry | 100 nm SiO2 on silicon at 65°, spectral sweep 400-800 nm, Ψ and Δ on -->
+![Ellipsometry Evaluation](/screenshots/ellipsometry.png)
 
 ## Computed quantities
 

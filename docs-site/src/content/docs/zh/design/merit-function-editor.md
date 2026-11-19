@@ -7,6 +7,7 @@ ribbonIcon: merit-function
 评价函数编辑器保存优化器所趋向的目标：一组操作数，每个操作数是带有目标、权重和比较的一个数值。评价函数（MF）表示设计与它们全体相差多远，精炼、针法、渐变演化和结构优化器通过移动膜层厚度来降低它。每种操作数类型、其参数和评分方式见[操作数参考](/zh/design/operands/)；本页说明这个窗口。
 
 <!-- shot: merit-function | the wizard's broadband AR target over 450-700 nm on bare BK7, generated with no minimum layer thickness, the rows in the table under it -->
+![评价函数编辑器](/screenshots/merit-function-zh.png)
 
 ## 计算的量
 

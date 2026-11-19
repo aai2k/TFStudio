@@ -7,6 +7,7 @@ ribbonIcon: refinement
 **精炼**用你选择的方法移动各层厚度，使评价函数降低。它从不增删层。移动哪些层由 [设计编辑器](/zh/design/design-editor/) 中设置的表面模式决定，窗口上的 **优化** 和 **评价** 徽章会显示出来；锁定的层保持不动。每种方法如何迈步，以及每种方法的图示，见 [优化方法](/zh/synthesis/optimization-methods/)。
 
 <!-- shot: refinement | a finished SQP run on a multilayer design: the readout with MF, best and init, the "no further improvement" pill, the MF trend strip, and two runs in Design History -->
+![精炼](/screenshots/refinement-zh.png)
 
 ## 计算量
 

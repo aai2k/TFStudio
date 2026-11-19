@@ -7,6 +7,7 @@ ribbonIcon: nk-characterization
 n,k 表征从实测数据求出**已知基底上单层薄膜**的光学常数：分光光度计测得的 R 和 T，或椭偏仪测得的 Ψ 和 Δ。膜厚可固定在已知值上，也可与光学常数一起拟合。结果是一个可用于设计的材料，它描述的是**你的工艺沉积出的薄膜**，与同一化学名称的手册材料不是一回事。
 
 <!-- shot: nk-characterization | n, k and thickness of a TiO2 film on 1 mm BK7 extracted with the Cauchy model from its transmittance and reflectance -->
+![n,k 表征](/screenshots/nk-characterization-zh.png)
 
 ## 计算的量
 

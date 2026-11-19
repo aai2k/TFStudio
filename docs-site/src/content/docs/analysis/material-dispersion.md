@@ -7,6 +7,7 @@ ribbonIcon: material-dispersion
 Material Dispersion computes what one pass through a chosen thickness of bulk material does to a pulse: its phase, group delay and the dispersion terms. Use it for the substrate, a window or any other glass in the beam, apart from the coatings, whose dispersion the [GD / GDD window](/analysis/gd-gdd/) gives. It needs no design.
 
 <!-- shot: material-dispersion | GDD of 1 mm of fused silica from 400 to 1100 nm -->
+![Material Dispersion](/screenshots/material-dispersion.png)
 
 ## Computed quantities
 

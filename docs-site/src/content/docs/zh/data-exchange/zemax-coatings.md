@@ -7,6 +7,7 @@ ribbonIcon: zemax-coatings
 Zemax 镀膜读写 OpticStudio 的 `COATING.DAT` 文件：一个由 `MATE`（材料）和 `COAT`（膜层堆栈）记录组成的文本数据库，另有 `IDEAL`、`IDEAL2`、`TABLE`、`TAPR` 和 `ENCRYPTED` 镀膜模型。它把膜层堆栈及其材料导入设计或[镀膜库](/zh/design/coating-library/)，并把当前设计导出为 `COAT` 堆栈及其 `MATE` 记录。**镀膜**、**材料**和**导出**是与参考波长同在一行的标签页；上一次操作的结果显示在该行右端。
 
 <!-- shot: zemax-coatings | OpticStudio's own COATING.DAT read, its 12-layer 400-900 nm AR picked from the coatings list and imported onto the bare BK7 design -->
+![Zemax 镀膜](/screenshots/zemax-coatings-zh.png)
 
 ## 计算的量
 

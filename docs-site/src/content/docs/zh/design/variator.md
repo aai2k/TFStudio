@@ -7,6 +7,7 @@ ribbonIcon: variator
 参数变化器显示设计中哪个参数起作用。拖动滑块，光谱会立即叠加在未改动的设计上重绘。厚度滑块移动的是设计本身，因此所有打开的窗口都随之变化；n 和 k 滑块只作用于参数变化器自身的预览。
 
 <!-- shot: variator | the 550 nm bandpass with its spacer 2 nm thicker and TiO2 0.01 higher in index, solid curves over the dotted unmoved design and the bandpass target, preview narrowed to 450-660 nm -->
+![参数变化器](/screenshots/variator-zh.png)
 
 ## 计算的量
 

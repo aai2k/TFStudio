@@ -7,6 +7,7 @@ ribbonIcon: color-eval
 颜色评价把镀膜的光谱转换为人眼看到的颜色：增透膜的色调、装饰镜的色相，或滤光片的颜色如何随视角偏移。它在 380–780 nm 上用照明体和标准观察者对 R 或 T 加权，把结果画在 CIE 颜色图上，每个角度一个点并按顺序连线，同时给出所有常用的颜色数值。
 
 <!-- shot: color-eval | refined four-layer AR in reflection, D65 and the 2° observer, angles 0 to 60° every 10° as a path on the x, y diagram, lines under the diagram showing each angle -->
+![颜色评价](/screenshots/color-eval-zh.png)
 
 ## 计算的量
 

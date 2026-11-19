@@ -7,6 +7,7 @@ ribbonIcon: gd-gdd
 GD/GDD 窗口计算镀膜在反射或透射中的光谱相位，以及它对角频率的各阶导数。这些量说明镀膜如何延迟和展宽光脉冲的各个部分，啁啾镜和其他超快镀膜正是据此设计的。
 
 <!-- shot: gd-gdd | 750-900 nm chirped mirror, GDD in reflection over 700-950 nm with a flat -30 fs² target drawn across its band -->
+![群延迟 / GDD](/screenshots/gd-gdd-zh.png)
 
 ## 计算的量
 

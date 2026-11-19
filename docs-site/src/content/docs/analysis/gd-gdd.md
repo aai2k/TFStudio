@@ -7,6 +7,7 @@ ribbonIcon: gd-gdd
 The GD/GDD window computes the spectral phase of a coating in reflection or transmission and its derivatives against angular frequency. These say how the coating delays and spreads the parts of an optical pulse, which is what chirped mirrors and other ultrafast coatings are designed on.
 
 <!-- shot: gd-gdd | 750-900 nm chirped mirror, GDD in reflection over 700-950 nm with a flat -30 fs² target drawn across its band -->
+![Group Delay / GDD](/screenshots/gd-gdd.png)
 
 ## Computed quantities
 

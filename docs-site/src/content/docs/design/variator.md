@@ -7,6 +7,7 @@ ribbonIcon: variator
 The Variator shows which parameter of a design matters. Drag a slider and the spectrum redraws at once over the unmoved design. The thickness sliders move the design itself, so every open window follows them; the n and k sliders act on the Variator's preview alone.
 
 <!-- shot: variator | the 550 nm bandpass with its spacer 2 nm thicker and TiO2 0.01 higher in index, solid curves over the dotted unmoved design and the bandpass target, preview narrowed to 450-660 nm -->
+![Variator](/screenshots/variator.png)
 
 ## Computed quantities
 

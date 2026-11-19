@@ -7,6 +7,7 @@ ribbonIcon: measured-ellipsometry
 Measured Ellipsometry brings a spectroscopic ellipsometer's Ψ and Δ into a design: **Import** reads the pair from an instrument file and stores it on the design, **Export** writes the imported curves or the design's calculated Ψ and Δ to CSV. These curves live apart from the photometric ones in [Measured Spectra](/data-exchange/measured-spectra/) because they have no percent scale and no polarization to choose, mean nothing without an angle, and carry a Δ sign that differs between instruments. A pair imported here is what [n,k Characterization](/data-exchange/nk-characterization/) reads.
 
 <!-- shot: measured-ellipsometry | Ψ and Δ at 70° of an as-built 500 nm TiO2 film on BK7 read from CSV and added to the design -->
+![Measured Ellipsometry](/screenshots/measured-ellipsometry.png)
 
 ## Computed quantities
 

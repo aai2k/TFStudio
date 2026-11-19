@@ -15,6 +15,7 @@ The Material Editor holds every source of refractive index TFStudio knows. Each 
 | **This design** | The open design's materials; one that came inside a design file and that no catalog here holds is listed only here. | Read-only, **Copy to my catalog…** |
 
 <!-- shot: material-editor | silver on its n & k page: the n and k chart over the data table -->
+![Material Editor](/screenshots/material-editor.png)
 
 ## Computed quantities
 
