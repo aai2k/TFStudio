@@ -282,6 +282,7 @@ class Merit:
                 arguments.
             TFStudioError: an env on a design with one environment, or one the
                 design does not have.
+            TFStudioError: an id that a row of the merit function already has.
 
         Example::
 
@@ -298,7 +299,12 @@ class Merit:
         design = self._design
         with worded(_ADD_WORDS):
             made = design._calls.setMerit(design._data, [row])["meritOperands"]
-        design._data = dict(design._data, meritOperands=list(design._data.get("meritOperands") or []) + made)
+        rows = list(design._data.get("meritOperands") or [])
+        if any(own.get("id") == made[0].get("id") for own in rows):
+            raise TFStudioError(
+                "add: id '{}' is already the id of a row of the merit function; a row's id names it for the math "
+                "rows that read it, so each is given once".format(made[0].get("id")))
+        design._data = dict(design._data, meritOperands=rows + made)
 
     def clear(self):
         """Takes every row out of the merit function.

@@ -4054,6 +4054,7 @@ print(design.merit.value)
 - 此版本无法计算的类型、任何行都没有的字段、字段无法接受的值，或在读取波段或膜层范围的行上 `start` 大于 `end`
 - **JavaScript**：选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出行的类型、`start` 或 `end`<br>**Python**：在关键字参数中给出行的 `start` 或 `end`
 - 在只有一个环境的设计上给出 env，或给出设计没有的环境
+- 给出评价函数中已有某一行使用的 id
 
 ```js
 const design = tf.newDesign('AR');

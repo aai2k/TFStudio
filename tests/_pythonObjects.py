@@ -289,6 +289,9 @@ def merit(design):
                     "rows": [[row.env, row.values, row.value] for row in wet.merit.rows],
                     "lone": [rated.merit.environments, [[row.env, row.values] for row in rated.merit.rows]],
                     "refused": [refused(lambda: rated.merit.add("R", 550, env=2)), refused(lambda: wet.merit.add("R", 550, env=5))]}
+    named = design.copy()
+    named.merit.add("RAV", 450, 650, target=0, id="a")
+    repeated = {"refused": refused(lambda: named.merit.add("RAV", 650, 850, target=0, id="a")), "count": len(named.merit)}
     tinted = design.copy()
     tinted.merit.add("RCOL", color="x", target=0.3, aoi=30, pol="s")
     tinted.merit.add("TCOL", color="hab", target=250, illuminant="A", observer=10)
@@ -298,7 +301,7 @@ def merit(design):
               "refused": [refused(lambda: tinted.merit.add("RCOL", color="q")), refused(lambda: tinted.merit.add("RCOL", observer="2"))]}
     out({"merit": {"design": rated._data, "count": len(rated.merit), "value": rated.merit.value,
                    "optical": rated.merit.optical_value, "rows": rows, "cleared": [len(cleared.merit), len(rated.merit)],
-                   "environments": environments, "colour": colour}})
+                   "environments": environments, "colour": colour, "repeated": repeated}})
 
 
 # SpecCheck's attributes, in the order the test reads them.

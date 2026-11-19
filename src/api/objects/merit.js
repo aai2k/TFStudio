@@ -274,6 +274,7 @@ export class Merit {
      * @throws a type this version does not evaluate, a field no row has, a value a field cannot take, or `start` above `end` on a row that reads a band or a layer range
      * @throws more than `start` and `end` before the options, or the row's type, `start` or `end` among the options
      * @throws an env on a design with one environment, or one the design does not have
+     * @throws an id that a row of the merit function already has
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
@@ -289,7 +290,11 @@ export class Merit {
         const row = defined({ ...options, lambdaStart: start, lambdaEnd: end, type });
         const design = this._design;
         const [made] = worded(ADD_WORDS, () => api.setMerit(design._data, [row])).meritOperands;
-        design._data = { ...design._data, meritOperands: [...(design._data.meritOperands || []), made] };
+        const rows = design._data.meritOperands || [];
+        if (made.id != null && rows.some(own => own.id === made.id)) {
+            throw new Error(`add: id '${made.id}' is already the id of a row of the merit function; a row's id names it for the math rows that read it, so each is given once`);
+        }
+        design._data = { ...design._data, meritOperands: [...rows, made] };
     }
 
     /**

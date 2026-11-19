@@ -1531,6 +1531,10 @@
     "hash": "5b25e714",
     "text": "在只有一个环境的设计上给出 env，或给出设计没有的环境"
   },
+  "Merit.add.refuses.4": {
+    "hash": "ab4718c2",
+    "text": "给出评价函数中已有某一行使用的 id"
+  },
   "Merit.clear.lead.1": {
     "hash": "d74c260d",
     "text": "删除评价函数中的所有行。"

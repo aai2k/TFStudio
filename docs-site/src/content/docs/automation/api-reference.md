@@ -4054,6 +4054,7 @@ Adds a row at the end of the merit function, made as the Merit Function Editor m
 - a type this version does not evaluate, a field no row has, a value a field cannot take, or `start` above `end` on a row that reads a band or a layer range
 - **JavaScript**: more than `start` and `end` before the options, or the row's type, `start` or `end` among the options<br>**Python**: the row's `start` or `end` among the keyword arguments
 - an env on a design with one environment, or one the design does not have
+- an id that a row of the merit function already has
 
 ```js
 const design = tf.newDesign('AR');

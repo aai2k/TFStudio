@@ -297,6 +297,8 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     }
     const envRows = [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }, { type: 'R', lambdaStart: 550, target: 0, env: 2 }];
     const envRated = await server.call('setMerit', { designId: envId, rows: envRows });
+    const repeatedIds = await server.call('setMerit', { designId: envId, rows: envRows.map(row => ({ ...row, id: 'same' })) });
+    ok('setMerit refuses two rows with one id, naming it', /same/.test(repeatedIds.error || ''), JSON.stringify(repeatedIds).slice(0, 160));
     const envMerit = await server.call('merit', { designId: envId });
     const envScored = api.merit(api.setMerit(envHere, envRows));
     const envShown = m => JSON.stringify([m.total, m.optical, m.environments, m.rows]);

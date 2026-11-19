@@ -51,6 +51,20 @@ const CHECKS = [
     ['observer', v => OBSERVER_DEGREES.includes(v), orList(OBSERVER_DEGREES)],
 ];
 
+// Refuses a list in which an id is given to two rows: a math row names a row by
+// its id, and would read whichever of the two came last.
+function requireDistinctIds(rows) {
+    const seen = new Map();
+    rows.forEach((row, i) => {
+        const id = row?.id;
+        if (id == null) return;
+        if (seen.has(id)) {
+            throw new Error(`setMerit: rows ${seen.get(id)} and ${i} have the same id '${id}'; a row's id names it for the math rows that read it, so each is given once`);
+        }
+        seen.set(id, i);
+    });
+}
+
 // Refuses merit row `row`, row `i` of those given, unless this version
 // evaluates its type and each field it has is a field of a row, holding a
 // value that field can take.
@@ -120,12 +134,13 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @param [rows[].observer=2] For RCOL and TCOL, the CIE standard observer, by its field in degrees: `2` or `10`. CCT and Duv are read from the 2 degree chromaticity whatever it is.
  * @param [rows[].deltaConvention='azzam'] For DEL, the sign of Δ the row reads and its target is in: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes and the Ellipsometry window shows, or `'reversed'`, 360° minus it, which DEL rows in older designs read.
  * @param [rows[].enabled=true] `false` leaves the row out of the merit.
- * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
+ * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it. No two rows have the same id.
  * @param [rows[].refId] For a math row that reads one row, that row's `id`; `refId1` and `refId2` for one that reads two.
  * @param [rows[].comment] The text of a BLNK row.
  * @param [rows[].env] On a design with more than one environment, the environment the row is scored in alone, by its number from 1 or its id; the row holds the id. Without it, or with null, the row is scored in every environment.
  * @returns The design with the merit function, which it holds in `meritOperands`.
  * @throws a type this version does not evaluate
+ * @throws two rows with the same id
  * @throws a field no row has, such as a misspelling, or a value a field cannot take
  * @throws a `lambdaStart` above `lambdaEnd` on a row that reads a band or a layer range
  * @throws an `env` on a design with one environment, or one that names no environment of the design
@@ -148,6 +163,7 @@ export function setMerit(design, rows) {
     // makeRowOperand). The fields of the curve and integral rows the app
     // writes are taken too (ROW_FIELDS).
     if (!Array.isArray(rows)) throw new Error('setMerit: rows is a list of operand rows');
+    requireDistinctIds(rows);
     const operands = rows.map((row, i) => {
         checkRow(row, i);
         const made = madeRow(row);

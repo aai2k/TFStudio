@@ -382,6 +382,10 @@ async function merit(t, said, count) {
     ok('merit.add() takes RCOL and TCOL rows, whose color, illuminant and observer are merit\'s, with no start',
         canon(tint.design) === canon(tinted) && canon(tint.rows) === canon(tintedRows.map(r => [r.type, r.color, r.illuminant, r.observer, r.aoi, r.pol, null, r.value,
             `<MeritRow ${r.type} ${r.color}: ${r.value} for ${r.target}>`])) && tintedRows.length === 2, canon(tint.rows));
+    const repeated = got.repeated ?? {};
+    ok('merit.add() refuses an id a row already has, in Python\'s words, and adds nothing',
+        repeated.refused === "add: id 'a' is already the id of a row of the merit function; a row's id names it for the math rows that read it, so each is given once" && repeated.count === 1,
+        JSON.stringify(repeated));
     ok('and refuses a quantity or an observer it does not have, in Python\'s words', canon(tint.refused) === canon([
         `add: color is one of 'X', 'Y', 'Z', 'x', 'y', "u'", "v'", 'u', 'v', 'L*', 'a*', 'b*', 'C*ab', 'hab', 'u*', 'v*', 'C*uv', 'huv', 'suv', 'Hunter L', 'Hunter a', 'Hunter b', 'dominant', 'complementary', 'purity', 'CCT' or 'Duv', not 'q'`,
         "add: observer is 2 or 10, not '2'",
