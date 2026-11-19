@@ -167,7 +167,7 @@ export default {
       'script-console': 'Script Console: run a JavaScript or Python script with the TFStudio API on the open design',
       'interactive':    'Interactive: let a Python program or an AI agent work on the open design. TFStudio listens until you click Terminate, and the rest of the app waits meanwhile.',
       'bbm-simulator':  'Broadband Monitoring Simulator',
-      'mono-simulator': 'Monochromatic Monitor Simulator',
+      'mono-simulator': 'Monochromatic Monitoring Simulator',
       'monitor-worksheet': 'Monitor Worksheet: can each layer be terminated on a witness chip, and on what',
       'process-sim':    'Process Exporter: scrub through deposition and export .res files for in-chamber monitoring',
       'zemax-coatings': 'Zemax Coatings: import / export Zemax OpticStudio COATING.DAT (materials + coatings)',
@@ -930,8 +930,8 @@ export default {
     dragToMove: 'Drag to move. The Dock button puts it back in the layout',
     dropHere: 'Drop to dock',
     empty: {
-      hint: 'Create a project to begin, or pick an existing design from the Explorer on the left.',
-      createProject: 'Create project',
+      hint: 'Create a design to begin, or pick an existing one from the Explorer on the left.',
+      createProject: 'New design',
     },
   },
   // Window tab titles, keyed by toolId (windowRegistry.js). Resolved live in
@@ -1001,7 +1001,7 @@ export default {
     'gd-gdd':          'Group Delay / GDD',
     'pulse-analysis': 'Pulse Analysis',
     'material-dispersion': 'Material Dispersion',
-    'ri-profiler':     'RI Profiler',
+    'ri-profiler':     'Refractive Index Profile',
     'layer-thicknesses': 'Layer Thicknesses',
     'sensitivity':     'Layer Sensitivity',
     'error-analysis':  'Monte Carlo',
@@ -3682,7 +3682,7 @@ export default {
 
   bbmSim: {
     // Shell
-    title:        'Broadband Monitoring Wizard',
+    title:        'Broadband Monitoring Simulator',
     pageLabel:    (n) => `Page ${n} out of 6`,
     back:         '< Back',
     next:         'Next >',
@@ -3793,7 +3793,7 @@ export default {
 
   // ── Monochromatic Monitoring Wizard (mono) ──────────────────────────────────
   monoSim: {
-    title:        'Monochromatic Monitoring Wizard',
+    title:        'Monochromatic Monitoring Simulator',
     pageLabel:    (n) => `Page ${n} of 7`,
     noDesign:     'Open or create a design first.',
     noLayers:     'The active design has no layers to monitor.',
@@ -5327,7 +5327,7 @@ export default {
       },
       sourceWindows: {
         spectrum: 'Optical Evaluation', color: 'Color Evaluation', integrals: 'Integral Values',
-        ellipsometry: 'Ellipsometry', efield: 'Electric Field', riProfile: 'RI Profiler',
+        ellipsometry: 'Ellipsometry', efield: 'Electric Field', riProfile: 'Refractive Index Profile',
         gdGdd: 'Group Delay / GDD', monteCarlo: 'Monte Carlo', worksheet: 'Monitor Worksheet',
       },
       lastRun: 'last run in the window', monteCarloHint: 'The block prints the last run made in the Monte Carlo window for this design, with the error settings it ran with. Run it there again to refresh.',
