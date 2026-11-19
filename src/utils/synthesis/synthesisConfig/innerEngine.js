@@ -11,8 +11,8 @@
 const ENGINE_KEY = 'tfstudio-synth-inner-engine';
 // All LOCAL refiners are valid inner engines for synthesis (insert → refine →
 // repeat). DE/SA are global population methods, unsuitable as a per-step inner
-// refiner, so they are intentionally not offered here. newton/newton-cg/sqp now
-// work in every surface mode (dls.js _gaussNewtonSystem), so they are safe here.
+// refiner, so they are intentionally not offered here. newton/newton-cg/sqp
+// work in every surface mode (lsqEngine.js _gaussNewtonSystem), so they are safe here.
 // 'trust-region' is the synthesis lab's refinement (optimizers/trustRegionNewton.js).
 export const SYNTHESIS_INNER_ENGINES = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'trust-region'];
 // Needle refines with trust-region. The Needle window's own run was compared

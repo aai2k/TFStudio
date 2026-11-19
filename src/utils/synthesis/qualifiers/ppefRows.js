@@ -10,8 +10,9 @@ import { makeMeasuredCurveOperand, makeOperand } from '../../physics/optimizer.j
 
 /**
  * { block, row } for a PPEF qualifier, or null when the curve it names is not
- * among the design's measured spectra. `weight` is the block's: a block that
- * is there to be measured against, not fitted, carries 0.
+ * among the design's measured spectra. `blockWeight` is the block's: a block that
+ * is there to be measured against, not fitted, carries 0 (the default); `rowWeight`
+ * is the PPEF row's.
  */
 export function ppefRows(qual, design, { blockWeight = 0, rowWeight = 1 } = {}) {
     const curve = (design?.measuredCurves || []).find(item => item.id === qual.curveId);

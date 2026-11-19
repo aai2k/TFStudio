@@ -36,8 +36,9 @@ export class CGOptimizer extends EngineBase {
         // on a plateau, auto-relaunches from the best point — emulating a
         // manual "re-run CG ~5×" workflow. DEFAULT OFF so the validated
         // SYNTHESIS inner-refiner (synthesisWorker → makeEngine('cg')) is byte-
-        // identical to before; only the standalone Refinement window opts in
-        // (optimizerWorker passes persistent:true).
+        // identical to before; every job of the optimizer worker (optimizerJob.js:
+        // Refinement, Structural proposals, Design Cleaner, Needle Manual) opts in
+        // with persistent:true.
         this._persistent = opts.persistent ?? false;
         // Half-wave first probe of the line search (cg/lineSearch.js), opt-in:
         // the Refinement window sets it; synthesis keeps the long scan.

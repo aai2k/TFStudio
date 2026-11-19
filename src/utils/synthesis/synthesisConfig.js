@@ -34,7 +34,9 @@
  * it's a correctness fix (the merit was blind to spectral features narrower than
  * the operand grid step) and a no-op on smooth designs, so there is nothing to
  * toggle. The engine lives in optimizer.js (densifyOperandsForFeatures); each
- * optimizer window calls it at run launch via a local densifyForRun helper.
+ * synthesis run calls it at launch through densifyForRun (needle/setup.js,
+ * gradualEvolution/setup.js, structural/setup.js, deepSynthesis/setup.js), and
+ * Refinement through its own copy in refinement/workerInputs.js.
  */
 
 export * from './synthesisConfig/innerEngine.js';

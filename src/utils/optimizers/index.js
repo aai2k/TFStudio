@@ -11,7 +11,7 @@
  * is synthesis (Needle / Gradual Evolution).
  *
  *   'dls' → Damped Least Squares / Levenberg–Marquardt  (the LOCAL engine,
- *            lives in optimizer.js; selected in the "Local" Refinement window)
+ *            lives in optimizer.js)
  *   'de'  → Differential Evolution            (global, gradient-free, population)
  *   'sa'  → Simulated Annealing               (global, gradient-free)
  *   'cg'  → Conjugate Gradient (Polak–Ribière) (local, gradient-only, large designs)
@@ -46,7 +46,7 @@ export const METHOD_LABELS = {
 };
 
 // 'sqp' (Bounded Sequential QP, tests/sqp_validation.mjs) is the DEFAULT method
-// of the Refinement window (REFINE_METHODS in Refinement.js): fewest iterations
+// of the Refinement window (REFINE_METHODS in utils/refinement/methods.js): fewest iterations
 // on a fixed stack with exact MNT/MXT bound satisfaction. It is omitted from
 // ALL_METHODS above only because that array drives the headless "try-all"
 // benchmark ordering, not the UI; the window builds its own dropdown list.
