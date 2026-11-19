@@ -64,7 +64,7 @@ A `PPEF` row, and any math row that reads it, is left out as in Needle; a Refine
 
 ### Merit and refinement
 
-Each proposal is refined on the merit rows less `MNT` and `MXT`, with every thickness between the floor $d_\text{min}$ and the ceiling $d_\text{max}$ those rows set, then tidied (neighbours of one material merged) and scored on every row, `MNT` and `MXT` included. That score is the MF the accept test and the history use. The needle insertions use the needle function and the starting-thickness search of [Needle](/synthesis/needle/#needle-function), at four points inside each layer.
+Each proposal is refined on the merit rows less `MNT` and `MXT`, with every thickness between the floor $d_\text{min}$ and the ceiling $d_\text{max}$ those rows set, then tidied (neighbours of one material merged) and scored on every row, `MNT` and `MXT` included. That score is the MF the accept test and the history use. The needle insertions use the needle function and the starting-thickness search of [Needle](/synthesis/needle/#needle-function), at the sixteen points inside each layer that Needle scans, kept at the minima along the layer.
 
 ### Annealing
 

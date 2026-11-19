@@ -6,8 +6,9 @@
 // thread would compute.
 
 import {
-    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, mirrorLayers,
+    scanNeedlesPFunction, intraMinima, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, mirrorLayers,
 } from '../physics/optimizer.js';
+import { SYNTHESIS_INTRA_SAMPLES } from '../synthesis/synthesisConfig.js';
 import { designMerits } from '../physics/optimizer/environmentStacks.js';
 import { tidyLayers } from '../synthesis/structuralOptimizer.js';
 import { deep } from './core.js';
@@ -65,14 +66,16 @@ export function withStructuralScore(job, resolveMat, post) {
 }
 
 // The needle scan of the job's design: the insertions of its pool materials
-// that lower the merit to first order, the best first, at most `count`.
+// that lower the merit to first order, the best first, at most `count`. The
+// scan is the one Needle and Gradual Evolution run: SYNTHESIS_INTRA_SAMPLES
+// points inside each layer, cut to the minima along the layer.
 function needleScan(job, resolveMat) {
     const candidateMats = job.pool.map(({ id, name }) => ({ id, name, mat: resolveMat(id) }));
     const { candidates } = scanNeedlesPFunction({
         operands: job.operands, design: job.design, resolveMat, candidateMats,
-        deltaNm: job.deltaNm, side: job.side, dMin: job.dMin,
+        deltaNm: job.deltaNm, side: job.side, dMin: job.dMin, nIntra: SYNTHESIS_INTRA_SAMPLES,
     });
-    return (candidates || []).filter(candidate => candidate.dMF < 0)
+    return intraMinima(candidates || []).filter(candidate => candidate.dMF < 0)
         .sort((a, b) => a.dMF - b.dMF)
         .slice(0, job.count);
 }
