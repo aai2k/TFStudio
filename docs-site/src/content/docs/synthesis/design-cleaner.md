@@ -15,7 +15,7 @@ Locked layers are never merged, removed or given thickness, and a symmetric desi
 
 ## Computed quantities
 
-- **Pending operations**: each layer that will be removed or merged into its neighbour.
+- **Pending operations**: each layer that will be removed or merged into its neighbour, in the order they run. The thickness shown is the layer's when its turn comes, so a layer that took a removed neighbour's thickness shows more here than in **Thin layers**.
 - **Before** and **After**: the layer counts.
 - **MF before** and **MF after**: the merit function of the [Merit Function Editor](/design/merit-function-editor/); **MF after** is the cleaned design before any refinement.
 - **Thin layers**: the layers below the threshold now.
