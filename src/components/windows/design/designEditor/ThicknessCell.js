@@ -119,12 +119,13 @@ function focusNewInput(input, seeded) {
 // Editing state of one thickness cell. `valueText` is what an edit opens with,
 // `toNm(raw)` reads typed text as nm or null, and `editRequest` opens an edit
 // from outside (keyboard navigation), seeded with `editSeed`.
-function useThicknessEdit({ locked, valueText, toNm, setHover,
+export function useThicknessEdit({ locked, valueText, toNm, setHover,
     onChange, onActivate, onNavigate, onExit, editRequest, editSeed }) {
     const [editing, setEditing] = useState(false);
     const [raw, setRaw]         = useState('');
     const inputRef = useRef(null);
     const finishRef = useRef(false);
+    const openedRef = useRef(null);       // the text an edit opened with, until something is typed
     const lastEditRequestRef = useRef(0);
 
     // `seed` is the character the user typed to start the edit. The cell then
@@ -135,6 +136,7 @@ function useThicknessEdit({ locked, valueText, toNm, setHover,
         onActivate?.();
         finishRef.current = false;
         setHover(false);
+        openedRef.current = seed != null ? null : valueText;
         setRaw(seed != null ? seed : valueText);
         setEditing(true);
         setTimeout(() => focusNewInput(inputRef.current, seed != null), 0);
@@ -144,7 +146,10 @@ function useThicknessEdit({ locked, valueText, toNm, setHover,
         if (finishRef.current) return false;
         finishRef.current = true;
         const nm = toNm(raw);
-        if (nm != null) onChange(nm);
+        // Text left as it opened is the rounded display of the value, not an
+        // edit: writing it back would round the stored thickness and add an
+        // undo step.
+        if (nm != null && raw !== openedRef.current) onChange(nm);
         setHover(false);
         setEditing(false);
         return nm != null;
