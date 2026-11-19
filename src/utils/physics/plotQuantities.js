@@ -33,7 +33,7 @@
  * over TWO swept variables. An axis variable, and a curve's sweep, is one of:
  *   'wavelength'      λ in nm           (any Z but MF)
  *   'aoi'             angle of incidence in °  (any Z but MF)
- *   'thk:<i>'         thickness of front layer i (nm)
+ *   'thk:<i>'         thickness of layer i of the swept side (nm): the front, or the back on a back_only design
  */
 
 export {

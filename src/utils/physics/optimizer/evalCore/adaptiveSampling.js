@@ -143,13 +143,6 @@ function adaptiveCountForOperand(op, ctx, cfg) {
         : null;
 }
 
-// Densify the band-sampled operands whose bands hide a sub-grid feature, returning
-// a NEW operands array (unchanged operands keep their identity; densified ones are
-// shallow clones with a raised rampPoints override). Call at run launch
-// and feed the result to BOTH requiredLambdas/pre-sampling AND the worker job, so
-// the byte-identical λ-grid contract is preserved. `notify(summary)` (optional)
-// receives a one-line report so callers can surface what was densified / capped
-// (no silent caps).
 // Densify one band-sampled operand if its band hides a sub-grid feature; returns
 // a shallow clone with a raised rampPoints override, or the operand
 // unchanged. Bumps `state.capped` when the needed count was clamped to maxPoints.
@@ -164,6 +157,13 @@ function _densifyOne(op, ctx, cfg, state) {
     return { ...op, rampPoints: res.count };
 }
 
+// Densify the band-sampled operands whose bands hide a sub-grid feature, returning
+// a NEW operands array (unchanged operands keep their identity; densified ones are
+// shallow clones with a raised rampPoints override). Call at run launch
+// and feed the result to BOTH requiredLambdas/pre-sampling AND the worker job, so
+// the byte-identical λ-grid contract is preserved. `notify(summary)` (optional)
+// receives a one-line report so callers can surface what was densified / capped
+// (no silent caps).
 export function densifyOperandsForFeatures(operands, design, resolveMat, cfg = ADAPTIVE_SAMPLING_DEFAULTS, notify = null) {
     if (!Array.isArray(operands) || operands.length === 0) return operands;
     // Measured blocks always expand at this run-launch seam, independent of

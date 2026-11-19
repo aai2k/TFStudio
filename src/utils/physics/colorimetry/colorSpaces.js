@@ -85,7 +85,7 @@ export function chromaticityXy({ X, Y, Z }) {
   return { x: X / s, y: Y / s };
 }
 
-// CIE 1976 UCS u',v'  and  CIE 1960 UCS u,v  (v = 1.5·v').
+// CIE 1976 UCS u',v'  and  CIE 1960 UCS u,v  (v' = 1.5·v).
 export function uvPrime({ X, Y, Z }) {
   const d = X + 15 * Y + 3 * Z;
   if (d <= 0) return { up: 0, vp: 0 };

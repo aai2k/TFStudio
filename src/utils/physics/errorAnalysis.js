@@ -8,13 +8,14 @@
  * Each variable layer is ranked by the sensitivity of the merit function
  * to a small variation of its thickness:
  *
- *     ΔMF_j = MF(d₁, …, d_j + Δd_j, …, d_N) − MF(d₁, …, d_j, …, d_N)
+ *     ΔMF_j = ( |MF(d_j + Δd_j) − MF₀| + |MF(d_j − Δd_j) − MF₀| ) / 2
  *
  * Layers are then scaled to the maximum |ΔMF| and expressed as a percentage,
  * with the most sensitive layer = 100 %.
  *
- * We compute ΔMF via central differences against the existing merit-operand
- * machinery (`buildEvalContext` / `evaluateOperands` / `calcMF`), so the
+ * We compute ΔMF as the mean of the two one-sided merit changes, against the
+ * existing merit-operand machinery (`buildEvalContext` / `evaluateOperands` /
+ * `calcMF`), so the
  * sensitivity is naturally surface-mode-aware (front_only / back_only /
  * symmetric / both_independent) and consistent with what the optimizer sees.
  *
@@ -29,7 +30,7 @@
  *     RMS_j^res = RMS_abs + RMS_rel · d_j
  *
  * for layer thicknesses, plus optional absolute σ on Re(n) and Im(n). For each
- * Monte-Carlo trial we draw independent Gaussian deviations for every layer,
+ * Monte-Carlo trial we draw independent deviations for every layer from the chosen distribution,
  * rebuild a perturbed design, evaluate the chosen spectral characteristic
  * (T, R or A; s/p/avg; one AOI), and accumulate online sums. The output is the
  * theoretical curve plus the sample mean ("Exp") and ±kσ corridors (k = 1 by

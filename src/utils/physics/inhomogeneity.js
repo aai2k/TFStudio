@@ -13,11 +13,9 @@
  *      varies smoothly from layer-A material to layer-B material across its
  *      thickness, using a chosen profile.
  *
- *   2. BODY GRADING — a single layer whose own n,k varies through its
- *      thickness. v1 supports this only by expressing it as an "interlayer
- *      from material to itself" with a chosen Δn — the same machinery covers
- *      it. A future version may add a first-class `layer.inhomogeneity` field
- *      with start/end indices independent of the bordering layers.
+ *   Only interlayers between two materials are modelled. A single layer whose
+ *   own n,k varies through its thickness is not: grading a material into
+ *   itself gives its constant index.
  *
  * The mixing rule between two materials at fraction f ∈ [0,1] is LINEAR
  * (n_eff = (1-f)·n_A + f·n_B). This matches the Macleod-Marseille

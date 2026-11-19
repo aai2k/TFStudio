@@ -34,7 +34,7 @@ export function fdJacobian(eng, thk, freeIdx, m) {
 }
 
 // Central-difference ∇MF, used when the analytic Jacobian declines a merit
-// term (ramp/TT/total single-side). Differentiates the true MF directly;
+// term: EFMX, a curve block read whole, and math rows reading either. Differentiates the true MF directly;
 // writes into g and returns it.
 function gradientByDifferences(eng, thk, free, g) {
     eng.mfAt(thk);   // warm the eval cache at the base point
