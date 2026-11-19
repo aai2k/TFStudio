@@ -72,7 +72,7 @@ export function restoreOrClearForDesign(design, ctx) {
         setLayerCount((design?.[sideKeyFor(design)] || []).length);
         setCanReset(false);
     }
-    // The M12 edit-revision baseline. A cached run brings back the revision its
+    // The edit-revision baseline. A cached run brings back the revision its
     // base design belongs to, so an edit made while the window was closed reads
     // as an edit on the next Run; a design with no cached run takes its current
     // revision, so the switch itself is not one. A cache without a revision

@@ -4,8 +4,7 @@ const { createElement: h, useRef, useEffect } = React;   // React is a window gl
  * Themed checkbox — the single checkbox style used across the app.
  *
  * A native <input type="checkbox"> whose `accentColor` follows the active theme
- * accent, so the control is light/dark aware everywhere (previously many windows
- * rendered bare, browser-default checkboxes that ignored the theme).
+ * accent, so the control is light/dark aware everywhere.
  *
  * Drop-in for `h('input', { type: 'checkbox', ... })`: pass the usual `checked` /
  * `defaultChecked` / `onChange` / `disabled` and the theme object `c`. `onChange`

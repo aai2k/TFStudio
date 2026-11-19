@@ -13,12 +13,9 @@ export function Field({ label, c, tip, children }) {
     );
 }
 
-// Editable numeric field with LOCAL text state. The old version was a
-// controlled type=number that only committed finite numbers, so clearing the
-// box (empty / "-" / "1.") never propagated and the value snapped back — making
-// it impossible to delete and retype. This keeps the raw text while editing,
-// commits only valid numbers upstream, and re-syncs from the external value
-// when not focused. `inPct` shows/accepts percent (stores the 0..1 fraction).
+// Editable numeric field with LOCAL text state. It keeps the raw text while
+// editing, commits only valid numbers upstream, and re-syncs from the external
+// value when not focused. `inPct` shows/accepts percent (stores the 0..1 fraction).
 export function NumberField({ value, onCommit, c, width = 64, inPct = false }) {
     const toDisp = (v) => (v == null || Number.isNaN(v))
         ? '' : String(inPct ? +(v * 100).toFixed(6) : v);

@@ -5,9 +5,7 @@
  * A synthesis window is used in a loop with the rest of the program: synthesize,
  * refine, clean, edit a layer by hand, come back. Its history has to survive that
  * loop and stay readable, which one flat list of generations and one baseline
- * taken at the first Run cannot do. The old behaviour left an earlier run's rows
- * on screen next to a design they no longer described, and made Reset restore the
- * state from before the *first* run while wiping every run's rows.
+ * taken at the first Run cannot do.
  *
  * A block is one press of Run. It holds the design as it stood when that press
  * happened, and the generations that press produced:

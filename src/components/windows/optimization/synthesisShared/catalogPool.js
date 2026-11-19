@@ -117,7 +117,7 @@ function poolMaterialEntry(cat, matKey, fullId, excluded, verbose) {
 // catalog material under an id the design computes with its own copy from
 // another catalog (conflictingIds) is not a candidate: a layer inserted under
 // that id would compute with the copy, not with the material scanned.
-// `verbose` mirrors NeedleVariation's original pool diagnostics; GE passes false.
+// `verbose` logs the pool's selection and the materials it skipped.
 export function getPoolMaterials(selectedCatalogIds,
                                  { verbose = false, excluded = null, design = null } = {}) {
     const result = [];

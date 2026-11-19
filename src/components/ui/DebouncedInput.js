@@ -86,11 +86,8 @@ const DebouncedInput = ({ value, onChange, onBlur, onEnterKey, debounceMs = 500,
             }
 
             // Only do the "navigating away" bookkeeping when we actually move
-            // focus (onEnterKey). M8: doing it unconditionally left the field
-            // DOM-focused but state-unfocused with isNavigatingRef stuck true —
-            // so prop-resync clobbered further typing AND the next real blur was
-            // swallowed (discarding edits made after Enter). Without navigation,
-            // Enter just commits and the field stays normally editable.
+            // focus (onEnterKey). Without navigation, Enter just commits and the
+            // field stays normally editable.
             if (onEnterKey) {
                 isNavigatingRef.current = true;   // suppress the focus-move blur
                 setIsFocused(false);

@@ -373,8 +373,7 @@ export function LayerList({ layers, side, design, media = design, updateDesign, 
                     h(LockIcon, { locked: !allLocked, size: 12 }),
                     allLocked ? de.unlockAll : de.lockAll));
             })(),
-            // Copy this side's stack to the other surface — moved here from the
-            // top tab bar so that bar stays uncluttered when the window is narrow.
+            // Copy this side's stack to the other surface.
             h(Btn, {
                 onClick: () => copyToOther && copyToOther(),
                 title: side === 'front' ? de.copyToBack : de.copyToFront,

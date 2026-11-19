@@ -39,7 +39,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 const NEEDLE_CATS_KEY = 'tfstudio_needle_selectedCats';
 const NEEDLE_DMIN_KEY = 'tfstudio_needle_dMin';
 
-// Needle keeps its original verbose pool diagnostics. The pool is bound to the
+// Needle's pool logs verbose diagnostics. The pool is bound to the
 // live design so the design's own materials are always on offer, including
 // embedded definitions that no local catalog can serve.
 const makeGetPoolMaterials = (designRef) => (selectedCatalogIds, excluded) =>
@@ -60,7 +60,7 @@ export function useNeedleVariation(t) {
     const { design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision } = useDesign();
 
     // ── Settings ──────────────────────────────────────────────────────────────
-    // deltaNm = gradient probe thickness (small, like Python _NEEDLE_EPS=0.5)
+    // deltaNm = gradient probe thickness (small, 0.5 nm by default)
     // dMin    = the synthesis floor: needle insertion, refine floor and prune
     // Persisted across window switches (localStorage-backed), starting from the
     // run's own defaults (utils/needle/settings.js).
@@ -105,7 +105,7 @@ export function useNeedleVariation(t) {
     const savedDesignRef  = useRef(null);    // baseline of the open run block (for Reset)
     const runsRef         = useRef([]);      // run blocks — see synthesisShared/runBlocks.js
     const runOpenRef      = useRef(false);   // a block is open (Stop→Run continues it)
-    const baseRevRef      = useRef(0);       // design revision when baseDesignRef was cached (M12)
+    const baseRevRef      = useRef(0);       // design revision when baseDesignRef was cached
     const operandsRef     = useRef([]);
     const designRef       = useRef(design);
     const gensRef         = useRef([]);
@@ -177,7 +177,7 @@ export function useNeedleVariation(t) {
         if (msg || wasRunning) setStatusMsg(msg);
     }, []);
 
-    // M12: if the user manually edited the design (a non-transient write bumps
+    // If the user manually edited the design (a non-transient write bumps
     // the revision) since baseDesignRef was cached, drop the stale base so the
     // next Run restarts from the CURRENT design instead of optimizing (and then
     // overwriting) the cached pre-edit stack, and close the open run block so

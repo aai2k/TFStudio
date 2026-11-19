@@ -17,8 +17,7 @@
  *   • OptimizeBadge      — read-only "Optimize: FRONT/BACK/BOTH" pill shown in the
  *       optimizer windows (Refinement / Needle / GE).
  *
- * The viewer/analysis windows no longer carry their own front/back/total toggle;
- * they read resolveEvalMode(design) (optimizer.js) so what you see, what specs
+ * The viewer/analysis windows read resolveEvalMode(design) (optimizer.js) so what you see, what specs
  * score, and what tolerances perturb can never disagree.
  *
  * Switching to `symmetric` regenerates the back stack as the mirror of the front

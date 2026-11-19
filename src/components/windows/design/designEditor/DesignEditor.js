@@ -130,8 +130,7 @@ export function DesignEditor({ c, t }) {
             })),
         ),
         // Consolidated Optimize + Evaluate bar — on its OWN full-width row so it
-        // always stays on one line (it used to share the tab row and stack into
-        // a column when the window was narrow). Scrolls horizontally instead of
+        // always stays on one line. Scrolls horizontally instead of
         // wrapping if the window is extremely narrow. The Front/Back tab above is
         // for editing only; this bar is what the optimizer / MF / Specification
         // read. applySurfaceMode (inside the bar) handles the symmetric mirroring;

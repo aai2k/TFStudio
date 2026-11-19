@@ -9,8 +9,6 @@
  *   - load/saveCatSelection(key, …) — each window persists its catalog selection
  *     under a distinct localStorage key.
  *
- * Refinement keeps its own densifyForRun(): its debug-log string differs, so
- * routing it through here would change that window's console output.
  */
 
 export { materialLookup, matDisplayName, matFriendlyName } from './materialNames.js';

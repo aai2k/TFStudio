@@ -1,10 +1,8 @@
 /**
  * Window registry: the single source of truth for dockable tool windows.
  *
- * Adding a tool window used to mean editing five places in DockingLayout.js (the
- * import block, the `ToolContent` if-chain, `TOOL_CONFIGS`, `TOOL_LABELS`, and
- * `HELP_ANCHORS`) plus the Toolbar and locales. Now everything DockingLayout
- * needs lives in ONE entry here; DockingLayout derives its tables from this map.
+ * Each tool window is ONE entry here; DockingLayout derives its tables from
+ * this map.
  *
  * Each entry (all fields optional except as noted):
  *   component  React window component. Omit (or null) for a tool that is NOT a

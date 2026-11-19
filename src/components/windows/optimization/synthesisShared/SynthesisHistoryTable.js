@@ -6,9 +6,8 @@ import { runSeparatorIds } from './runBlocks.js';
 const { createElement: h, useContext } = React;   // React is a window global (never imported)
 
 // ── Shared synthesis history table ──────────────────────────────────────────────
-// Needle's GenerationsTable and GE's CyclesTable ~identical: same th/td/
-// sideBadge helpers and the same genNum/side/layers/mf/tot/time/dMF/material/
-// restore columns. GE additionally shows a Needle/GE "type" badge column — passed
+// The history table of Needle and GE: genNum/side/layers/mf/tot/time/dMF/
+// material/restore columns. GE additionally shows a Needle/GE "type" badge column — passed
 // in via the optional `typeColumn = { header, render(row) }` (inserted after the
 // side column). Rows are reversed for display (newest first), matching both
 // windows. `labels` carries the per-window locale strings.
@@ -134,9 +133,7 @@ export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, la
     // them. Read directly rather than through useDesign(), which throws outside
     // a design provider.
     const design = useContext(DesignContext)?.design || null;
-    // Both the empty state and the table sit inside the flex:1 scroll container
-    // (matches Needle's original; GE's bare empty-div is normalized to the same —
-    // visually identical italic message).
+    // Both the empty state and the table sit inside the flex:1 scroll container.
     if (!rows.length) {
         return h('div', { style: { flex: 1, overflow: 'auto' } },
             h('div', { style: { padding: '12px 10px', color: c.textDim, fontSize: 11, fontStyle: 'italic' } },

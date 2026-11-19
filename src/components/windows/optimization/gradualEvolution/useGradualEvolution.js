@@ -13,9 +13,7 @@
 
 import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 
-// Shared synthesis helpers (see synthesisHelpers.js). The two window-parameterized
-// ones (verbose pool / cat-selection key) get thin same-named wrappers below so
-// call sites are unchanged.
+// Shared synthesis helpers (see synthesisHelpers.js).
 import {
     sideKeyFor, useCatSelection,
     getPoolMaterials as getPoolMaterialsShared,
@@ -37,7 +35,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────
 const GE_CATS_KEY = 'tfstudio_ge_selectedCats';
 const GE_DMIN_KEY = 'tfstudio_ge_dMin';
-// GE keeps its original quiet pool (no verbose diagnostics). The pool is bound to
+// GE's pool is quiet (no verbose diagnostics). The pool is bound to
 // the live design so the design's own materials are always on offer, including
 // embedded definitions that no local catalog can serve.
 const makeGetPoolMaterials = (designRef) => (selectedCatalogIds, excluded) =>
@@ -67,9 +65,6 @@ function useGeSettings(design) {
     // Deep search (utils/gradualEvolution/deepSearch.js): 1 = perturb the best
     // design when nothing is left to try, and run until Stop or the target.
     const [deepSearch,    setDeepSearch]    = usePersistentNumber('tfstudio_ge_deepSearch', GE_DEFAULTS.deepSearch ? 1 : 0);
-    // M19: the "preemptive trigger" knobs (preemptiveN / preemptiveRel) were
-    // declared, persisted and UI-exposed but never consumed by the tick loop —
-    // removed rather than shipping dead controls that mislead the user.
     const {
         selectedCats, selectedCatsRef,
         handleToggleCat, handleSelectAllCats, handleClearCats,
@@ -133,7 +128,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const abortRef         = useRef(null);    // stops that run
     const baseDesignRef    = useRef(null);
     const savedDesignRef   = useRef(null);
-    const baseRevRef       = useRef(0);      // design revision when baseDesignRef was cached (M12)
+    const baseRevRef       = useRef(0);      // design revision when baseDesignRef was cached
     const operandsRef      = useRef([]);
     const designRef        = useRef(design);
     const cyclesRef        = useRef([]);
@@ -207,7 +202,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         if (msg || wasRunning) run.setStatusMsg(msg);
     }, []);
 
-    // M12: drop a stale cached base if the user manually edited the design (a
+    // Drop a stale cached base if the user manually edited the design (a
     // non-transient write bumps the revision) since it was snapshotted, so the
     // next Run restarts from the CURRENT design instead of overwriting the edits.
     // Synthesis's own transient previews don't bump the revision, so Stop→Run
