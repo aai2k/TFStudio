@@ -1,9 +1,9 @@
 const { useCallback, useEffect, useRef, useState } = React;
 
 const DRAG_THRESHOLD_PX = 4;
-// The list is virtualized, so a row outside the viewport has no element to drop
-// onto. Holding the pointer near an edge scrolls the list to bring the rest
-// within reach; without it a layer can only be moved as far as the visible rows.
+// A row scrolled out of view cannot be pointed at. Holding the pointer near an
+// edge scrolls the list to bring the rest within reach; without it a layer can
+// only be moved as far as the visible rows.
 const EDGE_ZONE_PX = 28;
 const MAX_SCROLL_PX_PER_FRAME = 18;
 
@@ -63,14 +63,14 @@ function moveGhost(visual, pointerX, pointerY) {
 function activateGhost(visual) {
     visual.element.style.display = 'flex';
     visual.sourceRow.style.opacity = '0.28';
-    document.documentElement.classList.add('tf-layer-dragging');
+    visual.sourceRow.ownerDocument.documentElement.classList.add('tf-layer-dragging');
 }
 
 function releaseGhost(visual) {
     if (!visual) return;
     visual.element.remove();
     visual.sourceRow.style.opacity = visual.sourceOpacity;
-    document.documentElement.classList.remove('tf-layer-dragging');
+    visual.sourceRow.ownerDocument.documentElement.classList.remove('tf-layer-dragging');
 }
 
 /**
@@ -100,6 +100,11 @@ export function useLayerDrag({
 
         const sourceRow = event.currentTarget.closest('[data-layer-id]');
         if (!sourceRow) return;
+        // The row's own window and document: in a Design Editor torn off into
+        // its own window the pointer events and the hit test belong to it, not
+        // to the main window.
+        const doc = sourceRow.ownerDocument;
+        const view = doc.defaultView;
         const visual = createRowGhost(sourceRow, c, ids.length, event.clientX, event.clientY);
         moveGhost(visual, event.clientX, event.clientY);
         const state = {
@@ -110,7 +115,7 @@ export function useLayerDrag({
         dragRef.current = state;
 
         const refreshDropTarget = () => {
-            const row = document.elementFromPoint(state.lastX, state.lastY)
+            const row = doc.elementFromPoint(state.lastX, state.lastY)
                 ?.closest?.('[data-layer-id]');
             const targetId = row?.dataset?.layerId;
             if (!targetId || ids.includes(targetId)) {
@@ -137,7 +142,7 @@ export function useLayerDrag({
                 container.scrollTop += step;
                 if (container.scrollTop !== before) refreshDropTarget();
             }
-            state.scrollFrame = requestAnimationFrame(scrollStep);
+            state.scrollFrame = view.requestAnimationFrame(scrollStep);
         };
 
         const handleMove = moveEvent => {
@@ -149,7 +154,7 @@ export function useLayerDrag({
             if (!state.active) {
                 state.active = true;
                 activateGhost(visual);
-                state.scrollFrame = requestAnimationFrame(scrollStep);
+                state.scrollFrame = view.requestAnimationFrame(scrollStep);
             }
             moveEvent.preventDefault();
             state.lastX = moveEvent.clientX;
@@ -159,10 +164,10 @@ export function useLayerDrag({
         };
 
         const cleanup = () => {
-            window.removeEventListener('pointermove', handleMove);
-            window.removeEventListener('pointerup', handleUp);
-            window.removeEventListener('pointercancel', handleCancel);
-            if (state.scrollFrame) cancelAnimationFrame(state.scrollFrame);
+            view.removeEventListener('pointermove', handleMove);
+            view.removeEventListener('pointerup', handleUp);
+            view.removeEventListener('pointercancel', handleCancel);
+            if (state.scrollFrame) view.cancelAnimationFrame(state.scrollFrame);
             state.scrollFrame = 0;
             releaseGhost(visual);
             if (dragRef.current === state) dragRef.current = null;
@@ -180,9 +185,9 @@ export function useLayerDrag({
         const handleCancel = () => cleanup();
         state.cleanup = cleanup;
 
-        window.addEventListener('pointermove', handleMove, { passive: false });
-        window.addEventListener('pointerup', handleUp, { once: true });
-        window.addEventListener('pointercancel', handleCancel, { once: true });
+        view.addEventListener('pointermove', handleMove, { passive: false });
+        view.addEventListener('pointerup', handleUp, { once: true });
+        view.addEventListener('pointercancel', handleCancel, { once: true });
     }, [c, displayedLayers, reorderLayers, reversed, scrollRef, selectRows, selectedIds, side]);
 
     return { dropIndicator, onPointerDownDrag };
