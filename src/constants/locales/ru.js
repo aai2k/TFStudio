@@ -1654,7 +1654,7 @@ export default {
     },
     layerRange: 'Слои:',
     title: 'МОНИТОРЫ', type: 'Тип:', quantity: 'Величина:', level: 'Уровень:', crossing: 'Пересечение:',
-    preset: 'Предустановка:', angle: 'Угол:', polarization: 'Поляр.:', peak: 'пик', notch: 'провал',
+    preset: 'Набор:', angle: 'Угол:', polarization: 'Поляр.:', peak: 'пик', notch: 'провал',
     integralQuantityTip: 'Набор интеграла определяет T/R/A', pickPreset: '(выбрать…)',
     pickPresetTip: 'Выберите сохранённый набор интеграла', needPreset: 'Сначала выберите набор интеграла',
     save: '✓ Сохранить', add: '✓ Добавить', cancel: 'Отмена',
