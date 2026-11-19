@@ -248,7 +248,9 @@ if [ "$VERIFY" -eq 1 ]; then
         set +e
         # --no-sandbox: the Chromium sandbox needs user namespaces, which are
         # unavailable in many container and WSL configurations.
-        timeout --signal=TERM 25 xvfb-run -a "$BIN" --no-sandbox >"$LOG" 2>&1
+        # --ozone-platform=x11: in a Wayland session Electron starts as a
+        # Wayland client and would open on the desktop instead of in Xvfb.
+        timeout --signal=TERM 25 xvfb-run -a "$BIN" --no-sandbox --ozone-platform=x11 >"$LOG" 2>&1
         RC=$?
         set -e
         if [ "$RC" -eq 124 ]; then
