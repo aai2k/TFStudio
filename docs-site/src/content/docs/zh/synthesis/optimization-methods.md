@@ -11,29 +11,22 @@ description: "每种精炼方法如何移动层厚度，画在同一张评价函
 
 ## 评价函数、斜率与边界
 
-$$
-\begin{aligned}
-\text{残差} \quad & r_p = \sqrt{w_i}\, m_i / \sigma_i && \text{每行一个；范围目标（TGT、RGT、AGT）在每个} \\
-& && \text{采样波长上各给一个，} \sqrt{w_i q_s}\, m_s \\
-\text{评价函数} \quad & \mathrm{MF} = \sqrt{\sum_p r_p^2 / W} && W = \sum w_i \text{，对参与评分的行求和} \\
-\text{雅可比} \quad & J_{pk} = \partial r_p / \partial d_k && \text{由膜层矩阵求得；没有解析导数的行用中心差分} \\
-\text{梯度} \quad & g = \nabla\mathrm{MF} = J^T r / (W \cdot \mathrm{MF}) \\
-\text{海森} \quad & H = J^T J + \sum_p r_p \nabla^2 r_p && \text{无法得到曲率项时只用 } J^T J
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 残差 | $r_p = \sqrt{w_i}\, m_i / \sigma_i$ | 每行一个；范围目标（TGT、RGT、AGT）在每个采样波长上各给一个，$\sqrt{w_i q_s}\, m_s$ |
+| 评价函数 | $\mathrm{MF} = \sqrt{\sum_p r_p^2 / W}$ | $W = \sum w_i$，对参与评分的行求和 |
+| 雅可比 | $J_{pk} = \partial r_p / \partial d_k$ | 由膜层矩阵求得；没有解析导数的行用中心差分 |
+| 梯度 | $g = \nabla\mathrm{MF} = J^T r / (W \cdot \mathrm{MF})$ | |
+| 海森 | $H = J^T J + \sum_p r_p \nabla^2 r_p$ | 无法得到曲率项时只用 $J^T J$ |
 
 $m_i$ 是第 $i$ 行与目标的差，$w_i$ 是其权重，$\sigma_i$ 是其尺度，与评价函数编辑器中相同；$m_s$ 是波段第 $s$ 个采样点上的差，$q_s$ 是它的梯形权重。当评价函数只对一侧评分、只有一个环境、没有入射锥，且没有数学行、颜色行、椭偏行、电场行或曲线块行，也没有带自身 $\sigma$ 的行（dB、相位、群延迟）时，$H$ 才带曲率项。
 
-$$
-\begin{aligned}
-\text{下限} \quad & d_k \ge 1\ \text{nm} && \text{除非有 MXT 行，否则没有上限} \\
-\text{MNT, MXT} \quad & \text{SQP 中为硬限制；其他方法中为评价函数的罚函数行，} \\
-& \text{限制满足时为零} \\
-\text{固定层} \quad & \text{位于边界、斜率又把它推向边界外的层不参与这一步} \\
-& \text{（DLS、牛顿法、牛顿-CG 法、信赖域牛顿法）} \\
-\text{步长跨度} \quad & \lvert\Delta d_k\rvert \le s_k = \lambda_{\max} / (2\,\lvert\tilde n_k(\lambda_{\max})\rvert) && \text{（DLS、牛顿法、牛顿-CG 法、SQP、CG 的首次试探）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 下限 | $d_k \ge 1\ \text{nm}$ | 除非有 MXT 行，否则没有上限 |
+| MNT, MXT | | SQP 中为硬限制；其他方法中为评价函数的罚函数行，限制满足时为零 |
+| 固定层 | | 位于边界、斜率又把它推向边界外的层不参与这一步（DLS、牛顿法、牛顿-CG 法、信赖域牛顿法） |
+| 步长跨度 | $\lvert\Delta d_k\rvert \le s_k = \lambda_{\max} / (2\,\lvert\tilde n_k(\lambda_{\max})\rvert)$ | （DLS、牛顿法、牛顿-CG 法、SQP、CG 的首次试探） |
 
 $\lambda_{\max}$ 是评价函数采样的最长波长。层厚增加半波后，该波长上的 R 和 T 不变（Macleod，式 2.111），所以一步所依据的斜率在 $s_k$ 之外不再说明任何问题。锁定的层从不移动。
 
@@ -45,16 +38,13 @@ $\lambda_{\max}$ 是评价函数采样的最长波长。层厚增加半波后，
 
 ![序列二次规划从 160 nm MgF₂、200 nm Ta₂O₅ 的起点出发：几次短移动进入最近的谷，停在约 97 nm MgF₂、249 nm Ta₂O₅。](/diagrams/optimization/refine-sqp-zh.gif)
 
-$$
-\begin{aligned}
-\text{模型} \quad & q(\Delta) = \tfrac12\, \Delta^T (H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta + (J^T r)^T \Delta \\
-\text{盒子} \quad & \mathrm{lo}_k \le d_k + \Delta_k \le \mathrm{hi}_k, \quad \lvert\Delta_k\rvert \le s_k && \mathrm{lo},\ \mathrm{hi}\ \text{来自 1 nm 以及 MNT 和 MXT 行} \\
-\text{求解} \quad & \text{原始有效集法；到达其轮次上限时，取它的解与 Cauchy 点中模型值较低者；} \\
-& \text{矩阵不正定时 } \mu \times 10 \text{，最多 12 次，之后改走一步 DLS} \\
-\text{接受} \quad & \mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \mu \leftarrow \max(0.3\mu,\, 10^{-6});\ \text{否则 } \mu \leftarrow \min(10\mu,\, 10^{8}) && \mu_0 = 10^{-3} \\
-\text{停止} \quad & \mu = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{最大迭代（200）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 模型 | $q(\Delta) = \tfrac12\, \Delta^T (H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta + (J^T r)^T \Delta$ | |
+| 盒子 | $\mathrm{lo}_k \le d_k + \Delta_k \le \mathrm{hi}_k,$<br>$\lvert\Delta_k\rvert \le s_k$ | $\mathrm{lo},\ \mathrm{hi}$ 来自 1 nm 以及 MNT 和 MXT 行 |
+| 求解 | | 原始有效集法；到达其轮次上限时，取它的解与 Cauchy 点中模型值较低者；矩阵不正定时 $\mu \times 10$，最多 12 次，之后改走一步 DLS |
+| 接受 | | $\mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \mu \leftarrow \max(0.3\mu,\, 10^{-6});$ 否则 $\mu \leftarrow \min(10\mu,\, 10^{8})$ $\mu_0 = 10^{-3}$ |
+| 停止 | | $\mu = 10^{8};$ $\mathrm{MF} < 10^{-7};$ 最大迭代（200） |
 
 ### 阻尼最小二乘法
 
@@ -62,15 +52,11 @@ $$
 
 ![阻尼最小二乘法从同一起点出发：第一步越过谷底，之后的步变短，停在约 97 nm MgF₂、249 nm Ta₂O₅。](/diagrams/optimization/refine-dls-zh.gif)
 
-$$
-\begin{aligned}
-\text{步} \quad & \text{用 QR 求解 } \begin{bmatrix} J \\ \sqrt{\lambda M} \end{bmatrix} \Delta = \begin{bmatrix} -r \\ 0 \end{bmatrix}, \quad M = \operatorname{diag}(J^T J) && \text{与 } (J^T J + \lambda M)\,\Delta = -J^T r \text{ 的 } \Delta \text{ 相同} \\
-& \text{缩小 } \Delta \text{，使任何 } \lvert\Delta_k\rvert \text{ 都不超过 } s_k \\
-\text{接受} \quad & \mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \lambda \leftarrow \max(\lambda/2,\, 10^{-8});\ \text{否则 } \lambda \leftarrow \min(5\lambda,\, 10^{8}) && \lambda_0 = 10^{-2} \\
-\text{停止} \quad & \lambda = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{接受一步后，} \sum r^2 \text{ 的实际与预测下降都} \le \sqrt{\varepsilon} \\
-& \text{且实际} \le 2 \times \text{预测，或 } \lVert M^{1/2}\Delta\rVert \le \sqrt{\varepsilon}\,\lVert M^{1/2} d\rVert;\ \text{最大迭代（500）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 步 | $\begin{bmatrix} J \\ \sqrt{\lambda M} \end{bmatrix} \Delta = \begin{bmatrix} -r \\ 0 \end{bmatrix},$<br>$M = \operatorname{diag}(J^T J)$ | 用 QR 求解与 $(J^T J + \lambda M)\,\Delta = -J^T r$ 的 $\Delta$ 相同缩小 $\Delta$，使任何 $\lvert\Delta_k\rvert$ 都不超过 $s_k$ |
+| 接受 | | $\mathrm{MF}(d + \Delta) < \mathrm{MF}(d):\ \lambda \leftarrow \max(\lambda/2,\, 10^{-8});$ 否则 $\lambda \leftarrow \min(5\lambda,\, 10^{8})$ $\lambda_0 = 10^{-2}$ |
+| 停止 | | $\lambda = 10^{8};$ $\mathrm{MF} < 10^{-7};$ 接受一步后，$\sum r^2$ 的实际与预测下降都 $\le \sqrt{\varepsilon}$ 且实际 $\le 2 \times$ 预测，或 $\lVert M^{1/2}\Delta\rVert \le \sqrt{\varepsilon}\,\lVert M^{1/2} d\rVert;$ 最大迭代（500） |
 
 预测下降为 $1 - \lVert r + J\Delta\rVert^2 / \lVert r\rVert^2$，$\varepsilon = 2.2 \cdot 10^{-16}$：即 MINPACK 中 lmder 的停止判据。
 
@@ -80,19 +66,12 @@ $$
 
 ![共轭梯度法从同一起点出发：两次线搜索到达约 97 nm MgF₂、249 nm Ta₂O₅ 的谷。](/diagrams/optimization/refine-cg-zh.gif)
 
-$$
-\begin{aligned}
-\text{方向} \quad & \beta = \max\!\left(0,\ \frac{g_k^T (g_k - g_{k-1})}{g_{k-1}^T g_{k-1}}\right), \quad \text{每 } n \text{ 步令 } \beta = 0 \text{（} n \text{ 为可变层数，至少 2）} \\
-& p_k = -g_k + \beta\, p_{k-1}, \quad \text{当 } g_k^T p_k \ge 0 \text{ 时取 } -g_k \\
-\text{搜索} \quad & \text{首个 } \alpha \text{：沿 } p \text{ 第一个层移动了其跨度 } s_k \text{ 的位置，若上次 } \alpha \text{ 的 4 倍更短则取后者；} \\
-& \text{将 } \alpha \text{ 减半，直到 } \mathrm{MF}(P(d + \alpha p)) \le \mathrm{MF}(d) + 10^{-4}\, g^T (P(d + \alpha p) - d) \text{，只要 MF 还在下降就继续减半，} \\
-& \text{取其中最低者；} P \text{ 把厚度夹到 1 nm} \\
-\text{重启} \quad & \text{失败的搜索沿 } -g \text{ 用新的首个 } \alpha \text{ 再试一次；连续 12 步每步增益都低于 MF 的 } 10^{-7} \text{ 时，} \\
-& \text{从最佳点重新开始，最多 8 次} \\
-\text{停止} \quad & \lVert g\rVert < 10^{-9};\ \text{连续 4 次搜索失败；某次重启增益低于 } 10^{-7} \text{ 后再遇平台；} \\
-& \mathrm{MF} < 10^{-7};\ \text{最大迭代（600）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 方向 | $\beta = \max\!\left(0,\ \dfrac{g_k^T (g_k - g_{k-1})}{g_{k-1}^T g_{k-1}}\right),$ | 每 $n$ 步令 $\beta = 0$（$n$ 为可变层数，至少 2） $p_k = -g_k + \beta\, p_{k-1},$ 当 $g_k^T p_k \ge 0$ 时取 $-g_k$ |
+| 搜索 | | 首个 $\alpha$：沿 $p$ 第一个层移动了其跨度 $s_k$ 的位置，若上次 $\alpha$ 的 4 倍更短则取后者；将 $\alpha$ 减半，直到 $\mathrm{MF}(P(d + \alpha p)) \le \mathrm{MF}(d) + 10^{-4}\, g^T (P(d + \alpha p) - d)$，只要 MF 还在下降就继续减半，取其中最低者；$P$ 把厚度夹到 1 nm |
+| 重启 | | 失败的搜索沿 $-g$ 用新的首个 $\alpha$ 再试一次；连续 12 步每步增益都低于 MF 的 $10^{-7}$ 时，从最佳点重新开始，最多 8 次 |
+| 停止 | | $\lVert g\rVert < 10^{-9};$ 连续 4 次搜索失败；某次重启增益低于 $10^{-7}$ 后再遇平台； $\mathrm{MF} < 10^{-7};$ 最大迭代（600） |
 
 作为合成窗口的内层精炼器时，CG 每次搜索从最长 2000 nm 的扫描开始，而不是从跨度开始，也不重启。
 
@@ -102,14 +81,11 @@ $$
 
 ![牛顿法从同一起点出发：第一步到达 MgF₂ 的 1 nm 下限，然后沿谷底走到 94 nm MgF₂、121 nm Ta₂O₅。](/diagrams/optimization/refine-newton-zh.gif)
 
-$$
-\begin{aligned}
-\text{步} \quad & \text{用 Cholesky 求解 } (H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta = -J^T r \text{；} \mu \times 10 \text{ 直到可以分解，最多 12 次，之后改走一步 DLS；} \\
-& \Delta \text{ 按跨度缩小，试探点夹到 1 nm} \\
-\text{接受} \quad & \text{MF 下降：} \mu \leftarrow \max(0.3\mu,\, 10^{-6});\ \text{否则 } \mu \leftarrow \min(10\mu,\, 10^{8}) && \mu_0 = 10^{-3} \\
-\text{停止} \quad & \mu = 10^{8};\ \mathrm{MF} < 10^{-7};\ \text{最大迭代（200）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 步 | $(H + \mu\,\lvert\operatorname{diag} H\rvert)\,\Delta = -J^T r$ | 用 Cholesky 求解；$\mu \times 10$ 直到可以分解，最多 12 次，之后改走一步 DLS； $\Delta$ 按跨度缩小，试探点夹到 1 nm |
+| 接受 | | MF 下降：$\mu \leftarrow \max(0.3\mu,\, 10^{-6});$ 否则 $\mu \leftarrow \min(10\mu,\, 10^{8})$ $\mu_0 = 10^{-3}$ |
+| 停止 | | $\mu = 10^{8};$ $\mathrm{MF} < 10^{-7};$ 最大迭代（200） |
 
 ### 牛顿-CG 法
 
@@ -117,17 +93,14 @@ $$
 
 ![牛顿-CG 法从同一起点出发：三步到达约 97 nm MgF₂、249 nm Ta₂O₅ 的谷。](/diagrams/optimization/refine-newton-cg-zh.gif)
 
-$$
-\begin{aligned}
-\text{模型} \quad & m(p) = g^T p + \tfrac12\, p^T H p, \quad \lVert p\rVert \le \Delta; \qquad Hv \approx \frac{\nabla\mathrm{MF}(d + \varepsilon v) - \nabla\mathrm{MF}(d)}{\varepsilon}, \quad \varepsilon = 1.5 \cdot 10^{-8}\, (1 + \lVert d\rVert_\infty) / \lVert v\rVert_\infty \\
-\text{求解} \quad & \text{Steihaug CG，最多 } \min(n, 25) \text{ 次迭代，直到 } \lVert\text{残差}\rVert \le \min(0.5, \sqrt{\lVert g\rVert})\,\lVert g\rVert \text{、到达半径} \\
-& \text{或遇到负曲率；} p \text{ 按跨度缩小} \\
-\text{比值} \quad & \rho = \frac{\mathrm{MF}(d) - \mathrm{MF}(d + s)}{-g^T s - \tfrac12\, s^T H s}, \quad s \text{ 为夹到 1 nm 之后的移动} \\
-\text{半径} \quad & \rho < 0.25:\ \Delta \leftarrow \Delta/4;\ \rho > 0.75 \text{ 且 } \lVert p\rVert > 0.8\Delta:\ \Delta \leftarrow \min(2\Delta,\, 10^{4}\ \text{nm}); && \Delta_0 = \max(1,\, 0.1\,(1 + \lVert d\rVert_\infty))\ \text{nm} \\
-\text{接受} \quad & \rho > 0.1 \text{ 且 MF 下降} \\
-\text{停止} \quad & \text{连续 6 步被拒绝或 } \lVert g\rVert < 10^{-10};\ \mathrm{MF} < 10^{-7};\ \text{最大迭代（200）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 模型 | $m(p) = g^T p + \tfrac12\, p^T H p,$<br>$\lVert p\rVert \le \Delta;$<br>$Hv \approx \dfrac{\nabla\mathrm{MF}(d + \varepsilon v) - \nabla\mathrm{MF}(d)}{\varepsilon},$<br>$\varepsilon = 1.5 \cdot 10^{-8}\, (1 + \lVert d\rVert_\infty) / \lVert v\rVert_\infty$ | |
+| 求解 | | Steihaug CG，最多 $\min(n, 25)$ 次迭代，直到 $\lVert\text{残差}\rVert \le \min(0.5, \sqrt{\lVert g\rVert})\,\lVert g\rVert$、到达半径或遇到负曲率；$p$ 按跨度缩小 |
+| 比值 | $\rho = \dfrac{\mathrm{MF}(d) - \mathrm{MF}(d + s)}{-g^T s - \tfrac12\, s^T H s},$ | $s$ 为夹到 1 nm 之后的移动 |
+| 半径 | | $\rho < 0.25:\ \Delta \leftarrow \Delta/4;$ $\rho > 0.75$ 且 $\lVert p\rVert > 0.8\Delta:\ \Delta \leftarrow \min(2\Delta,\, 10^{4}\ \text{nm});$ $\Delta_0 = \max(1,\, 0.1\,(1 + \lVert d\rVert_\infty))\ \text{nm}$ |
+| 接受 | | $\rho > 0.1$ 且 MF 下降 |
+| 停止 | | 连续 6 步被拒绝或 $\lVert g\rVert < 10^{-10};$ $\mathrm{MF} < 10^{-7};$ 最大迭代（200） |
 
 ### 信赖域牛顿法
 
@@ -135,18 +108,14 @@ $$
 
 ![信赖域牛顿法从同一起点出发：几步到达约 97 nm MgF₂、249 nm Ta₂O₅ 的谷。](/diagrams/optimization/refine-trust-region-zh.gif)
 
-$$
-\begin{aligned}
-\text{模型} \quad & \text{对 } F = \tfrac12 \lVert r\rVert^2 \text{，} q(s) = g^T s + \tfrac12\, s^T H s, \quad g = J^T r; \qquad 1\ \text{nm} \le d_k + s_k, \quad \lvert s_k\rvert \le \Delta \\
-\text{步} \quad & \text{沿投影后的 } -g \text{ 取 Cauchy 点，然后最多 } 2n + 5 \text{ 次小迭代：对不在边界上的层做 CG，} \\
-& \text{再做一次充分下降系数为 0.01 的投影搜索} \\
-\text{比值} \quad & \rho = \frac{F(d) - F(d + s)}{-q(s)} \\
-\text{半径} \quad & \rho < 0.25:\ \Delta \leftarrow \Delta/4;\ \rho > 0.75 \text{ 且 } s \text{ 到达边缘：}\ \Delta \leftarrow \min(2\Delta,\, 500\ \text{nm}); && \Delta_0 = 20\ \text{nm} \\
-\text{接受} \quad & \rho > 10^{-4} \\
-\text{停止} \quad & \text{预测下降} < 10^{-15} F;\ F = 0;\ \text{接受的一步其实际与预测下降都} \le 10^{-10} F; \\
-& \text{步长或半径} \le 10^{-10}\,(10^{-10} + \lVert d\rVert_\infty);\ \text{最近 6 步 MF 下降不到 0.01 \%；最大迭代（200）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 模型 | $q(s) = g^T s + \tfrac12\, s^T H s$<br>$1\ \text{nm} \le d_k + s_k,$<br>$\lvert s_k\rvert \le \Delta$ | 对 $F = \tfrac12 \lVert r\rVert^2$，$g = J^T r;$ |
+| 步 | | 沿投影后的 $-g$ 取 Cauchy 点，然后最多 $2n + 5$ 次小迭代：对不在边界上的层做 CG，再做一次充分下降系数为 0.01 的投影搜索 |
+| 比值 | $\rho = \dfrac{F(d) - F(d + s)}{-q(s)}$ | |
+| 半径 | | $\rho < 0.25:\ \Delta \leftarrow \Delta/4;$ $\rho > 0.75$ 且 $s$ 到达边缘：$\Delta \leftarrow \min(2\Delta,\, 500\ \text{nm});$ $\Delta_0 = 20\ \text{nm}$ |
+| 接受 | $\rho > 10^{-4}$ | |
+| 停止 | | 预测下降 $< 10^{-15} F;$ $F = 0;$ 接受的一步其实际与预测下降都 $\le 10^{-10} F;$ 步长或半径 $\le 10^{-10}\,(10^{-10} + \lVert d\rVert_\infty);$ 最近 6 步 MF 下降不到 0.01 %；最大迭代（200） |
 
 ### DLS 多起点
 
@@ -154,14 +123,11 @@ $$
 
 ![DLS 多起点：从起点的扰动副本出发的二十次重启落在几个不同的谷中；最好的一个停在约 94 nm MgF₂、121 nm Ta₂O₅。](/diagrams/optimization/refine-dls-multi-zh.gif)
 
-$$
-\begin{aligned}
-\text{起点 } j \quad & d_{k,j} = \max(1\ \text{nm},\ d_k (1 + f (2u - 1))), \quad u \text{ 为 } [0, 1) \text{ 上的均匀数，取自随机种子中重启 } j \text{ 自己的随机流，} \\
-& f = \text{扰动 } {\pm}\text{\%} / 100, \quad j = 1 \ldots N \quad (N = \text{重启次数；默认 20 和 30 \%}) \\
-\text{运行} \quad & \text{从每个起点以最大迭代（500）运行阻尼最小二乘法，在多个 CPU 线程上同时进行} \\
-\text{保留} \quad & \text{MF 最低的那次重启}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 起点 $j$ | $d_{k,j} = \max(1\ \text{nm},\ d_k (1 + f (2u - 1))),$<br>$f = \text{扰动 } {\pm}\text{\%} / 100,$<br>$j = 1 \ldots N$ | $u$ 为 $[0, 1)$ 上的均匀数，取自随机种子中重启 $j$ 自己的随机流， ($N = \text{重启次数；默认 20 和 30 \%}$) |
+| 运行 | | 从每个起点以最大迭代（500）运行阻尼最小二乘法，在多个 CPU 线程上同时进行 |
+| 保留 | | MF 最低的那次重启 |
 
 ### 差分进化
 
@@ -169,15 +135,13 @@ $$
 
 ![差分进化：十个设计散布在起点周围，然后聚集到约 94 nm MgF₂、121 nm Ta₂O₅ 的谷中。](/diagrams/optimization/refine-de-zh.gif)
 
-$$
-\begin{aligned}
-\text{种群} \quad & \mathrm{NP} = \max(10, 5n);\ \text{成员 1 为起点，其余为 } d_k (1 + 0.5 (2u - 1)) \text{，至少 1 nm} \\
-\text{变异} \quad & v = x_{r_1} + F (x_{r_2} - x_{r_3}), \quad r_1, r_2, r_3 \text{ 互不相同且 } \ne i, \quad F = 0.7 \\
-\text{交叉} \quad & \text{当 } u < \mathrm{CR} \text{ 或 } k = k_\text{rand} \text{ 时 } \text{trial}_k = v_k \text{，否则为 } x_{i,k};\ \mathrm{CR} = 0.9;\ \text{夹到 1 nm} \\
-\text{选择} \quad & \mathrm{MF}(\text{trial}) \le \mathrm{MF}(x_i) \text{ 时试验设计替换 } x_i \text{；一代中的所有试验设计都由旧种群构造} \\
-\text{停止} \quad & \text{连续 60 代没有新的最佳；} \mathrm{MF} < 10^{-7};\ \text{最大迭代（250）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 种群 | $\mathrm{NP} = \max(10, 5n);$ | 成员 1 为起点，其余为 $d_k (1 + 0.5 (2u - 1))$，至少 1 nm |
+| 变异 | $v = x_{r_1} + F (x_{r_2} - x_{r_3}),$ | $r_1, r_2, r_3$ 互不相同且 $\ne i,$ $F = 0.7$ |
+| 交叉 | | 当 $u < \mathrm{CR}$ 或 $k = k_\text{rand}$ 时 $\text{trial}_k = v_k$，否则为 $x_{i,k};$ $\mathrm{CR} = 0.9;$ 夹到 1 nm |
+| 选择 | | $\mathrm{MF}(\text{trial}) \le \mathrm{MF}(x_i)$ 时试验设计替换 $x_i$；一代中的所有试验设计都由旧种群构造 |
+| 停止 | | 连续 60 代没有新的最佳；$\mathrm{MF} < 10^{-7};$ 最大迭代（250） |
 
 可变层有四个或更多、且 CPU 线程多于两个时，每一代的试验设计会在多个工作线程上同时打分，结果相同。
 
@@ -187,15 +151,13 @@ $$
 
 ![模拟退火：温度较高时游走穿过几个谷，随后停在约 94 nm MgF₂、121 nm Ta₂O₅ 附近。](/diagrams/optimization/refine-sa-zh.gif)
 
-$$
-\begin{aligned}
-\text{移动} \quad & d'_k = d_k + \max(1\ \text{nm},\ f d_k) \cdot N(0, 1), \quad f = \max(0.01,\ 0.15\, T / T_0);\ \text{夹到 1 nm} \\
-\text{接受} \quad & \Delta\mathrm{MF} \le 0 \text{，或 } u < \exp(-\Delta\mathrm{MF} / T) \\
-\text{一轮} \quad & \max(8, 2n) \text{ 次移动，然后 } T \leftarrow 0.95\,T \\
-T_0 \quad & \text{从起点出发的 20 次试探移动（} f = 0.15 \text{）中上坡移动 } \Delta\mathrm{MF} \text{ 的平均值，除以 } -\ln 0.8 \\
-\text{停止} \quad & T < 10^{-7};\ \text{连续 100 轮没有新的最佳；} \mathrm{MF} < 10^{-7};\ \text{最大迭代（400）}
-\end{aligned}
-$$
+| | 公式 | 说明 |
+| --- | --- | --- |
+| 移动 | $d'_k = d_k + \max(1\ \text{nm},\ f d_k) \cdot N(0, 1),$<br>$f = \max(0.01,\ 0.15\, T / T_0);$ | 夹到 1 nm |
+| 接受 | | $\Delta\mathrm{MF} \le 0$，或 $u < \exp(-\Delta\mathrm{MF} / T)$ |
+| 一轮 | | $\max(8, 2n)$ 次移动，然后 $T \leftarrow 0.95\,T$ |
+| $T_0$ | | 从起点出发的 20 次试探移动（$f = 0.15$）中上坡移动 $\Delta\mathrm{MF}$ 的平均值，除以 $-\ln 0.8$ |
+| 停止 | | $T < 10^{-7};$ 连续 100 轮没有新的最佳；$\mathrm{MF} < 10^{-7};$ 最大迭代（400） |
 
 结果是途中遇到的最低设计，而不是最后一个设计。
 
