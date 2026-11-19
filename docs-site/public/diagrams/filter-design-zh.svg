@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="680" viewBox="0 0 860 680" role="img" aria-labelledby="t d">
+<title id="t">滤光片设计的步骤</title>
+<desc id="d">六个步骤：材料、参数、腔数、原型、全局整数搜索和调整到入射介质，然后得到带评价函数行的新设计供精炼使用。第 2 到第 5 步把滤光片嵌入基底中设计。第 5 步内部，以所选原型为种子，对反射镜整数层数和间隔层阶次做下降搜索，并从扰动后的起点重复。</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .frame { fill: none; stroke: #8494a6; stroke-width: 1.2; stroke-dasharray: 6 4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .link { fill: none; stroke: #8494a6; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .head { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab { fill: #93a4b8; }
+    .box, .dec, .end, .flow { stroke: #8fa3b8; }
+    .frame, .link { stroke: #7b8b9e; }
+    .head { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<!-- The six steps -->
+<rect x="40" y="12" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="37">1  材料选择</text>
+<text x="250" y="61" class="dim">H、L、基底、入射介质；角度、偏振</text>
+<path d="M250 76V98" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="100" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="125">2  滤光片参数</text>
+<text x="250" y="149" class="dim">λ₀；通带水平和截止水平处的半宽；形状因子</text>
+<path d="M250 164V186" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="188" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="213">3  腔数量</text>
+<text x="250" y="237" class="dim">由形状因子求切比雪夫数 q；给出 q + 1</text>
+<path d="M250 252V274" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="276" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="301">4  原型规格</text>
+<text x="250" y="325" class="dim">按要求宽度列出 (m, k) 行；内侧反射镜 2m + 2δ − 1</text>
+<path d="M250 340V362" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="364" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="389">5  全局整数搜索</text>
+<text x="250" y="413" class="dim">反射镜层数和间隔层阶次，嵌入评价函数</text>
+<path d="M250 428V450" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="452" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="477">6  调整到入射介质</text>
+<text x="250" y="501" class="dim">无减反、1 层或 2 层 V 型镀膜，在 λ₀ 处匹配</text>
+<path d="M250 516V538" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="540" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="565">完成：新设计</text>
+<text x="250" y="589" class="dim">通带和阻带 TGT 行，MNT 7 nm，MXT 9999 nm</text>
+<path d="M250 604V626" class="flow" marker-end="url(#arrow)"/>
+<rect x="170" y="628" width="160" height="36" rx="18" class="end"/>
+<text x="250" y="651">精炼</text>
+
+<!-- Embedded steps -->
+<path d="M36 104H26V424H36" class="flow"/>
+<text x="16" y="264" class="dim" transform="rotate(-90 16 264)">嵌入：入射介质折射率 = 基底折射率</text>
+
+<!-- Inside step 5 -->
+<path d="M460 396H488" class="link"/>
+<rect x="490" y="120" width="360" height="440" rx="6" class="frame"/>
+<text x="670" y="144" class="dim">第 5 步内部</text>
+
+<rect x="510" y="158" width="320" height="56" rx="4" class="box"/>
+<text x="670" y="181">种子：所选的原型行，</text>
+<text x="670" y="201">始终保留为候选</text>
+<path d="M670 214V238" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="510" y="240" width="320" height="90" rx="4" class="box"/>
+<text x="670" y="262">下降：每个反射镜和间隔层 ±1、±2；</text>
+<text x="670" y="281">间隔层与两侧反射镜反向变化；所有</text>
+<text x="670" y="300">间隔层与内侧反射镜反向变化。</text>
+<text x="670" y="319">保留每个降低 MF 的移动</text>
+<path d="M670 330V346" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="570,382 670,348 770,382 670,416" class="dec"/>
+<text x="670" y="378">这一轮</text>
+<text x="670" y="396">MF 降低了吗？</text>
+<path d="M770 382H840V285H832" class="flow" marker-end="url(#arrow)"/>
+<text x="778" y="374" class="lab">是</text>
+<path d="M670 416V440" class="flow" marker-end="url(#arrow)"/>
+<text x="678" y="432" class="lab">否</text>
+
+<rect x="510" y="442" width="320" height="94" rx="4" class="box"/>
+<text x="670" y="464">重启：扰动种子，外侧反射镜</text>
+<text x="670" y="483">减两层并加上噪声，</text>
+<text x="670" y="502">每个都以同样方式下降</text>
+<text x="670" y="525" class="dim">候选按 MF 排列</text>
+</svg>

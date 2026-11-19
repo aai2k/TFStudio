@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="860" viewBox="0 0 640 860" role="img" aria-labelledby="t d">
+<title id="t">设计清理器的工作过程</title>
+<desc id="d">在每个被清理的面上，合并相邻的同材料层，去掉薄于阈值的未锁定层；只要一遍中有去除就重复，最多四遍，然后再合并一次。窗口预览结果。应用时可选地用所选方法精炼清理后的设计，并作为一步撤销写入。</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .labR { fill: #5a6b80; font-size: 13px; text-anchor: end; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .head { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab, .labR { fill: #93a4b8; }
+    .box, .dec, .end, .flow { stroke: #8fa3b8; }
+    .head { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<rect x="220" y="12" width="160" height="34" rx="17" class="end"/>
+<text x="300" y="34">屏幕上的设计</text>
+<path d="M300 46V68" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="80" y="70" width="440" height="56" rx="4" class="box"/>
+<text x="300" y="92">在每个被清理的面上（由“面”设置决定；</text>
+<text x="300" y="111">对称设计清理其正面）</text>
+<path d="M300 126V148" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="80" y="150" width="440" height="56" rx="4" class="box"/>
+<text x="300" y="173">合并相邻的同材料层</text>
+<text x="300" y="194" class="dim">开启“合并同材料膜层”时；锁定的层从不合并</text>
+<path d="M300 206V228" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="80" y="230" width="440" height="44" rx="4" class="box"/>
+<text x="300" y="257">去掉薄于“移除小于”所设值的未锁定层</text>
+<path d="M300 274V284" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="170,318 300,286 430,318 300,350" class="dec"/>
+<text x="300" y="314">有去除且</text>
+<text x="300" y="332">不到 4 遍？</text>
+<path d="M170 318H40V178H78" class="flow" marker-end="url(#arrow)"/>
+<text x="162" y="310" class="labR">是</text>
+<path d="M300 350V376" class="flow" marker-end="url(#arrow)"/>
+<text x="308" y="368" class="lab">否</text>
+
+<rect x="80" y="378" width="440" height="44" rx="4" class="box"/>
+<text x="300" y="405">再合并一次</text>
+<path d="M300 422V444" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="80" y="446" width="440" height="78" rx="4" class="box"/>
+<text x="300" y="468">预览：各项操作、操作前后的 MF，</text>
+<text x="300" y="487">以及低于阈值的膜层</text>
+<text x="300" y="512" class="dim">点击应用之前不做任何改动</text>
+<path d="M300 524V546" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="230" y="548" width="140" height="36" rx="18" class="end"/>
+<text x="300" y="571">应用</text>
+<path d="M300 584V594" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="190,628 300,596 410,628 300,660" class="dec"/>
+<text x="300" y="633">之后重新优化？</text>
+<path d="M300 660V684" class="flow" marker-end="url(#arrow)"/>
+<text x="308" y="676" class="lab">是</text>
+<path d="M410 628H600V814H522" class="flow" marker-end="url(#arrow)"/>
+<text x="420" y="620" class="lab">否</text>
+
+<rect x="80" y="686" width="440" height="76" rx="4" class="box"/>
+<text x="300" y="708">用所选方法精炼，最多“最大迭代”步，</text>
+<text x="300" y="727">任何层都不低于 max(移除小于的值, 1 nm)</text>
+<text x="300" y="750" class="dim">在后台运行；停止时保留目前最好的厚度</text>
+<path d="M300 762V784" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="80" y="786" width="440" height="56" rx="4" class="box"/>
+<text x="300" y="809">把设计作为一步撤销写入</text>
+<text x="300" y="830" class="dim">对称设计的背面是正面的镜像</text>
+</svg>

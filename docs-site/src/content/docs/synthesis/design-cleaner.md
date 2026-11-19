@@ -4,60 +4,61 @@ description: Merge adjacent same-material layers and remove very thin layers, th
 ribbonIcon: design-cleaner
 ---
 
-**Design Cleaner** tidies up the structural clutter that synthesis tends to
-leave behind: adjacent layers of the same material, and vanishingly thin
-"ghost" layers that contribute nothing. It merges the same-material neighbours
-into one layer, removes anything below your thickness threshold, and repeats
-until the design is stable (a removed middle layer can leave two same-material
-neighbours touching, which the next pass catches). You can then re-refine to
-settle the merit function after the structure has changed.
+**Design Cleaner** tidies what synthesis leaves behind: neighbouring layers of one material, and layers too thin for a coater to make. It merges the neighbours, removes the thin layers and repeats until the design is stable, since a removed middle layer can leave two layers of one material touching. It can then refine the result to win back merit the change cost.
 
-Locked layers are never merged or removed.
+<!-- shot: design-cleaner | a synthesized multilayer design with thin layers: Pending operations listing removals and merges, Before and After layer counts, MF before and MF after, and the Thin layers panel -->
 
-## Settings
+![Flow chart of Design Cleaner. On each side cleaned, neighbours of one material are merged and unlocked layers thinner than Remove below are removed; this repeats while a pass removes something, up to four passes, and a last merge follows. The window previews the result. Apply optionally refines the cleaned design with the chosen method, no layer below the threshold, and writes it as one undo step.](/diagrams/design-cleaner.svg)
 
-**Side**: on a design coated on both sides, which side is cleaned. **Front**
-cleans the front and leaves the back exactly as it is, **Back** cleans the
-back and leaves the front, **Both** (the default) cleans both. The two sides
-of a part are often coated in different runs, so one can be cleaned without
-touching the other. A design coated on one side has no Side choice and is
-cleaned on that side; a symmetric design has none either, since its back is
-the mirror of its front.
+Locked layers are never merged or removed, and a symmetric design gets the cleaned front mirrored onto its back.
 
-**Remove below (nm)**: layers thinner than this are removed (typically
-1–5 nm; raise it to your manufacturing minimum for a final pass).
+## Computed quantities
 
-**Merge same material**: combine neighbouring layers of the same material into
-a single layer.
+- **Pending operations**: each layer that will be removed or merged into its neighbour.
+- **Before** and **After**: the layer counts.
+- **MF before** and **MF after**: the merit function of the [Merit Function Editor](/design/merit-function-editor/); **MF after** is the cleaned design before any refinement.
+- **Thin layers**: the layers below the threshold now.
 
-**Re-optimize**: run a Refinement pass on the cleaned design to recover any
-merit lost to the structural change (on by default).
+## Controls and settings
 
-The **Settings** menu beside Apply holds the pass's own settings:
+**Side**: on a design coated on both sides, which side is cleaned. **Front** or **Back** leaves the other side exactly as it is, **Both** (the default) cleans both. A design coated on one side, or a symmetric one, has no Side choice.
 
-- **Method**: the refiner, Sequential QP, the Refinement window's default
-  method, or Damped Least Squares, Conjugate Gradient, Newton or Newton-CG.
-  These are the Refinement window's local methods; its multi-start, global and
-  Try all runs are not offered.
-- **Max iter**: how many refinement steps the pass runs (default 80).
+**Remove below**: layers thinner than this many nanometres are removed. 5 nm by default; raise it to your manufacturing minimum for the final pass.
 
-## How to read it
+**Merge same material**: combine neighbouring layers of one material into one. On by default.
 
-The **operations preview** lists exactly what will change before you commit
-(for example removing a thin layer or merging one layer into its neighbour),
-along with the merit function before and after. A separate **thin layers**
-panel shows which layers are currently below the threshold, as a diagnostic
-view. **Apply** performs the cleanup (and the optional refine) as a single
-undoable step. The refine runs in the background, so the app keeps responding
-on a large design: the strip under the controls shows the step and the merit
-reached, and **Stop** takes Apply's place, applying the cleanup with the best
-thicknesses found so far. Switch to another design while it runs and nothing
-is applied.
+**Re-optimize**: refine the cleaned design before **Apply** writes it. On by default.
 
-A good habit is two-stage cleanup: a first pass at the synthesis floor to drop
-noise layers, then a second pass at your real manufacturing floor for the final
-design. Symmetric designs mirror the cleaned front onto the back automatically.
+**Method** and **Max iter**, in the **Settings** menu beside Apply: the refiner, Sequential QP by default, or Damped Least Squares, Conjugate Gradient, Newton or Newton-CG, for 1 to 500 steps (80 by default).
+
+**Apply** and **Stop**: Apply writes the cleanup and the refinement as one undoable step. The refinement runs in the background, the strip under the controls shows its step and merit, and **Stop** applies the cleanup with the best thicknesses found so far. Switching to another design while it runs applies nothing.
+
+## How it is computed
+
+### Merging
+
+Merging changes nothing optically. Two neighbouring layers of one material share the admittance η and their phase thicknesses add, so their matrices (see [Needle](/synthesis/needle/#needle-function)) multiply to the matrix of one layer of the summed thickness:
+
+```
+M(d_1) · M(d_2) = M(d_1 + d_2)        δ = 2π ñ d cos θ / λ
+```
+
+R, T and the MF are therefore the same before and after a merge. Only removals move **MF after**.
+
+### Removing and re-optimizing
+
+```
+removed:        unlocked layer j with d_j < Remove below
+passes:         merge, remove; again while a pass removes a layer, at most 4; then merge
+refinement:     Method, at most Max iter steps,  d_j ≥ max(Remove below, 1 nm)
+```
+
+The refinement uses every row of the merit function, its band rows sampled as a Refinement run samples them at launch, and no layer may go below the larger of the threshold and 1 nm, so a layer the cleaner kept cannot be refined back under it.
+
+Tikhonravov et al. take a thin layer out by giving it the index of a neighbour, which keeps the total optical thickness; their design cleaning takes out one layer at a time, the one whose removal raises the merit least, until an allowed rise is used. Design Cleaner deletes every layer under the threshold with its thickness, without looking at the merit, and the refinement after it restores as much thickness as the merit wants. [Gradual Evolution](/synthesis/gradual-evolution/)'s **Consolidate on finish** is the one-layer-at-a-time removal judged by the merit.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Eq. 2.111 (layer matrix) and Chapter 3 (thin layers left by automatic design).
+- A. V. Tikhonravov, M. K. Trubetskov and G. W. DeBell, *Appl. Opt.* **46**, 704 (2007): thin-layer removal and design cleaning.
+- B. T. Sullivan and J. A. Dobrowolski, *Appl. Opt.* **35**, 5484 (1996): removing layers below a minimum thickness after refinement.

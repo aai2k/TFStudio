@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="680" viewBox="0 0 860 680" role="img" aria-labelledby="t d">
+<title id="t">The Filter Design steps</title>
+<desc id="d">Six steps: materials, parameters, cavity count, prototype, global integer search and adjustment to the incident medium, then a new design with its merit rows for Refinement. Steps 2 to 5 design the filter embedded in the substrate. Inside step 5 the chosen prototype seeds a descent over the integer mirror counts and spacer orders, repeated from perturbed restarts.</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .frame { fill: none; stroke: #8494a6; stroke-width: 1.2; stroke-dasharray: 6 4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .link { fill: none; stroke: #8494a6; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .head { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab { fill: #93a4b8; }
+    .box, .dec, .end, .flow { stroke: #8fa3b8; }
+    .frame, .link { stroke: #7b8b9e; }
+    .head { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<!-- The six steps -->
+<rect x="40" y="12" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="37">1  Materials</text>
+<text x="250" y="61" class="dim">H, L, substrate, incident medium; angle, polarization</text>
+<path d="M250 76V98" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="100" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="125">2  Parameters</text>
+<text x="250" y="149" class="dim">λ₀; half-widths at the pass and stop levels; shape factor</text>
+<path d="M250 164V186" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="188" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="213">3  Cavities</text>
+<text x="250" y="237" class="dim">Chebyshev count q from the shape factor; q + 1 offered</text>
+<path d="M250 252V274" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="276" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="301">4  Prototype</text>
+<text x="250" y="325" class="dim">(m, k) rows at the asked width; inner mirrors 2m + 2δ − 1</text>
+<path d="M250 340V362" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="364" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="389">5  Global Integer Search</text>
+<text x="250" y="413" class="dim">Mirror layer counts and spacer orders, embedded merit</text>
+<path d="M250 428V450" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="452" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="477">6  Adjust to incident medium</text>
+<text x="250" y="501" class="dim">No AR, 1-layer or 2-layer V coat, matched at λ₀</text>
+<path d="M250 516V538" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="540" width="420" height="64" rx="4" class="box"/>
+<text x="250" y="565">Finish: a new design</text>
+<text x="250" y="589" class="dim">Pass and stop TGT rows, MNT 7 nm, MXT 9999 nm</text>
+<path d="M250 604V626" class="flow" marker-end="url(#arrow)"/>
+<rect x="170" y="628" width="160" height="36" rx="18" class="end"/>
+<text x="250" y="651">Refinement</text>
+
+<!-- Embedded steps -->
+<path d="M36 104H26V424H36" class="flow"/>
+<text x="16" y="264" class="dim" transform="rotate(-90 16 264)">embedded: incident index = substrate index</text>
+
+<!-- Inside step 5 -->
+<path d="M460 396H488" class="link"/>
+<rect x="490" y="120" width="360" height="440" rx="6" class="frame"/>
+<text x="670" y="144" class="dim">Inside step 5</text>
+
+<rect x="510" y="158" width="320" height="56" rx="4" class="box"/>
+<text x="670" y="181">Seed: the chosen prototype row,</text>
+<text x="670" y="201">always kept as a candidate</text>
+<path d="M670 214V238" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="510" y="240" width="320" height="90" rx="4" class="box"/>
+<text x="670" y="262">Descent: each mirror and spacer ±1, ±2;</text>
+<text x="670" y="281">a spacer against its two mirrors; all</text>
+<text x="670" y="300">spacers against the inner mirrors.</text>
+<text x="670" y="319">Each move that lowers MF is kept</text>
+<path d="M670 330V346" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="570,382 670,348 770,382 670,416" class="dec"/>
+<text x="670" y="378">MF lowered</text>
+<text x="670" y="396">this round?</text>
+<path d="M770 382H840V285H832" class="flow" marker-end="url(#arrow)"/>
+<text x="778" y="374" class="lab">yes</text>
+<path d="M670 416V440" class="flow" marker-end="url(#arrow)"/>
+<text x="678" y="432" class="lab">no</text>
+
+<rect x="510" y="442" width="320" height="94" rx="4" class="box"/>
+<text x="670" y="464">Restarts: the seed perturbed, outer</text>
+<text x="670" y="483">mirrors two layers lower plus noise,</text>
+<text x="670" y="502">each descended the same way</text>
+<text x="670" y="525" class="dim">Candidates listed by MF</text>
+</svg>

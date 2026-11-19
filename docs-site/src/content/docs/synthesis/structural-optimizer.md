@@ -4,122 +4,103 @@ description: Restructure the stack by adding, removing, splitting, merging or pe
 ribbonIcon: structural
 ---
 
-The **Structural Optimizer** searches over the *structure* of a design rather
-than just its thicknesses. Each step it randomly mutates the layer stack by
-**adding, removing, splitting, merging,** or **perturbing** a layer,
-re-refines the result, and decides whether to keep it using a
-simulated-annealing rule. Because it can change the number and arrangement of
-layers, it reaches designs that fixed-structure
-[Refinement](/synthesis/refinement/) and even the insertion-based
-[Needle](/synthesis/needle/) and [Gradual Evolution](/synthesis/gradual-evolution/)
-tools cannot.
+The **Structural Optimizer** changes the structure of a design: it adds, removes, splits, merges or perturbs layers, refines each changed design and picks the one to carry on from with a simulated-annealing rule. A worse design can be taken too, with a chance that shrinks as the run cools, and that is what lets it leave a local minimum. Because it can change the number and order of layers, it reaches designs that [Refinement](/synthesis/refinement/), which keeps the structure, and [Needle](/synthesis/needle/) and [Gradual Evolution](/synthesis/gradual-evolution/), which only add layers, may not. The design on screen is always the best one found.
 
-Each generation it proposes several changes to the current design and refines
-each one, as many as **Threads**. Up to half of them, rounded up, are the insertions the [Needle](/synthesis/needle/)
-scan rates most useful; the rest are random mutations of the enabled kinds. A
-proposal that refines back to the current design is left out, so every
-generation tests a real change. When one of the refined designs is better than
-any found so far, the search moves to it. Otherwise each one gets its own
-accept test and the search moves to one of those that pass, picked at random.
-A worse design passes with a probability set by a temperature that cools as
-the run progresses, and this is what lets the search climb out of a local
-minimum. Picking at random, rather than taking the best of the batch, keeps a
-step back to a design already found from winning every generation. The live design always
-tracks the best result found, so stopping, resetting, or switching tabs always
-leaves you on the best design. The wavelength grid the band targets are sampled
-on is sized from the design and grows with it during the run (see
-[Operand Reference](/design/operands/#sampling-a-band)).
+<!-- shot: structural | a finished Structural Optimizer run on a multilayer antireflection target: the control bar with Iter, T, Acc and Best, MF Trend with the best and current curves, Accepted Improvements with Add, Split and Remove rows, and Top Designs -->
 
-| Mutation | Effect |
-| -------- | ------ |
-| **Add**     | Insert a new layer (material from the pool) at a random position. |
-| **Remove**  | Delete a layer. |
-| **Split**   | Cut one layer into two at 30 to 70 % of its thickness and insert a new layer (material from the pool) between the parts. |
-| **Merge**   | Combine adjacent layers. |
-| **Perturb** | Jitter the thickness of every unlocked layer. |
+![Flow chart of a Structural Optimizer run. After Run, the merit rows are prepared and the starting design is refined. Each iteration resamples the band rows and sets the temperature, makes K proposals, needle insertions and random mutations, refines and scores each one, then moves the chain to the lowest move when it beats the best design, or else to the first move that passes a Metropolis test. The run ends when the best MF is below Target MF, when the iterations are used up, or when no new best has come for P iterations; with Deep search on it reheats from the best design instead and goes on.](/diagrams/structural-optimizer.svg)
 
-Locked layers are never touched, and thickness bounds are always respected.
+A needle insertion comes from the [needle](/synthesis/needle/#needle-function) scan of the current design and goes in at the thickness the line search of Needle gives it. Locked layers are never touched, and a run with nothing left to propose ends.
 
-## Settings
+## Computed quantities
 
-**Candidate pool**: the materials the *add* and *split* operators may use (**All / Clear**). The pool starts with only the materials of the design's layers ticked, front and back; the substrate and the media are listed under **This design** but unticked, and no other catalog is ticked. Once you change the pool, the window keeps your choice for every design, except that each design's substrate and media stay unticked until you tick them on that design; a pool emptied with **Clear** starts again from the design's own materials the next time the window opens.
+- **MF** and **OMF**: as in [Needle](/synthesis/needle/#computed-quantities). Each proposal is scored on every row, `MNT` and `MXT` included.
+- **T**, **Acc** and **Reheat** on the control bar: the temperature of the accept test, the share of iterations whose move was taken, and the Deep search restarts so far.
+- **Op** of a row in Accepted Improvements: **Start** or **Seed**, the starting design; **Add**, **Remove**, **Split**, **Merge** or **Perturb**, the change that made the new best, a reheat counting as Perturb. **Material** is the material the change added.
+- **ΔMF**, **TOT** and **Top Designs**: as in Needle. MF Trend plots the best MF and the chain's current MF.
 
-**Mutation kinds**: toggles for which operators the search is allowed to use.
+## Controls and settings
 
-**Max iter**: the most generations to run.
+**Run**, **Stop**, **Reset**, **Best**, **Clear history** and **Restore**: as in [Needle](/synthesis/needle/#controls-and-settings).
 
-**Target MF**: stop once the merit function reaches this value.
+**Material Pool**: the materials *Add* and *Split* may use, with **All / Clear**; it starts and is kept the way the Needle pool is.
 
-**T₀ (temperature)**: the starting annealing temperature. Higher values accept
-more uphill moves early on, which widens the search.
+**Mutations**: which kinds of change the search may use, defined under [Mutations](#mutations).
 
-**Jitter**: the thickness perturbation scale for the *perturb* operator.
+**Max iterations**: the most iterations to run. 80 by default.
 
-**Refine iterations**: how many refinement steps are applied to each proposed
-design.
+**Target MF**: stop once the best MF falls below this value.
 
-**Min thickness**: the thinnest a layer may be, for the layers the search
-adds, splits and refines. It starts from the strictest `MNT` row of the merit
-function (1 nm without one) and is taken from it again when you switch
-designs; a value you type stays until then. A note under the field shows when
-the two differ.
+**Start temp T₀**: the starting temperature, relative to the MF: 0.1 lets a design 10 % worse through about one time in three at the start. 0.3 by default.
 
-**Max added**: the largest thickness a randomly added or inserted layer starts
-at. The needle insertions choose their own thickness.
+**Min thickness (nm)**: the thinnest a layer may be, for the layers the search adds, splits and refines. It starts from the strictest `MNT` row, or 1 nm without one, and is taken from it again when you switch designs; a note under the field shows when the two differ.
 
-**Max layers**: the most layers the design may grow to.
+**Smart starting design**: start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first. Off by default, since on other targets it holds the search in an antireflection design's basin.
 
-**Smart starting design**: before the search, refine the quarter- and
-half-wave antireflection designs built from the pool, and start from the best
-of them and your design. It helps on an antireflection target; on other
-targets it starts the search in an antireflection design's basin, so it is off
-by default.
+**Deep search**: when no new best has come for P iterations, restart from the best design with one to three mutations at three times the jitter and the temperature back at **T₀**. The run then ends only at the **Target MF**, at the **Time budget (min)** or on **Stop**.
 
-**Deep search**: keep searching until **Stop** or the time budget. When no
-better design has turned up for a third of **Max iter** generations (at least
-15), the search restarts from the best design: one to three random mutations
-with three times the jitter, a refine, and the temperature back at **T₀**. The
-control bar counts these restarts under **Reheat**.
+**Synthesis refiner**: the method that refines each proposal; **Conjugate Gradient** by default. See [Optimization Methods](/synthesis/optimization-methods/).
 
-**Time budget (min)**: with Deep search on, end the search after this many
-minutes; 0 runs until **Stop**.
+**Jitter (%)**: how far *Perturb* moves each thickness, as a share of it. 15 % by default.
 
-**Threads**: how many proposals are refined together each generation, one per thread.
+**Refine iter / step**: the refinement steps each proposal gets. 60 by default.
 
-**Inner refiner**: which method refines each proposal. See
-[Optimization Methods](/synthesis/optimization-methods/) for the choices.
+**Max added (nm)**: the largest thickness a randomly added layer starts at; needle insertions choose their own. 500 nm by default.
 
-**Random seed**: the number the mutations, the accept rolls and the reheat
-kicks draw from. Leave it empty and **Run** fills it with a new seed and keeps
-it there, so running again with the same seed, design, settings and
-**Threads** repeats the run. Clear the field to draw afresh. The history
-marks each run with its seed.
+**Max layers**: the most unlocked layers the design may grow to. 80 by default.
 
-The merit function's `MNT` and `MXT` rows hold during the search: the largest
-`MNT` target raises a lower **Min thickness** at Run, and the smallest `MXT` target caps every layer,
-both for the proposals and for their refinement. A limit written for a few
-layers therefore applies to the whole stack here; finish with a
-[Refinement](/synthesis/refinement/) and
-[Design Cleaner](/synthesis/design-cleaner/) pass to hold each limit on its own
-layers.
+**Threads**: how many proposals are refined together each iteration; the result depends on it.
 
-A peak-to-peak (`PPEF`) row, with any math row that refers to it, is left out of the search and of each proposal's refinement, so the MF shown here does not count it: its gradient comes from only the two wavelengths where the error is highest and lowest, and the search stalls on that. The search fits the curve block instead, a note under **Settings** says so, and a [Refinement](/synthesis/refinement/) run afterwards brings the peak-to-peak error down.
+**Time budget (min)**: with Deep search on, end after this many minutes; 0 runs until **Stop**.
 
-## How to read it
+**Random seed**: the mutations, the accept rolls and the reheats draw from it. Left empty, **Run** fills in a new seed and keeps it, so the same seed, design, settings and **Threads** repeat the run; the history marks each run with its seed.
 
-The **MF trend** chart plots both the best and the current merit against
-generation, and an **accepted-improvements history** lists each new best
-alongside the mutation that produced it. A **Pareto / Top-Designs** panel lets
-you compare the best designs found. **Best** restores the global best at any
-time.
+The largest `MNT` target raises a lower **Min thickness** at Run, and the smallest `MXT` target caps every layer. A limit written for a few layers therefore applies to the whole stack here; finish with [Refinement](/synthesis/refinement/) and [Design Cleaner](/synthesis/design-cleaner/) to hold each limit on its own layers.
 
-The tool shines on designs with room to restructure (for example a multi-layer
-anti-reflection coating); on a single-layer design there is nothing structural
-to do, so use Refinement instead. A good pattern is to run it to discover a
-better topology, then finish with Refinement at your manufacturing floor.
+A `PPEF` row, and any math row that reads it, is left out as in Needle; a Refinement run afterwards brings the peak-to-peak error down.
+
+## How it is computed
+
+### Merit and refinement
+
+Each proposal is refined on the merit rows less `MNT` and `MXT`, with every thickness between the floor d_min and the ceiling d_max those rows set, then tidied (neighbours of one material merged) and scored on every row, `MNT` and `MXT` included. That score is the MF the accept test and the history use. The needle insertions use the needle function and the starting-thickness search of [Needle](/synthesis/needle/#needle-function), at four points inside each layer.
+
+### Annealing
+
+```
+temperature:    T_i = T₀ · 0.005^(i / I)
+accept:         MF_new ≤ MF_cur always;  otherwise with probability exp(−(MF_new − MF_cur) / (MF_cur · T_i))
+batch move:     the lowest move if MF_low < MF_best;  else the first move, in random order, that passes
+same design:    every layer within 0.5 nm of the current design, same materials: not a move
+fall back:      MF_cur > 1.3 · MF_best  →  the chain goes back to the best design
+stall:          P = max(15, round(Max iterations / 3)) iterations without a new best
+```
+
+I is **Max iterations**. With Deep search, i counts from the last reheat and I = max(40, Max iterations). The accept test uses the relative rise of the MF, so T₀ means the same on a design whose MF is 10⁻⁴ as on one whose MF is 1.
+
+### Mutations
+
+```
+odds:           add, split, perturb 1;  remove, merge 0.7
+add:            a pool material, unlike its neighbours where it can be, at a random position;
+                thickness uniform in [d_min, Max added]
+remove:         layer j with weight 1 / (d_j + d_min)
+split:          host of at least 2·d_min, cut at 30 to 70 %, another pool material between the parts,
+                thickness uniform in [d_min, min(Max added, d_host / 2)]
+merge:          two neighbours → one layer, the thicker one's material, d_1 + d_2
+perturb:        every unlocked d_j → d_j · (1 + jitter · u),  u uniform in [−1, 1]
+reheat:         1 to 3 mutations of the best design, jitter · 3 (at most 60 %)
+```
+
+Every thickness is then clamped to [d_min, d_max]. A kind that cannot apply, such as a merge on a single layer, gives way to another kind drawn from the rest.
+
+Kirkpatrick et al. accept on the absolute rise of the cost. Here it is the relative rise, because merit values differ by orders of magnitude between problems. For a batch of moves refined side by side, testing each in random order and taking the first that passes is the synchronous parallel annealing rule given by Delamarre and Virot, which Ferrero et al. show is equivalent to a serial chain. The run adds one rule to it: a move that beats the best design so far is always taken, so a batch does not throw away a lower design it found. Deep search is basin hopping (Wales and Doye).
 
 ## References
 
-- S. Kirkpatrick, C. D. Gelatt, M. P. Vecchi, *Science* **220**, 671 (1983).
-- A. V. Tikhonravov & M. K. Trubetskov, *Appl. Opt.* **51**, 7319 (2012).
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 9.
+- S. Kirkpatrick, C. D. Gelatt and M. P. Vecchi, *Science* **220**, 671 (1983): simulated annealing and the Metropolis test.
+- D. Delamarre and B. Virot, *RAIRO Rech. Opér.* **32**, 43 (1998), §4.4.2: parallel simulated annealing.
+- E. E. Ferrero, A. B. Kolton and M. Palassini, *AIP Conf. Proc.* **1610**, 71 (2014): parallel annealing and the serial chain.
+- D. J. Wales and J. P. K. Doye, *J. Phys. Chem. A* **101**, 5111 (1997): basin hopping.
+- A. V. Tikhonravov and M. K. Trubetskov, *Appl. Opt.* **51**, 7319 (2012): modern design tools and a new paradigm in optical coating design.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Chapter 3 (automatic design, simulated annealing).

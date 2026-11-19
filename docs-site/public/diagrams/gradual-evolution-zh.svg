@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1080" viewBox="0 0 880 1080" role="img" aria-labelledby="t d">
+<title id="t">渐变演化的循环</title>
+<desc id="d">运行先准备评价函数行和起始设计，然后循环。每个循环重新采样波段行，并在每个被扫描的面上进行针法阶段；优于工作设计的候选被接受。若没有，去掉停在下限上的层后的设计若是新的最好设计则保留，否则进行一次结构步骤：在任一端加入一层下限厚度的强制层、腾出一层，或在深度搜索下扰动最好设计。达到目标评价函数、渐变演化步数用完或没有可尝试的步骤时运行结束，并合并最好设计的膜层。</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .labR { fill: #5a6b80; font-size: 13px; text-anchor: end; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .head, .dot { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab, .labR { fill: #93a4b8; }
+    .box, .dec, .end, .flow { stroke: #8fa3b8; }
+    .head, .dot { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<!-- Start -->
+<rect x="180" y="12" width="120" height="34" rx="17" class="end"/>
+<text x="240" y="34">运行</text>
+<path d="M240 46V68" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="70" width="400" height="56" rx="4" class="box"/>
+<text x="240" y="93">准备评价函数行</text>
+<text x="240" y="114" class="dim">略去 PPEF 行；保留 MNT 和 MXT；波段行采样</text>
+<path d="M240 126V146" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="148" width="400" height="94" rx="4" class="box"/>
+<text x="240" y="170">起始设计：保留厚体时按原样评分，</text>
+<text x="240" y="189">否则精炼；勾选智能起始设计时</text>
+<text x="240" y="208">连同各减反起始设计一起精炼</text>
+<text x="240" y="231" class="dim">行：起始或种子</text>
+<path d="M240 242V262" class="flow" marker-end="url(#arrow)"/>
+
+<!-- Top of each cycle -->
+<rect x="40" y="264" width="400" height="44" rx="4" class="box"/>
+<text x="240" y="291">膜系超出采样时，重新对波段行采样</text>
+<path d="M240 308V328" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="330" width="400" height="108" rx="4" class="box"/>
+<text x="240" y="352">针法阶段，在每个被扫描的面上：扫描 P，</text>
+<text x="240" y="371">保留放得下最大膜层数的针层；按每批</text>
+<text x="240" y="390">K 个线搜索厚度、插入，分两遍精炼，</text>
+<text x="240" y="409">合并相邻同材料层</text>
+<text x="240" y="429" class="dim">状态：正在扫描…，然后正在精炼 K 个候选…</text>
+<path d="M240 438V444" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="110,482 240,446 370,482 240,518" class="dec"/>
+<text x="240" y="478">优于</text>
+<text x="240" y="496">工作设计吗？</text>
+<path d="M240 518V546" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="536" class="lab">是</text>
+<path d="M370 482H488" class="flow" marker-end="url(#arrow)"/>
+<text x="380" y="474" class="lab">否</text>
+
+<rect x="40" y="548" width="400" height="56" rx="4" class="box"/>
+<text x="240" y="571">接受为工作设计</text>
+<text x="240" y="592" class="dim">行：针法；针层并入相邻层时为精炼</text>
+<path d="M240 604V628" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,664 240,630 350,664 240,698" class="dec"/>
+<text x="240" y="660">最好的 MF 低于</text>
+<text x="240" y="678">目标评价函数？</text>
+<path d="M130 664H18V286H38" class="flow" marker-end="url(#arrow)"/>
+<text x="122" y="656" class="labR">否</text>
+<text x="12" y="480" class="dim" transform="rotate(-90 12 480)">下一循环</text>
+<path d="M240 698V928" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="716" class="lab">是</text>
+<text x="248" y="820" class="lab">已达到目标评价函数</text>
+
+<!-- Needle-optimal on every side -->
+<rect x="490" y="452" width="350" height="60" rx="4" class="box"/>
+<text x="665" y="475">去掉停在下限上的层后再精炼</text>
+<text x="665" y="498" class="dim">只有是新的最好设计时才保留，记为清理行</text>
+<path d="M665 512V530" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="585,562 665,532 745,562 665,592" class="dec"/>
+<text x="665" y="567">新的最好？</text>
+<path d="M585 562H470V664H352" class="flow" marker-end="url(#arrow)"/>
+<text x="575" y="554" class="labR">是</text>
+<path d="M665 592V616" class="flow" marker-end="url(#arrow)"/>
+<text x="673" y="608" class="lab">否</text>
+
+<polygon points="555,652 665,618 775,652 665,686" class="dec"/>
+<text x="665" y="648">还有步数，</text>
+<text x="665" y="666">或开启深度搜索？</text>
+<path d="M665 686V710" class="flow" marker-end="url(#arrow)"/>
+<text x="673" y="702" class="lab">是</text>
+<path d="M775 652H860V968H442" class="flow" marker-end="url(#arrow)"/>
+<text x="785" y="644" class="lab">否</text>
+
+<rect x="490" y="712" width="350" height="130" rx="4" class="box"/>
+<text x="665" y="734">结构步骤，取第一个可行的：</text>
+<text x="665" y="753">强制：在任一端加一层下限厚度的层；</text>
+<text x="665" y="772">腾出：去掉代价最小的一层；</text>
+<text x="665" y="791">深度搜索：扰动最好设计</text>
+<text x="665" y="814" class="dim">达到最大膜层数时先腾出</text>
+<text x="665" y="832" class="dim">行：渐变演化、清理、扰动</text>
+<path d="M665 842V856" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="585,888 665,858 745,888 665,918" class="dec"/>
+<text x="665" y="893">进行了吗？</text>
+<path d="M585 888H470V664" class="flow"/>
+<circle cx="470" cy="664" r="3.5" class="dot"/>
+<text x="575" y="880" class="labR">是</text>
+<path d="M665 918V968" class="flow"/>
+<circle cx="665" cy="968" r="3.5" class="dot"/>
+<text x="673" y="936" class="lab">否</text>
+<text x="852" y="988" class="labR">已达最大渐变演化循环数</text>
+<text x="657" y="988" class="labR">没有可尝试的步骤</text>
+
+<!-- Finish -->
+<rect x="40" y="930" width="400" height="76" rx="4" class="box"/>
+<text x="240" y="952">完成后合并：只要 MF 在容差之内，</text>
+<text x="240" y="971">就去掉膜层，每次都精炼其余部分</text>
+<text x="240" y="994" class="dim">行：清理</text>
+<path d="M240 1006V1028" class="flow" marker-end="url(#arrow)"/>
+<rect x="120" y="1030" width="240" height="36" rx="18" class="end"/>
+<text x="240" y="1053">显示最好设计</text>
+</svg>

@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1056" viewBox="0 0 860 1056" role="img" aria-labelledby="t d">
+<title id="t">针式自动的循环</title>
+<desc id="d">运行先准备评价函数行，可选地挑选智能起始设计，然后循环：重新采样波段行，检查是否还能加层，扫描针函数，并行精炼最好的 K 个候选，若最好的一个使评价函数降低 0.01% 则保留，去掉停在厚度下限上的层再试，然后接受。达到目标评价函数、达到层数上限，或在一次更厚的起点之后仍达到针法最优时停止。</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .labR { fill: #5a6b80; font-size: 13px; text-anchor: end; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .opt { fill: none; stroke: #4a6078; stroke-width: 1.4; stroke-dasharray: 6 4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .head, .dot { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab, .labR { fill: #93a4b8; }
+    .box, .dec, .opt, .end, .flow { stroke: #8fa3b8; }
+    .head, .dot { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<!-- Start and set-up -->
+<rect x="180" y="12" width="120" height="34" rx="17" class="end"/>
+<text x="240" y="34">运行</text>
+<path d="M240 46V68" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="70" width="400" height="56" rx="4" class="box"/>
+<text x="240" y="93">准备评价函数行</text>
+<text x="240" y="114" class="dim">略去 MNT、MXT 和 PPEF 行；波段行按设计采样</text>
+<path d="M240 126V146" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="148" width="400" height="56" rx="4" class="opt"/>
+<text x="240" y="171">智能起始设计（勾选时）</text>
+<text x="240" y="192" class="dim">取设计本身与各减反起始设计精炼后最好的一个</text>
+<path d="M240 204V236" class="flow" marker-end="url(#arrow)"/>
+
+<!-- Top of each cycle -->
+<rect x="40" y="238" width="400" height="44" rx="4" class="box"/>
+<text x="240" y="265">膜系超出采样时，重新对波段行采样</text>
+<path d="M240 282V312" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,346 240,314 350,346 240,378" class="dec"/>
+<text x="240" y="351">还能加层吗？</text>
+<path d="M350 346H518" class="flow" marker-end="url(#arrow)"/>
+<text x="360" y="338" class="lab">否</text>
+<rect x="520" y="328" width="210" height="36" rx="18" class="end"/>
+<text x="625" y="351">已达最大膜层数</text>
+<path d="M240 378V404" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="396" class="lab">是</text>
+
+<!-- Scan -->
+<rect x="40" y="406" width="400" height="72" rx="4" class="box"/>
+<text x="240" y="428">针法扫描：对池中每种材料计算 P，</text>
+<text x="240" y="447">位置为每个界面和每层内的 16 个点</text>
+<text x="240" y="468" class="dim">状态：正在扫描针法位置…</text>
+<path d="M240 478V494" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,528 240,496 350,528 240,560" class="dec"/>
+<text x="240" y="533">有 P &lt; 0 吗？</text>
+<text x="360" y="520" class="lab">否</text>
+<path d="M240 560V588" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="578" class="lab">是</text>
+
+<!-- Refine a batch -->
+<rect x="40" y="590" width="400" height="112" rx="4" class="box"/>
+<text x="240" y="612">按预测降幅取下一批 K 个候选，</text>
+<text x="240" y="631">K = 线程数。每个候选并行：</text>
+<text x="240" y="650">线搜索其厚度并插入，</text>
+<text x="240" y="669">精炼所有厚度，合并相邻同材料层</text>
+<text x="240" y="692" class="dim">状态：正在并行精炼 K 个候选…，并显示实时设计</text>
+<path d="M240 702V718" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="110,756 240,720 370,756 240,792" class="dec"/>
+<text x="240" y="752">最好的使 MF</text>
+<text x="240" y="770">降低 0.01% 吗？</text>
+<path d="M370 756H558" class="flow" marker-end="url(#arrow)"/>
+<text x="380" y="748" class="lab">否</text>
+<path d="M240 792V818" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="810" class="lab">是</text>
+
+<!-- Accept -->
+<rect x="40" y="820" width="400" height="58" rx="4" class="box"/>
+<text x="240" y="844">去掉停在下限上的层后再精炼，</text>
+<text x="240" y="865">迭代次数减半；MF 不更高则保留</text>
+<path d="M240 878V898" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="900" width="400" height="58" rx="4" class="box"/>
+<text x="240" y="924">接受这一代</text>
+<text x="240" y="945" class="dim">已接受的改善、评价函数趋势和最佳设计随之更新</text>
+<path d="M240 958V978" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,1012 240,980 350,1012 240,1044" class="dec"/>
+<text x="240" y="1008">MF 低于</text>
+<text x="240" y="1026">目标评价函数？</text>
+<path d="M350 1012H518" class="flow" marker-end="url(#arrow)"/>
+<text x="360" y="1004" class="lab">是</text>
+<rect x="520" y="994" width="190" height="36" rx="18" class="end"/>
+<text x="615" y="1017">已达到目标评价函数</text>
+
+<!-- Next cycle -->
+<path d="M130 1012H18V260H38" class="flow" marker-end="url(#arrow)"/>
+<text x="122" y="1004" class="labR">否</text>
+<text x="12" y="640" class="dim" transform="rotate(-90 12 640)">下一循环</text>
+
+<!-- More batches, or needle-optimal -->
+<polygon points="560,756 660,724 760,756 660,788" class="dec"/>
+<text x="660" y="761">还有批次吗？</text>
+<path d="M660 724V650H442" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="712" class="lab">是</text>
+<path d="M660 788V830" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="804" class="lab">否</text>
+
+<path d="M350 528H790V810H660" class="flow"/>
+<circle cx="660" cy="810" r="3.5" class="dot"/>
+<text x="782" y="620" class="labR">针法最优</text>
+
+<polygon points="560,866 660,832 760,866 660,900" class="dec"/>
+<text x="660" y="871">首次停滞？</text>
+<path d="M660 900V924" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="916" class="lab">否</text>
+<rect x="585" y="926" width="150" height="36" rx="18" class="end"/>
+<text x="660" y="949">已收敛</text>
+
+<!-- Thicker start -->
+<path d="M760 866H835V260H802" class="flow" marker-end="url(#arrow)"/>
+<text x="770" y="858" class="lab">是</text>
+<rect x="520" y="214" width="280" height="92" rx="4" class="box"/>
+<text x="660" y="237">更厚的起点，每次运行一次：</text>
+<text x="660" y="256">精炼 ×2、×4、×8、×16 的副本，</text>
+<text x="660" y="275">从其中最低者继续</text>
+<text x="660" y="296" class="dim">历史行：更厚的起点</text>
+<path d="M520 260H442" class="flow" marker-end="url(#arrow)"/>
+</svg>

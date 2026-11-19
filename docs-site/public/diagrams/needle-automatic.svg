@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1056" viewBox="0 0 860 1056" role="img" aria-labelledby="t d">
+<title id="t">The Needle Automatic loop</title>
+<desc id="d">A run prepares the merit rows, optionally picks a smart starting design, then cycles: resample band rows, check for room for another layer, scan the needle function, refine the best K candidates in parallel, keep the best one if it lowers the merit function by 0.01 percent, try it without the layers parked on the thickness floor, and accept it. It stops at the target merit, at the layer limit, or when it is needle-optimal after one thicker start.</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; font-size: 15px; text-anchor: middle; }
+  .dim { fill: #5a6b80; font-size: 13px; }
+  .lab { fill: #5a6b80; font-size: 13px; text-anchor: start; }
+  .labR { fill: #5a6b80; font-size: 13px; text-anchor: end; }
+  .box, .dec { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .opt { fill: none; stroke: #4a6078; stroke-width: 1.4; stroke-dasharray: 6 4; }
+  .end { fill: none; stroke: #4a6078; stroke-width: 2.4; }
+  .flow { fill: none; stroke: #4a6078; stroke-width: 1.4; }
+  .head, .dot { fill: #4a6078; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim, .lab, .labR { fill: #93a4b8; }
+    .box, .dec, .opt, .end, .flow { stroke: #8fa3b8; }
+    .head, .dot { fill: #8fa3b8; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+
+<!-- Start and set-up -->
+<rect x="180" y="12" width="120" height="34" rx="17" class="end"/>
+<text x="240" y="34">Run</text>
+<path d="M240 46V68" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="70" width="400" height="56" rx="4" class="box"/>
+<text x="240" y="93">Prepare the merit rows</text>
+<text x="240" y="114" class="dim">MNT, MXT and PPEF rows left out; bands sampled</text>
+<path d="M240 126V146" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="148" width="400" height="56" rx="4" class="opt"/>
+<text x="240" y="171">Smart starting design, if ticked</text>
+<text x="240" y="192" class="dim">Best of the design and the antireflection starts</text>
+<path d="M240 204V236" class="flow" marker-end="url(#arrow)"/>
+
+<!-- Top of each cycle -->
+<rect x="40" y="238" width="400" height="44" rx="4" class="box"/>
+<text x="240" y="265">Resample band rows if the stack outgrew them</text>
+<path d="M240 282V312" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,346 240,314 350,346 240,378" class="dec"/>
+<text x="240" y="351">Room for a layer?</text>
+<path d="M350 346H518" class="flow" marker-end="url(#arrow)"/>
+<text x="360" y="338" class="lab">no</text>
+<rect x="520" y="328" width="210" height="36" rx="18" class="end"/>
+<text x="625" y="351">Max layer count reached</text>
+<path d="M240 378V404" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="396" class="lab">yes</text>
+
+<!-- Scan -->
+<rect x="40" y="406" width="400" height="72" rx="4" class="box"/>
+<text x="240" y="428">Needle scan: P for every pool material,</text>
+<text x="240" y="447">at each interface and 16 points in each layer</text>
+<text x="240" y="468" class="dim">Status: Scanning needle positions…</text>
+<path d="M240 478V494" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,528 240,496 350,528 240,560" class="dec"/>
+<text x="240" y="533">Any P &lt; 0?</text>
+<text x="360" y="520" class="lab">no</text>
+<path d="M240 560V588" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="578" class="lab">yes</text>
+
+<!-- Refine a batch -->
+<rect x="40" y="590" width="400" height="112" rx="4" class="box"/>
+<text x="240" y="612">Next K candidates by predicted fall,</text>
+<text x="240" y="631">K = Threads. Each one in parallel:</text>
+<text x="240" y="650">line-search its thickness, insert it,</text>
+<text x="240" y="669">refine every thickness, merge neighbours</text>
+<text x="240" y="692" class="dim">Status: Refining K candidates… and the live design</text>
+<path d="M240 702V718" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="110,756 240,720 370,756 240,792" class="dec"/>
+<text x="240" y="752">Best lowers MF</text>
+<text x="240" y="770">by 0.01 %?</text>
+<path d="M370 756H558" class="flow" marker-end="url(#arrow)"/>
+<text x="380" y="748" class="lab">no</text>
+<path d="M240 792V818" class="flow" marker-end="url(#arrow)"/>
+<text x="248" y="810" class="lab">yes</text>
+
+<!-- Accept -->
+<rect x="40" y="820" width="400" height="58" rx="4" class="box"/>
+<text x="240" y="844">Refine without layers parked on the floor,</text>
+<text x="240" y="865">half the iterations; keep if MF no higher</text>
+<path d="M240 878V898" class="flow" marker-end="url(#arrow)"/>
+
+<rect x="40" y="900" width="400" height="58" rx="4" class="box"/>
+<text x="240" y="924">Accept the generation</text>
+<text x="240" y="945" class="dim">Row in Accepted Improvements, MF Trend, Top Designs</text>
+<path d="M240 958V978" class="flow" marker-end="url(#arrow)"/>
+
+<polygon points="130,1012 240,980 350,1012 240,1044" class="dec"/>
+<text x="240" y="1017">MF &lt; Target MF?</text>
+<path d="M350 1012H518" class="flow" marker-end="url(#arrow)"/>
+<text x="360" y="1004" class="lab">yes</text>
+<rect x="520" y="994" width="190" height="36" rx="18" class="end"/>
+<text x="615" y="1017">Target MF reached</text>
+
+<!-- Next cycle -->
+<path d="M130 1012H18V260H38" class="flow" marker-end="url(#arrow)"/>
+<text x="122" y="1004" class="labR">no</text>
+<text x="12" y="640" class="dim" transform="rotate(-90 12 640)">next cycle</text>
+
+<!-- More batches, or needle-optimal -->
+<polygon points="560,756 660,724 760,756 660,788" class="dec"/>
+<text x="660" y="761">Batches left?</text>
+<path d="M660 724V650H442" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="712" class="lab">yes</text>
+<path d="M660 788V830" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="804" class="lab">no</text>
+
+<path d="M350 528H790V810H660" class="flow"/>
+<circle cx="660" cy="810" r="3.5" class="dot"/>
+<text x="782" y="620" class="labR">needle-optimal</text>
+
+<polygon points="560,866 660,832 760,866 660,900" class="dec"/>
+<text x="660" y="871">First stall?</text>
+<path d="M660 900V924" class="flow" marker-end="url(#arrow)"/>
+<text x="668" y="916" class="lab">no</text>
+<rect x="585" y="926" width="150" height="36" rx="18" class="end"/>
+<text x="660" y="949">Converged</text>
+
+<!-- Thicker start -->
+<path d="M760 866H835V260H802" class="flow" marker-end="url(#arrow)"/>
+<text x="770" y="858" class="lab">yes</text>
+<rect x="520" y="214" width="280" height="92" rx="4" class="box"/>
+<text x="660" y="237">Thicker start, once a run:</text>
+<text x="660" y="256">refine copies ×2, ×4, ×8, ×16</text>
+<text x="660" y="275">and go on from the lowest</text>
+<text x="660" y="296" class="dim">Row: Thicker start</text>
+<path d="M520 260H442" class="flow" marker-end="url(#arrow)"/>
+</svg>
