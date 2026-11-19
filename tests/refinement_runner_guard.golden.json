@@ -153,14 +153,14 @@
         "label": "Conjugate Gradient",
         "iter": 10,
         "mf": 0.05,
-        "layerCount": 2,
+        "layerCount": 4,
         "layerSide": "frontLayers"
       },
       {
         "label": "Simulated Annealing",
         "iter": 10,
         "mf": 0.05,
-        "layerCount": 2,
+        "layerCount": 4,
         "layerSide": "frontLayers"
       }
     ]
@@ -186,7 +186,7 @@
         "label": "Differential Evolution",
         "iter": 37,
         "mf": 9.6e-8,
-        "layerCount": 2,
+        "layerCount": 4,
         "layerSide": "frontLayers"
       }
     ]

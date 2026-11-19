@@ -97,13 +97,14 @@ function showProgress(ctx, patch, run) {
 // setting it ran with.
 function recordRow(ctx, row, run) {
     const tr = ctx.t.refinement;
-    const layers = row[row.layerSide] || [];
+    const stacks = Object.fromEntries(run.sides.map(side => [side, row[side] || []]));
     const name = tr.methods[row.method] || row.method;
     ctx.addHistEntry({
         id: Math.random().toString(36).slice(2),
         label: row.restarts ? `${name} (×${row.restarts})` : name,
         method: row.method, runNum: run.num, runMethod: run.method,
-        iter: row.iter, mf: row.mf, omf: row.omf, layers, layerCount: layers.length,
+        iter: row.iter, mf: row.mf, omf: row.omf, stacks,
+        layerCount: Object.values(stacks).reduce((total, layers) => total + layers.length, 0),
         layerSide: row.layerSide,
         mfHistory: row.mfHistory,
         ...(row.seed != null ? { seed: row.seed } : {}),

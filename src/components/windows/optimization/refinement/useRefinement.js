@@ -221,8 +221,7 @@ function restoreHistoryEntry(env, entry, updateDesign) {
     refs.lastBestRef.current = null;
     setters.setCanReset(false);
     refs.baselineRef.current = false;
-    const side = entry.layerSide || 'frontLayers';
-    updateDesign({ [side]: JSON.parse(JSON.stringify(entry.layers)) });
+    updateDesign(JSON.parse(JSON.stringify(entry.stacks)));
     setters.setMfHistory([]);
     setters.setIter(0);
     setters.setMf(null);

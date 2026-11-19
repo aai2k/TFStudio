@@ -14,6 +14,8 @@
  * another design and come back.
  *   5. A new run clears the last run's readout until its own start arrives.
  *   6. A row that cannot be evaluated refuses the run, and the badge names it.
+ *   7. Restore of a history row on a design with both sides optimized puts back
+ *      both of the row's stacks, and the row counts the layers of both.
  *
  * The hook runs under a small stand-in for React that honours effect
  * dependencies and cleanups, and a scripted Worker stands in for the optimizer
@@ -151,7 +153,7 @@ state.onRestore(entry);
 settle();
 await pause();
 assertCleared('Restore during a run');
-assert.deepEqual(designs.A.frontLayers.map(l => l.thickness), entry.layers.map(l => l.thickness),
+assert.deepEqual(designs.A.frontLayers.map(l => l.thickness), entry.stacks.frontLayers.map(l => l.thickness),
     'the restored layers stay on the design');
 
 // ── 4. Best on a design with both sides optimized ────────────────────────────
@@ -236,5 +238,31 @@ await pause();
 assert.equal(state.running, false, 'a run with a row that cannot be evaluated does not start');
 assert.match(state.stopReason, /^invalidOperand:Row 1 GDDFLAT: /, 'its badge names the row');
 assert.equal(state.mf, null, 'and the readout shows no merit, since the table has none for it');
+
+// ── 7. Restore on a design with both sides optimized ───────────────────────
+current = 'W';
+settle();
+state.onMethod('dls');
+settle();
+ScriptedWorker.hold = false;
+state.onRun();
+settle();
+while (state.running) await pause();
+const both = state.histEntries[state.histEntries.length - 1];
+assert.equal(both.layerCount, designs.W.frontLayers.length + designs.W.backLayers.length,
+    'a row of a run that moved both sides counts the layers of both');
+const rowThicknesses = both.stacks;
+designs.W = {
+    ...designs.W,
+    frontLayers: designs.W.frontLayers.map(l => ({ ...l, thickness: 33 })),
+    backLayers: designs.W.backLayers.map(l => ({ ...l, thickness: 33 })),
+};
+settle();
+state.onRestore(both);
+settle();
+assert.deepEqual(designs.W.frontLayers.map(l => l.thickness), rowThicknesses.frontLayers.map(l => l.thickness),
+    'Restore puts back the front layers of the row');
+assert.deepEqual(designs.W.backLayers.map(l => l.thickness), rowThicknesses.backLayers.map(l => l.thickness),
+    'and its back layers');
 
 console.log('Refinement run actions tests passed.');
