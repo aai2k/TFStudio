@@ -2,8 +2,9 @@
  * Synthesis primitive Web Worker.
  *
  * STATELESS RPC runner: one request → one `{type:'result'}` (plus throttled
- * `{type:'tick'}` progress). The needle/GE state machine lives on the MAIN
- * thread (NeedleVariation/GradualEvolution), fanning these primitives across a
+ * `{type:'tick'}` progress). The needle/GE state machine lives on the calling
+ * thread (utils/needle/runNeedle.js, utils/gradualEvolution/runGradualEvolution.js),
+ * fanning these primitives across a
  * WorkerPool so synthesis uses many cores:
  *
  *   scan:       partial needle scan over an assigned candidate-material slice
@@ -65,22 +66,17 @@ const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 // optimizer. `side` selects which layer array the tick previews stream; the
 // optimizer itself is already surface-mode-aware via design.surfaceMode.
 // `engine` selects the refiner: 'dls' (Levenberg–Marquardt, the bit-identical
-// legacy path) or 'cg' (Conjugate Gradient, the synthesis DEFAULT: better
-// merit + fewer layers on hard multi-band designs, ties on easy ones). Any
-// makeEngine id is accepted.
-// Adaptive convergence stop: GUI profiling showed the candidate
-// refine is the entire per-generation cost (≈99%) and total synthesis is ~O(N²)
-// because the whole design is re-refined every generation, running the FULL
-// `maxIter` (dlsIter) even when a thin-needle insert leaves a warm-started,
-// near-optimal design that converges in a fraction of the iterations. Stopping
-// when the relative MF gain over a window plateaus captures the ~2.5× headroom
-// the dlsIter 80→30 experiment exposed, WITHOUT the quality loss of a flat cut
-// (it only stops once genuinely converged; big/early changes still iterate
-// fully). This is a SELF-convergence test, not a comparative abort-vs-
-// reference variant. Conservative defaults.
+// legacy path) or 'cg' (Conjugate Gradient: better merit + fewer layers on
+// hard multi-band designs, ties on easy ones). Any makeEngine id is accepted;
+// each synthesis tool's default is in synthesisConfig/innerEngine.js
+// (ENGINE_DEFAULTS).
+// Adaptive convergence stop: the refine ends once the relative merit gain over
+// the last CONV_PATIENCE iterations falls below SYNTHESIS_MIN_GAIN, so a
+// warm-started, near-optimal design after a thin-needle insert does not run the
+// full `maxIter` (dlsIter). Big or early changes still iterate fully.
 const CONV_PATIENCE = 6;       // window (iterations) over which to measure progress
 function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine, post) {
-    const dls = makeEngine(engine || 'dls', operands, design, resolveMat, { dMin });
+    const dls = makeEngine(engine || 'dls', operands, design, resolveMat, { dMin, maxIter });
     const key = sideKey(side);
     let last = now();
     const mfHist = [dls.mf];
@@ -262,7 +258,7 @@ function handleGeStep(job, resolveMat, post) {
     const inserted = insertNeedle(design, bestGe.pos, bestGe.materialId, dMin, side);
     // Merge adjacent same-material layers (cleanupLayers): inserting the forced
     // layer next to an existing layer of the SAME material must thicken that
-    // layer, NOT stack a separate one (the "5×SiO2P 40nm in a row" bug). Merging
+    // layer, NOT stack a separate one. Merging
     // same-material neighbours is OPTICALLY IDENTICAL, so mfNew is unchanged.
     const geDesign = {
         ...inserted,
