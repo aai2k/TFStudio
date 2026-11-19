@@ -69,7 +69,8 @@ function assembleAt({ reference_nm, nH, nL, nInc, nSub, lambda0_nm, candidate, a
 
 /**
  * Build continuous-target merit operands for a band-pass filter.
- *   - DMFS comment header
+ *   - DMFS comment header, naming the pass and stop levels (% transmission) the
+ *     bands were designed to
  *   - TGT  target 1.0 over the passband  [λ₀ ± halfPass]
  *   - TGT  target 0.0 over each stopband [halfStop … halfStop+stopSpan]
  *   - MNT / MXT thickness constraints, over a layer range that also covers the
@@ -78,12 +79,13 @@ function assembleAt({ reference_nm, nH, nL, nInc, nSub, lambda0_nm, candidate, a
 export function buildFilterOperands({
     lambda0_nm, halfPass, halfStop, aoi = 0, pol = 'avg',
     stopSpan = null, minThicknessNm = 7, maxThicknessNm = 9999, label = 'Filter',
+    passLevel = 89.13, stopLevel = 0.1,
 }) {
     const span = stopSpan || Math.max(halfStop * 2.5, halfStop + 5 * halfPass);
     const ops = [];
     ops.push(makeDmfsOperand(
-        `${label}  λ₀=${lambda0_nm.toFixed(1)} nm  passband ±${halfPass} nm (T≥89.13%)  ` +
-        `reject ±${halfStop} nm (T≤0.1%)  AOI=${aoi}°  pol=${pol}`));
+        `${label}  λ₀=${lambda0_nm.toFixed(1)} nm  passband ±${halfPass} nm (T≥${+passLevel.toFixed(2)}%)  ` +
+        `reject ±${halfStop} nm (T≤${+stopLevel.toFixed(2)}%)  AOI=${aoi}°  pol=${pol}`));
     // Passband: continuous T target = 1
     ops.push(makeOperand({
         type: 'TGT', target: 1.0, targetEnd: 1.0,
@@ -133,7 +135,7 @@ export function buildFilterDesignObject(p) {
         substrateThicknessMm = 1.0,
         incidentMedium = 'Air', exitMedium = 'Air',
         lambda0_nm, candidate, arMode = 'vcoat',
-        halfPass, halfStop, aoi = 0, pol = 'avg',
+        halfPass, halfStop, aoi = 0, pol = 'avg', passLevel, stopLevel,
         resolve = getMaterialById,
     } = p;
 
@@ -163,7 +165,7 @@ export function buildFilterDesignObject(p) {
     }));
 
     const operands = buildFilterOperands({
-        lambda0_nm, halfPass, halfStop, aoi, pol,
+        lambda0_nm, halfPass, halfStop, aoi, pol, passLevel, stopLevel,
         label: `Filter ${candidate.mirrors.length - 1}-cavity`,
     });
 

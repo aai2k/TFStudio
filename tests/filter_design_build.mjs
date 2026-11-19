@@ -32,6 +32,11 @@ console.log('— continuous operands —');
     const stops = tgt.filter(o => o.target === 0.0);
     ok(stops.length === 2, '2 stopband TGT target 0');
     ok(ops.some(o => o.type === 'MNT') && ops.some(o => o.type === 'MXT'), 'MNT/MXT constraints present');
+    const header = ops.find(o => o.type === 'DMFS').comment;
+    ok(header.includes('T≥89.13%') && header.includes('T≤0.1%'), 'the header names the default levels');
+    const levels = buildFilterOperands({ lambda0_nm: LAM0, halfPass: 1.5, halfStop: 4.5, passLevel: 95, stopLevel: 0.5 });
+    const named = levels.find(o => o.type === 'DMFS').comment;
+    ok(named.includes('T≥95%') && named.includes('T≤0.5%') && !named.includes('89.13'), 'and the levels the user set when given');
 }
 
 // ── 2. buildFilterDesignObject shape ──────────────────────────────────────────

@@ -15,6 +15,7 @@ function buildDesign(p) {
         substrateThicknessMm: p.substrateThicknessMm, incidentMedium: p.incidentMedium, exitMedium: p.exitMedium,
         lambda0_nm: p.lambda0_nm, candidate: p.selected, arMode: p.arMode,
         halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: workingAoi(p), pol: p.pol,
+        passLevel: p.passLevel, stopLevel: p.stopLevel,
     });
 }
 
