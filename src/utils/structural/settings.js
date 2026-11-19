@@ -66,8 +66,8 @@ function refuse(message) { throw new Error(`Structural settings: ${message}`); }
 const HISTORY_KEYS = new Set(['genNum', 'hasRows', 'elapsedMs', 'trendIter']);
 
 // The history a run carries on from, for a window that keeps one across runs:
-// the generation count of the run block it continues, whether there are rows
-// at all, the time of the last row and the iteration of the last trend point.
+// the generation count of the run block it continues, whether that block has
+// rows, the time of the last row and the iteration of the last trend point.
 // A run of its own starts from nothing.
 function historyOf(history) {
     if (history == null) return { genNum: 0, hasRows: false, elapsedMs: 0, trendIter: 0 };

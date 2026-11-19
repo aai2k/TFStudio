@@ -50,13 +50,13 @@ async function smartSeedBaseline(S) {
     return best;
 }
 
-// The starting design's row, when the history has no rows yet: the design
-// every later row of the history is measured from.
+// The starting design's row, on every press: the refined design the press
+// goes on from, so the history holds the design on screen. It is generation 0
+// of a new run block and the next generation of one a Stop left open.
 function recordBaseline(S, score) {
-    if (S.hasRows) return;
     S.hooks.onRow?.({
         id: Math.random().toString(36).slice(2),
-        genNum: 0, mf: score.mf, omf: score.omf, dMF: null, side: S.side, seed: S.seed,
+        genNum: S.hasRows ? ++S.genNum : 0, mf: score.mf, omf: score.omf, dMF: null, side: S.side, seed: S.seed,
         kind: (S.smartSeed && S.pool.length) ? 'seed' : 'baseline',
         layerCount: (S.current[S.layerKey] || []).length,
         tot: sumD(S.current.frontLayers) + sumD(S.current.backLayers),

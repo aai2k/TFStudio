@@ -109,13 +109,10 @@ export function loadDesignSwitch(ctx) {
 }
 
 // After a Stop of a run, the design the next Run goes on from, unless the
-// design was edited while the run was going. The readout reported with the base
-// design stands in for a history row: a later press's refined starting design
-// is reported with its merit but is no row.
-function showAcceptedAfterStop(wasRunning, { designRef, baseRevRef, getDesignRevision, baseReadoutRef, ...shown }) {
+// design was edited while the run was going.
+function showAcceptedAfterStop(wasRunning, { designRef, baseRevRef, getDesignRevision, ...shown }) {
     if (!wasRunning || getDesignRevision?.(designRef.current?.id) !== baseRevRef.current) return;
-    const reported = baseReadoutRef.current;
-    showAcceptedDesign({ ...shown, readout: reported?.base === shown.baseDesignRef.current ? reported : null });
+    showAcceptedDesign(shown);
 }
 
 // Drop a cached optimizer base after a real editor write. Optimizer previews are
@@ -177,7 +174,6 @@ export function useStructuralOptimizer({
     const operandsRef  = useRef([]);
     const savedDesignRef = useRef(null);
     const baseDesignRef  = useRef(null);
-    const baseReadoutRef = useRef(null);   // the merit reported with the base design (windowRun.js)
     const baseRevRef     = useRef(0);
     const gensRef      = useRef([]);
     const runsRef      = useRef([]);     // run blocks — see synthesisShared/runBlocks.js
@@ -237,7 +233,7 @@ export function useStructuralOptimizer({
         const wasRunning = runningRef.current;
         teardownRun({ runningRef, activeRunRef, abortRef });
         showAcceptedAfterStop(wasRunning, {
-            designRef, baseRevRef, getDesignRevision, baseReadoutRef,
+            designRef, baseRevRef, getDesignRevision,
             baseDesignRef, updateDesignRef, rowsRef: gensRef, setMf, setOmf, setLayerCount,
         });
         setRunning(false);
@@ -252,7 +248,7 @@ export function useStructuralOptimizer({
     const runOpt = useCallback(() => {
         startWindowRun({
             cfgRef, runningRef, activeRunRef, abortRef, designRef, operandsRef,
-            savedDesignRef, baseDesignRef, baseReadoutRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
+            savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
             updateDesignRef, checkpointRef, selectedCatsRef, excludedMatsRef,
             saveCache, stopOpt, reconcileBaseWithEdits, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,

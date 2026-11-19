@@ -198,7 +198,7 @@ export function makeWindow(spec, id) {
     const ctx = {
         cfgRef: ref({ ...spec.cfg, kinds: new Set(spec.cfg.kinds) }),
         runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), designRef,
-        operandsRef: ref(copy(spec.ops)), savedDesignRef: ref(null), baseDesignRef: ref(null), baseReadoutRef: ref(null), baseRevRef: ref(0),
+        operandsRef: ref(copy(spec.ops)), savedDesignRef: ref(null), baseDesignRef: ref(null), baseRevRef: ref(0),
         gensRef: ref([]), genCountRef: ref(0), trendRef: ref([]), runsRef: ref([]), runOpenRef: ref(false),
         updateDesignRef: ref((patch, opts) => {
             designRef.current = { ...designRef.current, ...copy(patch) };
@@ -236,10 +236,7 @@ export function makeWindow(spec, id) {
     ctx.stopOpt = message => {
         const wasRunning = ctx.runningRef.current;
         teardownRun(ctx);
-        if (wasRunning) {
-            const reported = ctx.baseReadoutRef.current;
-            showAcceptedDesign({ ...ctx, rowsRef: ctx.gensRef, readout: reported?.base === ctx.baseDesignRef.current ? reported : null });
-        }
+        if (wasRunning) showAcceptedDesign({ ...ctx, rowsRef: ctx.gensRef });
         ctx.setRunning(false);
         ctx.setTemp(null);
         ctx.setStatusMsg(message != null ? message : (wasRunning ? TS.statusStopped : ''));

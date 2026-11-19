@@ -186,8 +186,16 @@ for (const hook of ['onStart', 'onProgress']) {
 // ── 4. A history carried on ─────────────────────────────────────────────────
 {
     const carried = await runOnce({ ...SETTINGS, history: { genNum: 4, hasRows: true, elapsedMs: 1000, trendIter: 7 } });
-    ok('rows are numbered on from the history', carried.rows[0]?.genNum === 5, String(carried.rows[0]?.genNum));
-    ok('a history that has rows gets no starting row', !carried.rows.some(r => r.kind === 'baseline' || r.kind === 'seed'));
+    ok('the starting design is a row numbered on from the history',
+        carried.rows[0]?.genNum === 5 && (carried.rows[0].kind === 'baseline' || carried.rows[0].kind === 'seed'),
+        `${carried.rows[0]?.genNum} ${carried.rows[0]?.kind}`);
+    ok('the rows after it follow', carried.rows[1]?.genNum === 6, String(carried.rows[1]?.genNum));
+    const fresh = await runOnce(SETTINGS);
+    ok('a run with no history starts at row 0', fresh.rows[0]?.genNum === 0 && fresh.rows[1]?.genNum === 1,
+        `${fresh.rows[0]?.genNum} ${fresh.rows[1]?.genNum}`);
+    const empty = await runOnce({ ...SETTINGS, history: { genNum: 0, hasRows: false, elapsedMs: 1000, trendIter: 7 } });
+    ok('a block with no rows yet starts at row 0 whatever the history before it',
+        empty.rows[0]?.genNum === 0 && empty.rows[1]?.genNum === 1, `${empty.rows[0]?.genNum} ${empty.rows[1]?.genNum}`);
     ok('the trend runs on from the history', carried.trend[0] === 7 && carried.trend[1] === 8, JSON.stringify(carried.trend.slice(0, 3)));
     ok('time runs on from the history', carried.rows.every(r => r.tMs >= 1000));
 }

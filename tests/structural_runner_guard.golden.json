@@ -3464,7 +3464,7 @@
           ]
         ]
       },
-      "rows": 4,
+      "rows": 5,
       "runs": 1,
       "trend": 9
     },
@@ -3493,7 +3493,7 @@
       "ops": 1,
       "wasm": true
     },
-    "genCount": 3,
+    "genCount": 4,
     "presses": [
       {
         "running": false,
@@ -3592,6 +3592,44 @@
       },
       {
         "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": null,
+        "kind": "baseline",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "mf": 0.2216019196687155,
+        "omf": 0.2216019196687155,
+        "runNum": 1,
+        "seed": 7,
+        "side": "front",
+        "tot": 203.91082483623177
+      },
+      {
+        "backSnap": [],
         "dMF": -0.06899090872752284,
         "frontSnap": [
           [
@@ -3605,7 +3643,7 @@
             false
           ]
         ],
-        "genNum": 2,
+        "genNum": 3,
         "insertMat": null,
         "kind": "perturb",
         "layerCount": 2,
@@ -3643,7 +3681,7 @@
             false
           ]
         ],
-        "genNum": 3,
+        "genNum": 4,
         "insertMat": null,
         "kind": "perturb",
         "layerCount": 2,
@@ -3713,7 +3751,7 @@
       "omf": 0.13289350061603977,
       "omfBest": 0.13289350061603977,
       "reheats": 0,
-      "rows": 4,
+      "rows": 5,
       "running": false,
       "seed": 7,
       "temp": null,
@@ -3815,7 +3853,7 @@
           ]
         ]
       },
-      "rows": 3,
+      "rows": 4,
       "runs": 2,
       "trend": 7
     },
@@ -3943,6 +3981,44 @@
       },
       {
         "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "TiO2",
+            83.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            130.7379518817179,
+            false
+          ]
+        ],
+        "genNum": 0,
+        "insertMat": null,
+        "kind": "baseline",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            83.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            130.7379518817179,
+            false
+          ]
+        ],
+        "mf": 0.2724446152018543,
+        "omf": 0.2724446152018543,
+        "runNum": 2,
+        "seed": 7,
+        "side": "front",
+        "tot": 213.91082483623177
+      },
+      {
+        "backSnap": [],
         "dMF": -0.09018203642652262,
         "frontSnap": [
           [
@@ -4044,7 +4120,7 @@
       "omf": 0.1822625787753317,
       "omfBest": 0.1822625787753317,
       "reheats": 0,
-      "rows": 3,
+      "rows": 4,
       "running": false,
       "seed": 7,
       "temp": null,
@@ -4134,7 +4210,7 @@
           ]
         ]
       },
-      "rows": 3,
+      "rows": 4,
       "runs": 2,
       "trend": 8
     },
@@ -4262,6 +4338,44 @@
       },
       {
         "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "genNum": 0,
+        "insertMat": null,
+        "kind": "baseline",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "mf": 0.2216019196687155,
+        "omf": 0.2216019196687155,
+        "runNum": 2,
+        "seed": 7,
+        "side": "front",
+        "tot": 203.91082483623177
+      },
+      {
+        "backSnap": [],
         "dMF": -0.06899090872752284,
         "frontSnap": [
           [
@@ -4363,7 +4477,7 @@
       "omf": 0.15261101094119267,
       "omfBest": 0.15261101094119267,
       "reheats": 0,
-      "rows": 3,
+      "rows": 4,
       "running": false,
       "seed": 7,
       "temp": null,

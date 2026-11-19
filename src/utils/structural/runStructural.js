@@ -61,7 +61,8 @@ const STRUCTURAL_RUN = { tag: 'Structural', firstReport: { activity: { id: 'base
  *   seed        the random stream's seed, or null for a fresh one; the same
  *               seed, design, settings and thread count repeat the run
  *   history     { genNum, hasRows, elapsedMs, trendIter } of the history this
- *               run continues, for a window that keeps one across runs
+ *               run continues, for a window that keeps one across runs;
+ *               hasRows says that the run block it continues has rows
  * Every other setting defaults to STRUCTURAL_DEFAULTS and the run defaults in
  * settings.js. An unknown setting or a value the run cannot take rejects the
  * returned promise.
@@ -96,8 +97,9 @@ const STRUCTURAL_RUN = { tag: 'Structural', firstReport: { activity: { id: 'base
  *   onRow(row)        a history row: { id, genNum, seed, kind ('seed',
  *                     'baseline' or the mutation kind), mf, omf, dMF, side,
  *                     layerCount, tot, tMs, insertMat, layers, frontSnap,
- *                     backSnap }. The starting design's row (genNum 0) comes
- *                     only when the history has no rows
+ *                     backSnap }. The starting design's row comes first, on
+ *                     every run: genNum 0, or the next generation when the
+ *                     run block it continues has rows
  *
  * Resolves to { completed, stopReason, mf, omf, frontLayers, backLayers }. A
  * completed run ends on 'maxIter', 'iterationCap' (Deep search's iteration
