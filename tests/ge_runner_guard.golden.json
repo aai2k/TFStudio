@@ -2922,7 +2922,7 @@
       "candidate": 83,
       "dropParked": 4,
       "dropWeakest": 3,
-      "removePass": 1,
+      "removePass": 2,
       "scan": 60,
       "seedDls": 1
     },
