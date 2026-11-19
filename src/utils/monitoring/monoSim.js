@@ -14,7 +14,8 @@
  *   - rng.js                  Gaussian draw (mirrors monitoringSim's, same
  *                              formula/draw order — kept local per file)
  *   - signalModel.js           single-λ signal sampler + model-curve analysis
- *   - monitorTable.js          sensitive-λ pick, auto strategy, default table
+ *   - monitorTable.js          sensitive-λ pick, auto strategy
+ *   - defaultMonoTable.js      the table the wizard opens with
  *   - cutSteps.js              turning/level per-scan cut detectors
  *   - scanCutMono.js           the optical-feedback scan loop for one layer
  *   - materialPerturbation.js  per-run material Δn/Δk draws
@@ -34,7 +35,8 @@
  */
 
 export { mulberry32, deriveSeed, makeShiftedMaterial } from './monitoringSim.js';
-export { pickMonitoringPlan, autoMonoStrategy, defaultMonoTable } from './monoSim/monitorTable.js';
+export { pickMonitoringPlan, autoMonoStrategy } from './monoSim/monitorTable.js';
+export { defaultMonoTable } from './monoSim/defaultMonoTable.js';
 export { simulateRunMono } from './monoSim/simulateRunMono.js';
 export {
     assignChips, autoChipLambdas, buildMonitorWorksheet, chipsInRunOrder, depositionOrder,

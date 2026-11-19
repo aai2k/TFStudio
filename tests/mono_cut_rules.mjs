@@ -4,7 +4,11 @@
  *
  *   1. level cuts arm after the last turning point before the target, so a
  *      layer thicker than a quarter wave is not cut on the early branch; the
- *      default table puts a turning cut only where the signal really turns;
+ *      default table puts a turning cut where the signal really turns: at the
+ *      reference for a layer within 6 % of a whole number of quarter waves, at
+ *      the wavelength where the signal turns nearest the target for a layer
+ *      further off, and a level cut on the layer whose signal turns nowhere
+ *      near the target;
  *   2. a noiseless monitor cuts on target: the crossing or vertex is placed
  *      between scans and the moving-average lag is taken out;
  *   3. a level cut's order picks the branch it terminates on;
@@ -13,7 +17,8 @@
  *   5. a layer that leaves no trace on the signal is not cut on arithmetic
  *      ripple;
  *   6. a level the signal never reaches runs to the scan budget, as on the
- *      broadband monitor.
+ *      broadband monitor; the default table does not put a level cut on a
+ *      0.9 QW layer.
  *
  * Run: node tests/mono_cut_rules.mjs
  */
@@ -53,7 +58,9 @@ const worstMiss = (run) => Math.max(...run.asBuiltFront.map((d, i) => Math.abs(d
 // than a quarter wave: their level recurs on the branch before the turning
 // point, where a rule armed from the start of the layer cuts them. The outer
 // L layer is a whole quarter wave, but on this stack its signal turns about
-// 10 nm short of the target.
+// 10 nm short of the target, so it keeps a level cut at the reference; the
+// three layers 6 % or more off a whole number of quarter waves are cut on a
+// turning point at the wavelength where their signal turns nearest the target.
 {
     const four = [
         { material: 'L', thickness: 1.0 * qw('L') },
@@ -63,8 +70,10 @@ const worstMiss = (run) => Math.max(...run.asBuiltFront.map((d, i) => Math.abs(d
     ];
     const design = makeDesign(four);
     const table = defaultMonoTable(design, resolveMat, { autoPickLambda: false });
-    ok(table.every(row => row.strategy === 'level'),
-       `default table: every layer is a level cut, the quarter-wave L included (${table.map(r => r.strategy).join(', ')})`);
+    ok(table.map(r => r.strategy).join() === 'level,turning,turning,turning',
+       `default table: the quarter-wave L keeps a level cut, the others turn (${table.map(r => r.strategy).join(', ')})`);
+    ok(table[0].lambda === REF && table.slice(1).every(r => r.lambda !== REF && r.lambda >= 0.7 * REF && r.lambda <= 1.3 * REF),
+       `and the others at a wavelength of their own in 0.7-1.3 × the reference (${table.map(r => r.lambda).join(', ')} nm)`);
     for (const dt of [1, 3]) {
         const run = simulateRunMono(design, resolveMat, { ...noiseless(dt), monTable: table });
         const built = run.asBuiltFront.map(d => d.toFixed(2)).join(' / ');
@@ -157,9 +166,11 @@ for (const dt of [1, 3]) {
     const target = 0.9 * qw('H');
     const design = makeDesign([{ material: 'H', thickness: target }]);
     const table = defaultMonoTable(design, resolveMat, { autoPickLambda: false });
-    ok(table[0].strategy === 'level', `the default table cuts a 0.9 QW layer on a level (${table[0].strategy})`);
+    ok(table[0].strategy === 'turning' && Math.abs(table[0].lambda - 0.9 * REF) <= 1,
+       `the default table cuts a 0.9 QW layer on a turning point at 0.9 × the reference (${table[0].strategy} at ${table[0].lambda} nm)`);
+    const level = [{ lambda: REF, strategy: 'level', order: 1, sigmaRelPct: 0 }];
     const run = simulateRunMono(design, resolveMat,
-        { ...noiseless(1), monTable: table, matDev: new Map([['H', { reNSyst: -0.05 }]]) });
+        { ...noiseless(1), monTable: level, matDev: new Map([['H', { reNSyst: -0.05 }]]) });
     const built = run.asBuiltFront[0];
     ok(built > 1.9 * target && built < 2.1 * target,
        `a missed level cut runs to the scan budget (${built.toFixed(2)} nm against a ${target.toFixed(2)} nm target)`);

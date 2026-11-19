@@ -5,7 +5,7 @@
  */
 
 import {
-    findExtrema, isFlatCurve, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
+    findExtrema, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
     terminationError,
 } from './worksheetSignal.js';
 import { hasIndexAt } from '../../materials/materialIndexAt.js';
@@ -23,7 +23,7 @@ const TIME_CUT_REL_ERR = 0.03;
 
 // Quarter wave in the growing layer at the monitor wavelength, which sizes
 // the curve sampling for the search. Read only where monitorableAt holds.
-function quarterWave(curMat, lam) {
+export function quarterWave(curMat, lam) {
     return lam / (4 * curMat.getNK(lam)[0]);
 }
 
@@ -31,7 +31,7 @@ function quarterWave(curMat, lam) {
 // through, the growing layer, the layers beneath it and the chip glass, has an
 // index there. Where one has none the signal has no value, and the layer
 // cannot be monitored at that wavelength.
-function monitorableAt({ lam, curMat, belowMats, sys }) {
+export function monitorableAt({ lam, curMat, belowMats, sys }) {
     return [curMat, ...belowMats, sys.subMat].every(material => hasIndexAt(material, lam));
 }
 
@@ -98,7 +98,7 @@ function levelCutIsClean(ctx, belowScale, dTarget, noise) {
 
 // The growing layer's material and the layers beneath it: higher storage
 // indices, already in outermost-first order as the signal model wants.
-function layerStack(front, i, resolveMat) {
+export function layerStack(front, i, resolveMat) {
     const belowMats = [];
     const belowThicks = [];
     for (let k = i + 1; k < front.length; k++) {
@@ -111,7 +111,7 @@ function layerStack(front, i, resolveMat) {
 // The monitor watches the witness chip: in air, since the chip hangs in the
 // chamber whatever the design is embedded in, and on the design substrate's
 // glass unless `chipMaterial` names another material.
-function chipSystem({ design, resolveMat, theta, pol, char, chipMaterial }) {
+export function chipSystem({ design, resolveMat, theta, pol, char, chipMaterial }) {
     const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
     return {
         theta, pol, char,
@@ -222,51 +222,4 @@ export function autoMonoStrategy(layer, mat, monLambda) {
     const nearest = Math.round(ratio);
     if (nearest >= 1 && Math.abs(ratio - nearest) < 0.06) return 'turning';
     return 'level';
-}
-
-/**
- * Strategy for one layer at the reference wavelength when no plan is picked.
- * A layer within 6% of a whole number of quarter waves (autoMonoStrategy) is
- * cut on its turning point only if its signal on the chip, with the design
- * layers beneath it, really turns within 6% of a quarter wave of the cut: a
- * stack beneath that is not a quarter-wave stack moves the turning point, and
- * a quarter-wave layer on such a stack can turn several nanometres short of
- * its target, where a turning cut would stop it. Such a layer, like every
- * other one, gets a level cut. A layer that leaves no trace on the signal is
- * cut on time, and so is a zero-thickness one, and one with no signal at the
- * reference because a material it is monitored through has no index there.
- */
-function defaultStrategyAt(ctx, layer) {
-    const d = Math.max(0, layer.thickness || 0);
-    if (d <= 0 || !monitorableAt(ctx)) return 'time';
-    const dQW = quarterWave(ctx.curMat, ctx.lam);
-    const curve = sampleLayerCurve(ctx, d, dQW);
-    if (isFlatCurve(curve)) return 'time';
-    if (autoMonoStrategy(layer, ctx.curMat, ctx.lam) !== 'turning') return 'level';
-    const ext = nearestExtremum(findExtrema(curve), d);
-    return ext && Math.abs(ext.d - d) < 0.06 * dQW ? 'turning' : 'level';
-}
-
-/**
- * Build the per-layer monitor table aligned to design.frontLayers (storage
- * order). Row: { lambda, strategy, order, sigmaRelPct }.
- */
-export function defaultMonoTable(design, resolveMat, opts = {}) {
-    const ref = design.referenceWavelength || 550;
-    const front = design.frontLayers || [];
-    const lamA = Number.isFinite(opts.lamA) ? opts.lamA : ref * 0.7;
-    const lamB = Number.isFinite(opts.lamB) ? opts.lamB : ref * 1.3;
-    const theta = opts.theta ?? 0;
-    const pol = opts.pol || 'avg';
-    const char = opts.char || 'T';
-    const chipMaterial = opts.chipMaterial;
-    if (opts.autoPickLambda) {
-        const plan = pickMonitoringPlan({ design, resolveMat, lamA, lamB, theta, pol, char, chipMaterial });
-        return plan.map(row => ({ lambda: row.lambda, strategy: row.strategy, order: 1, sigmaRelPct: 0 }));
-    }
-    const sys = chipSystem({ design, resolveMat, theta, pol, char, chipMaterial });
-    return front.map((l, i) => {
-        const ctx = { lam: ref, ...layerStack(front, i, resolveMat), sys };
-        return { lambda: ref, strategy: defaultStrategyAt(ctx, l), order: 1, sigmaRelPct: 0 };
-    });
 }
