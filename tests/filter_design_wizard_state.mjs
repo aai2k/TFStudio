@@ -9,7 +9,7 @@ import { shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 
-const { rememberSetting, rememberedSettings, mergeCandidates, candidateKey, DEFAULTS, heldAoi, workingAoi } =
+const { rememberSetting, rememberedSettings, mergeCandidates, candidateKey, DEFAULTS, heldAoi, workingAoi, searchSignature } =
     await import('../src/components/windows/optimization/filterDesignWizard/model.js');
 
 let fails = 0;
@@ -110,6 +110,18 @@ ok(held(60, 40) <= 89, `and so does 60° held over 40° (got ${held(60, 40)})`);
 for (const [aoi, hold] of [[45, 10], [60, 40], [89, 80], [50, 45], [30, 0]]) {
     ok(held(aoi, hold) >= workingAoi({ ...DEFAULTS, oblique: aoi > 0, aoi }),
         `the held angle is never shallower than the working angle (${aoi} + ${hold} gave ${held(aoi, hold)})`);
+}
+
+// The candidate history belongs to the filter it was scored for. Where an
+// oblique design is scored at the angle inside its substrate, the incident
+// medium changes that angle, so changing it starts a new history; at normal
+// incidence the medium changes nothing.
+{
+    const sig = p => searchSignature({ ...DEFAULTS, ...p }, 7, [3, 4], 1);
+    ok(sig({ oblique: true, aoi: 45, incidentMedium: 'builtin:Air' }) !== sig({ oblique: true, aoi: 45, incidentMedium: 'builtin:H2O' }),
+        'an oblique design restarts its history when the incident medium changes');
+    ok(sig({ oblique: false, incidentMedium: 'builtin:Air' }) === sig({ oblique: false, incidentMedium: 'builtin:H2O' }),
+        'a design at normal incidence keeps it');
 }
 
 if (fails === 0) console.log('All wizard-state tests passed.');

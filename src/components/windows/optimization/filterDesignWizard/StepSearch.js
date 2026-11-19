@@ -9,7 +9,7 @@ import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { FILTER_WORKER_URL as WORKER_URL } from '../../../../workerUrls.js';
 import {
     candidateKey, couplingD, embeddedAoi, heldAoi, mergeCandidates, prototypeCandidate,
-    searchTargetParams, shapeFactor, targetPointsOf, workingAoi,
+    searchTargetParams, shapeFactor, targetPointsOf, workingAoi, searchSignature,
 } from './model.js';
 import { AxisToggle, CheckField, IntField, NumField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
@@ -223,12 +223,9 @@ export function StepSearch({ p, set, c, t }) {
     const seedMirrorsVec = useMemo(() => coupledMirrors(N, p.seedMirror || 8, couplingD(p)),
         [N, p.seedMirror, p.matH, p.matL, p.substrateMaterial, p.lambda0_nm]); // eslint-disable-line
     const seedSpacerVal = p.seedSpacer || 1;
-    // Signature of every design-defining input, the specification the merit is
-    // built from included. When it changes the history is for a DIFFERENT
-    // filter, so it goes whatever the checkbox says.
-    const seedKey = `${N}|${seedMirrorsVec.join(',')}|${seedSpacerVal}|${p.matH}|${p.matL}|${p.substrateMaterial}`
-        + `|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.passLevel}`
-        + `|${workingAoi(p)}|${p.pol}|${p.holdPassbandDeg}`;
+    // When the signature changes the history is for a DIFFERENT filter, so it
+    // goes whatever the checkbox says.
+    const seedKey = searchSignature(p, N, seedMirrorsVec, seedSpacerVal);
     // The history records which filter it is for, so only an actual CHANGE
     // resets. Stepping away and back remounts this component, and a reset on
     // mount would throw away the candidate the user picked here and leave

@@ -16,6 +16,19 @@ export function workingAoi(p) {
 }
 
 /**
+ * Signature of every design-defining input of the step-5 search, the
+ * specification its merit is built from included. When it changes the
+ * candidate history is for a different filter. The incident medium counts only
+ * on an oblique design, where it sets the angle the merit is scored at.
+ */
+export function searchSignature(p, N, seedMirrors, seedSpacer) {
+    const aoi = workingAoi(p);
+    return `${N}|${seedMirrors.join(',')}|${seedSpacer}|${p.matH}|${p.matL}|${p.substrateMaterial}`
+        + `|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.passLevel}`
+        + `|${aoi}|${p.pol}|${p.holdPassbandDeg}${aoi > 0 ? `|${p.incidentMedium}` : ''}`;
+}
+
+/**
  * Steepest angle of incidence the wizard will design or score at, degrees, the
  * bound the step-1 angle field already carries. Past 90° there is no angle of
  * incidence left, and sin folds back: 100° would be scored as 80° and 169° as
