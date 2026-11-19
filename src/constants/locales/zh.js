@@ -237,7 +237,7 @@ export default {
     needleSensMedium: '中度 — 丢弃弱于 5% 的针法',
     needleSensAggressive: '激进 — 丢弃弱于 15% 的针法',
     threads: '线程数',
-    threadsHint: '优化器工作池可并行使用的 CPU 线程数。根据您的机器自动检测。推荐值会为主线程和系统留出余量，使应用保持响应且处理器不被完全占满；在强机器上可选更多（直至全部核心）以获取最大速度。下次运行时生效。',
+    threadsHint: '本次运行使用的 CPU 线程数。每一代精炼的候选数与线程数相同，因此结果取决于这个数。默认值由这台电脑的核心数决定；在另一台电脑上，只有设为相同的数，运行才会重复。下次运行时生效。',
     threadsRecommended: '推荐',
     threadsAll: '全部核心',
     synthSeedMode: '厚种子处理',

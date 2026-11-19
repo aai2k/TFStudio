@@ -238,7 +238,7 @@ export default {
     needleSensMedium: 'Media: scarta sotto il 5 %',
     needleSensAggressive: 'Aggressiva: scarta sotto il 15 %',
     threads: 'Thread',
-    threadsHint: "Quanti thread della CPU può usare in parallelo il pool di worker dell'ottimizzatore. Rilevati dalla tua macchina. Il valore consigliato lascia libero il thread principale e un margine, così l'app resta reattiva e il processore non è saturo; scegli di più (fino a tutti i core) per la massima velocità su una macchina potente. Ha effetto dalla prossima esecuzione.",
+    threadsHint: "Quanti thread della CPU usa l'esecuzione. Ogni generazione affina tanti candidati quanti sono i thread, quindi il risultato dipende da questo numero. Il valore predefinito viene dai core di questo computer; su un altro computer l'esecuzione si ripete solo con lo stesso numero. Ha effetto dalla prossima esecuzione.",
     threadsRecommended: 'consigliato',
     threadsAll: 'tutti i core',
     synthSeedMode: 'Gestione dello strato iniziale spesso',

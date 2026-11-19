@@ -239,7 +239,7 @@ export default {
     needleSensMedium: 'Medium: drop weaker than 5%',
     needleSensAggressive: 'Aggressive: drop weaker than 15%',
     threads: 'Threads',
-    threadsHint: 'How many CPU threads the optimizer worker pool may use in parallel. Detected from your machine. The recommended value leaves the main thread and some headroom free so the app stays responsive and your processor is not fully saturated; choose more (up to all cores) for maximum speed on a powerful machine. Takes effect on the next run.',
+    threadsHint: 'How many CPU threads the run uses. Each generation refines as many candidates as there are threads, so the result depends on this number. The default comes from this computer\'s cores; a run repeats on another computer only with the same number. Takes effect on the next run.',
     threadsRecommended: 'recommended',
     threadsAll: 'all cores',
     synthSeedMode: 'Thick-seed handling',

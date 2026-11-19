@@ -188,8 +188,9 @@ export function makeRowHelpers({ c, running, numWidth = 58 }) {
 
     // Stacked select row (label above, full-width select). Uncontrolled
     // (defaultValue): reads the persisted value on mount, writes on change.
-    const selRow = (label, getVal, setVal, options) =>
-        h('div', { style: { marginBottom: 6 } },
+    // A string 5th arg sets the row's tooltip.
+    const selRow = (label, getVal, setVal, options, title) =>
+        h('div', { title: typeof title === 'string' ? title : undefined, style: { marginBottom: 6 } },
             h('div', { style: { fontSize: 11, color: c.textDim, marginBottom: 2 } }, label),
             h('select', {
                 defaultValue: getVal(), disabled: running,

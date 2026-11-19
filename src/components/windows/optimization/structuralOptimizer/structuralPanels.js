@@ -148,9 +148,10 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     const [threads, setThreads] = useState(getThreadCount());
     const { numRow, chkRow } = makeRowHelpers({ c, running });
     // Structural's selects are inline + controlled (engine/threads mirror local
-    // state so a change is reflected immediately).
-    const selRow = (label, value, onChange, options) =>
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
+    // state so a change is reflected immediately). A string 5th arg sets the
+    // row's tooltip.
+    const selRow = (label, value, onChange, options, title) =>
+        h('div', { title: typeof title === 'string' ? title : undefined, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, label),
             h('select', {
                 value, disabled: running, onChange: (e) => onChange(e.target.value),
@@ -220,7 +221,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         numRow(ts.maxLayers,  maxLayers,  v => onMaxLayers(Math.max(1, Math.round(v)))),
         selRow(t.settings.threads, String(threads),
             (v) => { const n = parseInt(v, 10); setThreadCount(n); setThreads(n); },
-            threadSelectOptions(t)),
+            threadSelectOptions(t), t.settings.threadsHint),
         numRow(ts.deepMaxMin, deepMaxMin, v => onDeepMaxMin(Math.max(0, Math.round(v))), ts.deepMaxMinHelp),
         seedRow({ ts, seed, onSeed, running, c }),
     ];

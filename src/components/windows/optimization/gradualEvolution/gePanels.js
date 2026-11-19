@@ -142,7 +142,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
             [['fast', t.settings.synthCandFast], ['balanced', t.settings.synthCandBalanced], ['thorough', t.settings.synthCandThorough]]),
         selRow(t.settings.needleSens, getNeedleSensMode, setNeedleSensMode,
             [['off', t.settings.needleSensOff], ['light', t.settings.needleSensLight], ['medium', t.settings.needleSensMedium], ['aggressive', t.settings.needleSensAggressive]]),
-        selRow(t.settings.threads, () => String(getThreadCount()), (v) => setThreadCount(parseInt(v, 10)), threadSelectOptions(t)),
+        selRow(t.settings.threads, () => String(getThreadCount()), (v) => setThreadCount(parseInt(v, 10)), threadSelectOptions(t), t.settings.threadsHint),
         selRow(t.settings.synthSeedMode, getSynthesisSeedMode, (v) => { setSynthesisSeedMode(v); setSeedMode(v); },
             [['refine', t.settings.synthSeedRefine], ['preserve-bulk', t.settings.synthSeedPreserveBulk]]),
         selRow(tg.consolidate, () => getSynthesisConsolidate() ? '1' : '0', v => setSynthesisConsolidate(v === '1'),
