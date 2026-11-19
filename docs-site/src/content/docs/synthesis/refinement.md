@@ -4,74 +4,54 @@ description: Adjust layer thicknesses to minimize the merit function, with a cho
 ribbonIcon: refinement
 ---
 
-**Refinement** moves your layer thicknesses to minimize the merit function.
-It never adds or removes layers; only their thicknesses change. This is the
-everyday workhorse: fast, robust, and the natural finishing pass after any
-synthesis run or hand edit.
+**Refinement** moves the layer thicknesses to lower the merit function, with the method you pick. It never adds or removes layers. The layers that move are those of the surface mode set in the [Design Editor](/design/design-editor/), shown by the **Optimize** and **Eval** badges; locked layers stay put. How each method takes its steps, with a figure of each, is on [Optimization Methods](/synthesis/optimization-methods/).
 
-It minimizes the operand set you defined in the
-[Merit Function Editor](/design/merit-function-editor/), using the method you
-pick from a dropdown. The default is **SQP**, which treats a minimum
-thickness as a hard limit, but you can switch to several other local and
-global methods. The variables that move follow the surface mode set in the
-[Design Editor](/design/design-editor/) (front, back, both, or symmetric), and
-every method works in every mode.
+<!-- shot: refinement | a finished SQP run on a multilayer design: the readout with MF, best and init, the "no further improvement" pill, the MF trend strip, and two runs in Design History -->
 
-For a description of each method and guidance on when to choose it, see
-**[Optimization Methods](/synthesis/optimization-methods/)**.
+## Computed quantities
 
-## Settings
+- **MF**: the merit function of the design on screen; **best**, the lowest of the run so far; **init**, the merit the run started from. The **MF trend** strip plots the best merit against iteration on a log axis.
+- **Iter**: the iterations of the run; with Try all, added up over its methods.
+- The pill at the end of a run: **target reached**, **max iter**, **no further improvement**, or after Try all **best:** and the method that did best. DLS multi-start ends without one.
 
-**Method**: the optimizer to run: SQP, Damped Least Squares, Conjugate
-Gradient, Newton, Newton-CG, DLS multi-start, Differential Evolution,
-Simulated Annealing, or **Try all, keep best**. Your choice is remembered
-across designs.
+## Controls and settings
 
-**Max iter**: the most steps the optimizer may take. The run still stops
-early when it converges, so this is just a cap. It defaults to a sensible
-budget for the selected method.
+**Run (F5)** and **Stop**. **Best** puts the run's lowest-merit design on, also after Stop. **Reset** returns to the thicknesses from before the run, and a single undo covers the whole run.
 
-**Restarts (N)**: for DLS multi-start only: how many randomly perturbed
-starts to run before keeping the best (20 by default).
+**Method**: SQP (the default), Damped Least Squares, Conjugate Gradient, Newton, Newton-CG, Trust-region Newton, DLS multi-start, Differential Evolution, Simulated Annealing, or Try all, keep best. Your choice is remembered across designs.
 
-**Perturbation**: for DLS multi-start only: how much to jitter each layer's
-thickness (as a percentage) at the start of every restart.
+**Max iter**: the most iterations a one-method run takes; it starts at the method's own budget and the run still stops early on the method's own test. Try all hides it and gives each method its own budget.
 
-**Seed**: for Differential Evolution, Simulated Annealing, DLS multi-start and
-**Try all**: the number their random draws start from. Leave it empty and
-**Run** fills it with a new seed and keeps it there, so running again with the
-same seed, design and settings gives the same run. Clear the field to draw
-afresh. The History row of such a run shows its seed.
+**Restarts** and **Perturb ±%**: for DLS multi-start and Try all, the number of perturbed starts and how far each thickness is scattered, 20 and 30 % by default.
 
-The surface mode and merit-evaluation mode in effect are shown as badges on
-the window.
+**Seed**: for Differential Evolution, Simulated Annealing, DLS multi-start and Try all. Left empty, **Run** draws a seed and leaves it in the field, so the same seed, design and settings give the same run again; clear the field to draw afresh.
 
-## How to read it
+**Auto-update**: on, the other open windows follow the design while the run goes; off, they hold the design the run started from and update when it stops.
 
-While the run is live you see the spectrum update and a running merit-function
-readout (current value, best so far, and the starting value). The **MF trend**
-chart plots the best merit found against iteration on a logarithmic axis. A
-steadily falling curve that flattens out means the method has settled into a
-minimum.
+**Design History**: one row per method a run finished, under a heading for each Run press, newest first, and best first within a press. A stochastic method's row shows its seed. **Plot** shows the row's MF trend and **Restore** puts its thicknesses on the design.
 
-**Reset** returns to the thicknesses you had before the run, and a single undo
-covers the whole run. The **History** panel keeps a snapshot of each run so you
-can jump back to any earlier result. Each Run press gets a heading, newest on
-top, with its methods under it best first; after **Try all, keep best** the
-heading also names the method that did best.
+The table in the middle is the merit function, the same rows as the [Merit Function Editor](/design/merit-function-editor/), and can be edited here. Each design keeps its own last run: switching designs shows that design's readout and trend, and **Best** applies that design's result.
 
-Each design keeps its own last run. Switching designs shows that design's readout and trend, and **Best** applies that design's result; a design not refined yet shows no run.
+## How a run works
 
-A single-start run (N = 1) is usually enough to re-settle a hand-edited stack.
-After a synthesis pass, a multi-start run helps confirm you have reached the
-true local minimum rather than an improved-but-not-bottom point. Minimum and
-maximum thickness limits are honoured here (Needle synthesis deliberately
-leaves them out). They are the `MNT` and `MXT` rows of the merit function; no
-layer goes below 1 nm, and nothing else caps how thick a layer may grow, so add
-an `MXT` row where you need an upper limit.
+When **Run** is pressed, each band row gets the number of sample wavelengths the design's fringe spacing needs, and more where the band hides a narrow feature (see [Operand Reference](/design/operands/#sampling-a-band)). A run does not start when no row is enabled or a row cannot be evaluated. It then minimizes:
+
+```
+MF = √( Σ_i  w_i · (m_i / σ_i)²  /  W )        m_i: row i's miss, w_i its weight, σ_i its scale, W = Σ w_i
+
+d_k ≥ 1 nm         for every method; no upper limit without an MXT row
+MNT, MXT           hard limits with SQP, penalty rows with every other method
+
+target reached           MF < 10⁻⁶
+max iter                 Max iter stopped the method
+no further improvement   the method stopped on its own test (Optimization Methods)
+```
+
+Try all runs CG, DLS, Newton, Newton-CG, SQP, Trust-region Newton, DE, SA and DLS multi-start one after another, each from the same start and not from the one before, and keeps the lowest MF. DLS multi-start runs several restarts at once, one per thread the app uses; Differential Evolution scores each generation on several threads when four or more layers are free. Neither changes the result.
+
+Needle Automatic leaves the `MNT` and `MXT` rows out, so run Refinement after it to bring them back.
 
 ## References
 
-- K. Levenberg, *Quart. Appl. Math.* **2**, 164 (1944); D. Marquardt, *J. SIAM* **11**, 431 (1963).
-- J. Nocedal & S. Wright, *Numerical Optimization*, 2nd ed.
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §13.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Section 3.6, pp. 88-97: refinement and synthesis.
+- J. Nocedal and S. J. Wright, *Numerical Optimization*, 2nd ed.
