@@ -58,4 +58,11 @@ assert.deepEqual(view.tableRows.map(row => row.region), [
     'Back', 'Back', 'Back',
 ]);
 
+// The total profile's z runs in nm over the coatings and in mm over the
+// substrate, so the exported table names the unit of each row.
+const { csvFromRows } = await import('../src/components/ui/ResultsSection.js');
+const exported = csvFromRows(view.tableColumns, view.tableRows).split('\n');
+assert.equal(exported[0], 'region,z,unit,n,k');
+assert.deepEqual([...new Set(exported.slice(1).map(line => line.split(',')[2]))].sort(), ['mm', 'nm']);
+
 console.log('PASS: ri_profiler_model_characterization');

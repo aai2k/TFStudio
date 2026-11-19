@@ -21,11 +21,11 @@ function tableRows(profile) {
     const coat = side => {
         const layers = profile.layers.filter(layer => layer.side === side);
         const last = layers[layers.length - 1];
-        return last ? [...layers.map(layer => [REGIONS[side], layer.start, layer.n, layer.k]), [REGIONS[side], last.end, last.n, last.k]] : [];
+        return last ? [...layers.map(layer => [REGIONS[side], layer.start, 'nm', layer.n, layer.k]), [REGIONS[side], last.end, 'nm', last.n, last.k]] : [];
     };
     const { substrate } = profile;
-    const bulk = substrate ? [[REGIONS.substrate, 0, substrate.n, substrate.k], [REGIONS.substrate, substrate.thickness, substrate.n, substrate.k]] : [];
-    return [['region', 'z', 'n', 'k'], ...coat('front'), ...bulk, ...coat('back')];
+    const bulk = substrate ? [[REGIONS.substrate, 0, 'mm', substrate.n, substrate.k], [REGIONS.substrate, substrate.thickness, 'mm', substrate.n, substrate.k]] : [];
+    return [['region', 'z', 'unit', 'n', 'k'], ...coat('front'), ...bulk, ...coat('back')];
 }
 
 /**

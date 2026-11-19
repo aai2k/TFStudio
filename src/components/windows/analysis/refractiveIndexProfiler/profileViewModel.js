@@ -7,7 +7,8 @@ const singleColumns = units => [
 
 const totalColumns = units => [
     { key: 'region', label: 'region', align: 'left', fmt: v => v },
-    { key: 'z',      label: 'z',       align: 'left', fmt: (v, row) => `${(+v).toFixed(3)} ${units[row?.unit] || ''}`.trim() },
+    { key: 'z',      label: 'z',       align: 'left', fmt: v => (+v).toFixed(3) },
+    { key: 'unit',   label: 'unit',    align: 'left', fmt: v => units[v] || '' },
     { key: 'n',      label: 'n',                       fmt: v => v.toFixed(4) },
     { key: 'k',      label: 'k',                       fmt: v => v.toFixed(5) },
 ];
