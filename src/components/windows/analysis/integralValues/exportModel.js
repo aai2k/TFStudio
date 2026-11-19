@@ -4,10 +4,13 @@
  * writes.
  */
 
-function band(weighting, units) {
-    return weighting.lamMin === weighting.lamMax
-        ? ''
-        : `${weighting.lamMin.toFixed(0)}-${weighting.lamMax.toFixed(0)} ${units.nm}`;
+// The band the table shows: the band a custom integral was given, the
+// weighting's band for a built-in one.
+function band(definition, units) {
+    const custom = definition.builtin ? null : definition._custom;
+    if (custom) return `${Number(custom.band[0].toFixed(3))}-${Number(custom.band[1].toFixed(3))} ${units.nm}`;
+    const { lamMin, lamMax } = definition.weighting;
+    return lamMin === lamMax ? '' : `${lamMin.toFixed(0)}-${lamMax.toFixed(0)} ${units.nm}`;
 }
 
 /** The CSV's columns; under All (`sets`) each row's environment follows the integral. */
@@ -40,7 +43,7 @@ function exportRow(definition, result = {}, units) {
         lamAtMin: finiteOrNull(result.lamAtMin),
         max: finiteOrNull(result.max),
         lamAtMax: finiteOrNull(result.lamAtMax),
-        band: band(definition.weighting, units),
+        band: band(definition, units),
     };
 }
 

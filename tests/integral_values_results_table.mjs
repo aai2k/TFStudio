@@ -70,4 +70,17 @@ const rowOf = (html, label) => html.split('<tr').find(row => row.includes(`>${la
     assert.ok(row?.includes(t.integralValues.weightingSpan('380', '780')), 'and names the weighting 380-780 nm');
 }
 
+// A custom integral exports the band it was given, as the table shows it, also
+// when its weighting is narrower or does not reach it.
+{
+    const { makeCustomDefinition, INITIAL_BUILDER } = await import('../src/components/windows/analysis/integralValues/integralModel.js');
+    const parts = t.integralValues.customParts;
+    const wide = makeCustomDefinition({ ...INITIAL_BUILDER, bandMin: 380, bandMax: 1100 }, 1, parts);
+    const past = makeCustomDefinition({ ...INITIAL_BUILDER, bandMin: 900, bandMax: 1000 }, 2, parts);
+    const withCustom = buildIntegralDefinitions([wide, past]);
+    const results = computeIntegralValueBatch(spectrumOver(300, 2500), withCustom);
+    const bands = exportRows(withCustom, results, t.units).filter(r => r.label === wide.label || r.label === past.label).map(r => r.band);
+    assert.deepEqual(bands, [`380-1100 ${t.units.nm}`, `900-1000 ${t.units.nm}`], 'the CSV band is the one the table shows');
+}
+
 console.log('PASS: integral_values_results_table');
