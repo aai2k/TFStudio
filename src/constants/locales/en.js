@@ -2943,7 +2943,6 @@ export default {
     dNew:         'd_new',
     mf0:          'MF now:',
     mfPred:       'MF after:',
-    dMF:          'ΔMF:',
     omf0:         'OMF now:',
     omfPred:      'OMF after:',
     dOMF:         'ΔOMF:',

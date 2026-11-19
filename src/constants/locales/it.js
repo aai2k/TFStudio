@@ -3596,7 +3596,6 @@ export default {
     dNew: 'd_nuovo',
     mf0: 'MF ora:',
     mfPred: 'MF dopo:',
-    dMF: 'ΔMF:',
     omf0: 'OMF ora:',
     omfPred: 'OMF dopo:',
     dOMF: 'ΔOMF:',

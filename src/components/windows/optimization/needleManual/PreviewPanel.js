@@ -79,7 +79,7 @@ function MeritLine({ predictedOMF, omf0, predictedProvisional, omf0Provisional, 
     return h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
         item(tn.omf0, omf0 == null ? '—' : omf0.toFixed(6), omf0Provisional, c.text),
         item(tn.omfPred, predictedOMF == null ? '—' : predictedOMF.toFixed(6), predictedProvisional, c.text),
-        item(tn.dMF, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6),
+        item(tn.dOMF, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6),
             omf0Provisional || predictedProvisional, dMFColor),
     );
 }
