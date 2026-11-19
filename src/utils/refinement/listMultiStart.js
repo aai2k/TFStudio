@@ -5,11 +5,13 @@
 import { perturbPayload, restartRng } from './restarts.js';
 import { runEngineP } from './engineRun.js';
 
-// run: { ops, payload, materials, N, pct, alive, onProg, seed }
+// run: { ops, payload, materials, N, pct, alive, onProg, seed }. Restarts are
+// numbered from 1: restart 0 is the unperturbed start, which a method list
+// already runs as its own DLS entry.
 function makeMultiBatch(R, run, start, count) {
     const batch = [];
     for (let i = 0; i < count && start + i < run.N; i++) {
-        const restart = start + i;
+        const restart = start + i + 1;
         batch.push(runEngineP(R, 'dls', {
             ops: run.ops, payload: perturbPayload(run.payload, run.pct, restart, restartRng(run.seed, restart)),
             materials: run.materials, alive: run.alive, onProg: null, preview: false,
