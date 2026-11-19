@@ -5,7 +5,7 @@
 // Keys handled (when the host container has DOM focus):
 //   Insert        — insert a new row ABOVE the focused row
 //   Shift+Insert  — insert a new row BELOW the focused row
-//   Delete        — delete the focused row(s); no-op if the focused row is
+//   Delete        : delete the focused row(s); no-op if the focused row is
 //                   locked, with optional onBlockedDelete() flash
 //   Ctrl+D        — duplicate the focused row(s) BELOW
 //   Arrow keys    — optional host-provided row/column navigation

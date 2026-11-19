@@ -200,7 +200,7 @@ export class LSQEngine {
     // Jacobian at the same thk). evaluateOperands is pure & deterministic given
     // the (thk-derived) context, so reusing it is bit-identical and skips one
     // full TMM operand sweep per step. Omitted ⇒ evaluated here (perturbed FD
-    // points always recompute — they pass no compBase).
+    // points always recompute and pass no compBase).
     _residuals(thicknesses, compBase) {
         if (this._groups) return this._groups.residuals(thicknesses, compBase);
         const comp = compBase !== undefined
@@ -426,7 +426,7 @@ export class LSQEngine {
     // Stable, never-overridden handle to the Levenberg–Marquardt step. The
     // second-order engines (NewtonOptimizer / SQPOptimizer) override step() to
     // dispatch to newtonStep()/sqpStep(), which run natively in every surface mode.
-    // Code in a subclass that needs the LM step MUST call lmStep(), NOT this.step() — the latter re-dispatches
+    // Code in a subclass that needs the LM step MUST call lmStep(), NOT this.step(), which re-dispatches
     // through the subclass override and recurses until the stack overflows.
     // lmStep() reaches the base LM body directly, so it is correct regardless
     // of subclass.
@@ -505,7 +505,7 @@ export class LSQEngine {
 
         // Augmented least-squares system  [ J ; √(λ·diag) ] Δ ≈ [ −r ; 0 ].
         // Its normal equations are exactly (JᵀJ + λ·diag)Δ = −Jᵀr — the same
-        // damped step — but solved by QR (condition number κ(J),
+        // damped step, but solved by QR (condition number κ(J),
         // not κ(J)²).
         const aug = new Array(m + nFree);
         const rhs = new Array(m + nFree);

@@ -40,7 +40,7 @@ export {
 // Polarization is chosen via the Pol column (op.pol = avg/s/p), NOT baked into
 // the type code — so only base T/R/A (single-λ) + TAV/RAV/AAV (band average)
 // remain. The s/p-suffixed types TS/TP/RS/RP/AS/AP still EVALUATE for
-// backward compatibility with saved designs — polFromType reads their suffix —
+// backward compatibility with saved designs (polFromType reads their suffix)
 // but are not offered in the type dropdown.
 export const OPTICAL_OPERAND_TYPES    = ['T', 'TAV', 'R', 'RAV', 'A', 'AAV'];
 // Continuous spectral-target operands: a per-wavelength target (flat or a
@@ -152,7 +152,7 @@ export const CONSTANT_OPERAND_TYPES   = ['CONS'];
 // evalCore/bandExtremum.js) for sub-sample accuracy. Code layout: M{X|N}W{T|R|A}[S|P].
 // Pol-suffix S/P is the existing s/p convention; no suffix = avg.
 // Polarization is chosen via the operand's `pol` field (avg/s/p) using the MF
-// table's Pol dropdown — NOT baked into the type code: one base type per channel
+// table's Pol dropdown, NOT baked into the type code: one base type per channel
 // plus the Pol column covers every case without tripling the type list.
 export const ARGWAVE_OPERAND_TYPES    = [
     'MXWT', 'MXWR', 'MXWA',

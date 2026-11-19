@@ -94,7 +94,7 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
 }
 
 /**
- * Exact λ set the surface compute will query getNK at — for the surface workers'
+ * Exact λ set the surface compute will query getNK at, for the surface workers'
  * pre-sampled material tables (so the worker's table-lookup getNK is
  * byte-identical to the main thread). MF: the operands' sample λ.
  * Optical: the wavelength-axis samples (or the fixed λ), both as they stand and

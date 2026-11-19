@@ -83,7 +83,7 @@ export function estimateFWHM_nm({
     return Math.max(0, ratio * lambda0_nm);
 }
 
-// ── Inverse Macleod Eq. 8.24-8.25 — solve for k (QW pairs) from target FWHM ────────
+// ── Inverse Macleod Eq. 8.24-8.25: solve for k (QW pairs) from target FWHM ────────
 
 /**
  * Given a desired SINGLE-CAVITY FWHM, solve Macleod Eq. 8.24-8.25 for the number

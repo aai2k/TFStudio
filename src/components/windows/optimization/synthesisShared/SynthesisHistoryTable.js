@@ -7,7 +7,7 @@ const { createElement: h, useContext } = React;   // React is a window global (n
 
 // ── Shared synthesis history table ──────────────────────────────────────────────
 // The history table of Needle and GE: genNum/side/layers/mf/tot/time/dMF/
-// material/restore columns. GE additionally shows a Needle/GE "type" badge column — passed
+// material/restore columns. GE additionally shows a Needle/GE "type" badge column, passed
 // in via the optional `typeColumn = { header, render(row) }` (inserted after the
 // side column). Rows are reversed for display (newest first), matching both
 // windows. `labels` carries the per-window locale strings.

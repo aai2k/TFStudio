@@ -57,7 +57,7 @@ function colorTargetOperands(type) {
         })));
 }
 
-// Operand type codes are polarization-AGNOSTIC — polarization rides on
+// Operand type codes are polarization-AGNOSTIC: polarization rides on
 // op.pol (avg/s/p), set by the generators below. So:
 //   band-average → always {T|R|A}AV   (TAV/RAV/AAV, evaluated at op.pol)
 //   single-λ     → always {T|R|A}      (T/R/A, evaluated at op.pol)
@@ -101,7 +101,7 @@ function rangeTargetCode(base) { return base + 'GT'; }
 //   • mode='discrete'   → N point operands (T/R/A or S/P) on a `stepNm` grid,
 //     each with the interpolated single target at its λ.
 // This is the shared engine for the beamsplitter and gradient wizards:
-// TAV/RAV are never used for spectral targets — they are pure averages.
+// TAV/RAV are never used for spectral targets, they are pure averages.
 // Wavelengths from lamStart to lamEnd on a step of about `stepNm`: both ends,
 // equally spaced, never fewer than two.
 function stepGrid(lamStart, lamEnd, stepNm) {

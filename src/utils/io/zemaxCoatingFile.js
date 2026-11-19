@@ -2,7 +2,7 @@
  * Zemax OpticStudio COATING.DAT reader / writer.
  *
  * Pure ESM, with no app dependencies beyond the wavelength grid
- * (physics/thinFilmMath.js) and the PCHIP interpolation (materials/pchip.js) —
+ * (physics/thinFilmMath.js) and the PCHIP interpolation (materials/pchip.js):
  * every conversion takes the wavelength grid / refractive-index resolver it
  * needs as a parameter, so this module is unit-testable in isolation (tests/zemax_coating_roundtrip.mjs).
  *

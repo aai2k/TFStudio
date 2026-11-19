@@ -24,7 +24,7 @@ import { savePersist as saveProcessExport } from '../../components/windows/dataE
 // ── Dedicated "Multipassband (TiO2/SiO2)" material catalog ─────────────────────
 // The multipassband exercise uses its own two-material catalog (matching the
 // canonical OTF benchmark project), so the needle pool is exactly TiO₂ + SiO₂
-// and the thick seed is drawn from it — not the full Built-in
+// and the thick seed is drawn from it, not the full Built-in
 // library. Built lazily by sampling the Built-in TiO₂/SiO₂ dispersion into a
 // tabular catalog so it persists to the user's material library and survives a
 // restart (Built-in getNK function refs can't be serialised directly).
